@@ -1,5 +1,14 @@
 package cli
 
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
+)
+
 // ActivityCmd は activity コマンド群のルート。
 type ActivityCmd struct {
 	List   ActivityListCmd   `cmd:"" help:"アクティビティ一覧を取得する"`
@@ -16,7 +25,33 @@ type ActivityListCmd struct {
 }
 
 func (c *ActivityListCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("activity list")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+
+	opt := backlog.ListActivitiesOptions{
+		Limit:  c.Count,
+		Offset: c.Offset,
+	}
+	if c.Since != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Since)
+		if parseErr == nil {
+			opt.Since = &t
+		}
+	}
+
+	var activities interface{}
+	if c.Project != "" {
+		activities, err = rc.Client.ListProjectActivities(ctx, c.Project, opt)
+	} else {
+		activities, err = rc.Client.ListSpaceActivities(ctx, opt)
+	}
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, activities)
 }
 
 // ActivityDigestCmd は activity digest コマンド（spec §14.13）。
@@ -28,5 +63,32 @@ type ActivityDigestCmd struct {
 }
 
 func (c *ActivityDigestCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("activity digest")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+
+	builder := digest.NewDefaultActivityDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
+	opt := digest.ActivityDigestOptions{
+		Limit:   c.Limit,
+		Project: c.Project,
+	}
+	if c.Since != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Since)
+		if parseErr == nil {
+			opt.Since = &t
+		}
+	}
+	if c.Until != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Until)
+		if parseErr == nil {
+			opt.Until = &t
+		}
+	}
+	envelope, err := builder.Build(ctx, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, envelope)
 }

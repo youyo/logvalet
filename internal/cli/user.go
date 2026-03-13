@@ -1,5 +1,14 @@
 package cli
 
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
+)
+
 // UserCmd は user コマンド群のルート。
 type UserCmd struct {
 	List     UserListCmd     `cmd:"" help:"ユーザー一覧を取得する"`
@@ -14,7 +23,16 @@ type UserListCmd struct {
 }
 
 func (c *UserListCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("user list")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	users, err := rc.Client.ListUsers(ctx)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, users)
 }
 
 // UserGetCmd は user get コマンド（spec §14.15）。
@@ -25,7 +43,16 @@ type UserGetCmd struct {
 }
 
 func (c *UserGetCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("user get")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	user, err := rc.Client.GetUser(ctx, c.UserID)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, user)
 }
 
 // UserActivityCmd は user activity コマンド（spec §14.16）。
@@ -41,7 +68,31 @@ type UserActivityCmd struct {
 }
 
 func (c *UserActivityCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("user activity")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	opt := backlog.ListUserActivitiesOptions{
+		Limit: c.Limit,
+	}
+	if c.Since != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Since)
+		if parseErr == nil {
+			opt.Since = &t
+		}
+	}
+	if c.Until != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Until)
+		if parseErr == nil {
+			opt.Until = &t
+		}
+	}
+	activities, err := rc.Client.ListUserActivities(ctx, c.UserID, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, activities)
 }
 
 // UserDigestCmd は user digest コマンド（spec §14.17）。
@@ -55,5 +106,31 @@ type UserDigestCmd struct {
 }
 
 func (c *UserDigestCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("user digest")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	builder := digest.NewDefaultUserDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
+	opt := digest.UserDigestOptions{
+		Limit:   c.Limit,
+		Project: c.Project,
+	}
+	if c.Since != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Since)
+		if parseErr == nil {
+			opt.Since = &t
+		}
+	}
+	if c.Until != "" {
+		t, parseErr := time.Parse(time.RFC3339, c.Until)
+		if parseErr == nil {
+			opt.Until = &t
+		}
+	}
+	envelope, err := builder.Build(ctx, c.UserID, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, envelope)
 }
