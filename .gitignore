@@ -1,2 +1,10 @@
 #
 .claude/handover/
+/lv
+/dist/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+.DS_Store
