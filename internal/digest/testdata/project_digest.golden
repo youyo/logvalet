@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "resource": "project",
+  "generated_at": "2026-03-13T12:00:00Z",
+  "profile": "work",
+  "space": "example-space",
+  "base_url": "https://example-space.backlog.com",
+  "warnings": [],
+  "digest": {
+    "project": {
+      "id": 1000,
+      "key": "PROJ",
+      "name": "Example Project",
+      "archived": false
+    },
+    "meta": {
+      "statuses": [
+        {
+          "id": 1,
+          "projectId": 1000,
+          "name": "処理中",
+          "displayOrder": 1
+        },
+        {
+          "id": 2,
+          "projectId": 1000,
+          "name": "完了",
+          "displayOrder": 2
+        }
+      ],
+      "categories": [
+        {
+          "id": 10,
+          "name": "frontend",
+          "displayOrder": 1
+        }
+      ],
+      "versions": [
+        {
+          "id": 20,
+          "projectId": 1000,
+          "name": "v1.0",
+          "archived": false
+        }
+      ],
+      "custom_fields": [
+        {
+          "id": 5,
+          "typeId": 1,
+          "name": "担当チーム",
+          "required": false
+        }
+      ]
+    },
+    "teams": [
+      {
+        "id": 1,
+        "name": "Alpha Team"
+      }
+    ],
+    "recent_activity": [],
+    "summary": {
+      "headline": "プロジェクト PROJ - Example Project",
+      "team_count": 1,
+      "activity_count_included": 0,
+      "status_count": 2,
+      "category_count": 1,
+      "version_count": 1,
+      "is_archived": false
+    },
+    "llm_hints": {
+      "primary_entities": [
+        "PROJ",
+        "Example Project"
+      ],
+      "open_questions": [],
+      "suggested_next_actions": []
+    }
+  }
+}
