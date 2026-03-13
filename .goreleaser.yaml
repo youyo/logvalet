@@ -10,7 +10,7 @@ before:
 
 builds:
   - id: logvalet
-    main: ./cmd/lv/main.go
+    main: ./cmd/logvalet/main.go
     binary: logvalet
     env:
       - CGO_ENABLED=0

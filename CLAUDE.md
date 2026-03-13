@@ -20,7 +20,7 @@
 
 ```bash
 # ビルド
-go build -o lv ./cmd/lv/
+go build -o logvalet ./cmd/logvalet/
 
 # テスト
 go test ./...
@@ -32,7 +32,7 @@ go vet ./...
 ## ディレクトリ構造
 
 ```
-cmd/lv/          — エントリポイント
+cmd/logvalet/    — エントリポイント
 internal/
   app/           — アプリケーション共通（exit code 等）
   backlog/       — Backlog API クライアント
