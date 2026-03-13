@@ -1,5 +1,10 @@
 package cli
 
+import (
+	"context"
+	"os"
+)
+
 // MetaCmd は meta コマンド群のルート。
 type MetaCmd struct {
 	Status      MetaStatusCmd      `cmd:"" help:"課題ステータス一覧を取得する"`
@@ -14,7 +19,16 @@ type MetaStatusCmd struct {
 }
 
 func (c *MetaStatusCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("meta status")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	statuses, err := rc.Client.ListProjectStatuses(ctx, c.ProjectKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, statuses)
 }
 
 // MetaCategoryCmd は meta category コマンド。
@@ -23,7 +37,16 @@ type MetaCategoryCmd struct {
 }
 
 func (c *MetaCategoryCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("meta category")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	categories, err := rc.Client.ListProjectCategories(ctx, c.ProjectKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, categories)
 }
 
 // MetaVersionCmd は meta version コマンド。
@@ -32,7 +55,16 @@ type MetaVersionCmd struct {
 }
 
 func (c *MetaVersionCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("meta version")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	versions, err := rc.Client.ListProjectVersions(ctx, c.ProjectKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, versions)
 }
 
 // MetaCustomFieldCmd は meta custom-field コマンド。
@@ -41,5 +73,14 @@ type MetaCustomFieldCmd struct {
 }
 
 func (c *MetaCustomFieldCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("meta custom-field")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	customFields, err := rc.Client.ListProjectCustomFields(ctx, c.ProjectKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, customFields)
 }
