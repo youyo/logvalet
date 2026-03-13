@@ -1,0 +1,131 @@
+{
+  "schema_version": "1",
+  "resource": "issue",
+  "generated_at": "2026-03-13T12:00:00Z",
+  "profile": "work",
+  "space": "example-space",
+  "base_url": "https://example-space.backlog.com",
+  "warnings": [],
+  "digest": {
+    "issue": {
+      "id": 42,
+      "key": "PROJ-123",
+      "summary": "テストバグ修正",
+      "description": "バグの詳細説明",
+      "status": {
+        "id": 1,
+        "name": "処理中"
+      },
+      "priority": {
+        "id": 2,
+        "name": "高"
+      },
+      "issue_type": {
+        "id": 3,
+        "name": "バグ"
+      },
+      "assignee": {
+        "id": 100,
+        "name": "Taro Yamada"
+      },
+      "reporter": {
+        "id": 101,
+        "name": "Hanako Suzuki"
+      },
+      "categories": [
+        "frontend"
+      ],
+      "versions": [
+        "v1.0"
+      ],
+      "milestones": [
+        "v1.2.0"
+      ],
+      "custom_fields": [],
+      "created": "2026-03-13T12:00:00Z",
+      "updated": "2026-03-13T12:00:00Z"
+    },
+    "project": {
+      "id": 1000,
+      "key": "PROJ",
+      "name": "Example Project"
+    },
+    "meta": {
+      "statuses": [
+        {
+          "id": 1,
+          "projectId": 0,
+          "name": "処理中",
+          "displayOrder": 0
+        },
+        {
+          "id": 2,
+          "projectId": 0,
+          "name": "完了",
+          "displayOrder": 0
+        }
+      ],
+      "categories": [
+        {
+          "id": 10,
+          "name": "frontend",
+          "displayOrder": 0
+        }
+      ],
+      "versions": [
+        {
+          "id": 20,
+          "projectId": 0,
+          "name": "v1.0",
+          "archived": false
+        },
+        {
+          "id": 30,
+          "projectId": 0,
+          "name": "v1.2.0",
+          "archived": false
+        }
+      ],
+      "custom_fields": []
+    },
+    "comments": [
+      {
+        "id": 1,
+        "content": "最初のコメント",
+        "author": {
+          "id": 100,
+          "name": "Taro Yamada"
+        },
+        "created": "2026-03-13T11:00:00Z"
+      },
+      {
+        "id": 2,
+        "content": "2番目のコメント",
+        "author": {
+          "id": 101,
+          "name": "Hanako Suzuki"
+        },
+        "created": "2026-03-13T10:00:00Z"
+      }
+    ],
+    "activity": [],
+    "summary": {
+      "headline": "バグ課題 PROJ-123 - ステータス: 処理中（Taro Yamada に割り当て）",
+      "comment_count_included": 2,
+      "activity_count_included": 0,
+      "has_description": true,
+      "has_assignee": true,
+      "status_name": "処理中",
+      "priority_name": "高"
+    },
+    "llm_hints": {
+      "primary_entities": [
+        "PROJ-123",
+        "PROJ",
+        "v1.2.0"
+      ],
+      "open_questions": [],
+      "suggested_next_actions": []
+    }
+  }
+}

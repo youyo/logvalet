@@ -29,10 +29,11 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	return ErrNotImplemented("issue list")
 }
 
-// IssueDigestCmd は issue digest コマンド。
+// IssueDigestCmd は issue digest コマンド（spec §14.3）。
 type IssueDigestCmd struct {
-	DigestFlags
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	IssueKey   string `arg:"" required:"" help:"課題キー (例: PROJ-123)"`
+	Comments   int    `short:"c" help:"取得するコメント数" default:"5" env:"LOGVALET_COMMENTS"`
+	NoActivity bool   `help:"アクティビティを含めない" env:"LOGVALET_NO_ACTIVITY"`
 }
 
 func (c *IssueDigestCmd) Run(g *GlobalFlags) error {
