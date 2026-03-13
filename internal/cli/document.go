@@ -1,7 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
 )
 
 // DocumentCmd は document コマンド群のルート。
@@ -20,7 +25,16 @@ type DocumentGetCmd struct {
 }
 
 func (c *DocumentGetCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("document get")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	doc, err := rc.Client.GetDocument(ctx, c.DocumentID)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, doc)
 }
 
 // DocumentListCmd は document list コマンド（spec §14.19）。
@@ -31,7 +45,20 @@ type DocumentListCmd struct {
 }
 
 func (c *DocumentListCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("document list")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	opt := backlog.ListDocumentsOptions{
+		Limit:  c.Count,
+		Offset: c.Offset,
+	}
+	docs, err := rc.Client.ListDocuments(ctx, c.ProjectKey, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, docs)
 }
 
 // DocumentTreeCmd は document tree コマンド（spec §14.20）。
@@ -41,7 +68,16 @@ type DocumentTreeCmd struct {
 }
 
 func (c *DocumentTreeCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("document tree")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	tree, err := rc.Client.GetDocumentTree(ctx, c.ProjectKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, tree)
 }
 
 // DocumentDigestCmd は document digest コマンド（spec §14.21）。
@@ -52,7 +88,17 @@ type DocumentDigestCmd struct {
 }
 
 func (c *DocumentDigestCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("document digest")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	builder := digest.NewDefaultDocumentDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
+	envelope, err := builder.Build(ctx, c.DocumentID, digest.DocumentDigestOptions{})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, envelope)
 }
 
 // DocumentCreateCmd は document create コマンド（spec §14.22）。
@@ -99,5 +145,20 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 		return nil
 	}
 
-	return ErrNotImplemented("document create")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	req := backlog.CreateDocumentRequest{
+		ProjectKey: c.ProjectKey,
+		Title:      c.Title,
+		Content:    content,
+		ParentID:   c.ParentID,
+	}
+	doc, err := rc.Client.CreateDocument(ctx, req)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, doc)
 }
