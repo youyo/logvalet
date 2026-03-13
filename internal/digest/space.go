@@ -3,7 +3,6 @@ package digest
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -21,20 +20,12 @@ type SpaceDigestBuilder interface {
 // DefaultSpaceDigestBuilder は SpaceDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultSpaceDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultSpaceDigestBuilder は DefaultSpaceDigestBuilder を生成する。
 func NewDefaultSpaceDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultSpaceDigestBuilder {
-	return &DefaultSpaceDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultSpaceDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // SpaceDigest は digest フィールドに格納されるスペースダイジェスト構造体（spec §13.7）。
@@ -111,22 +102,7 @@ func (b *DefaultSpaceDigestBuilder) Build(ctx context.Context, opt SpaceDigestOp
 		LLMHints:  hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "space",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("space", digestData, warnings), nil
 }
 
 // buildSpaceDigestSummary は決定論的スペースサマリーを構築する（spec §13.7）。

@@ -3,7 +3,6 @@ package digest
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -21,20 +20,12 @@ type TeamDigestBuilder interface {
 // DefaultTeamDigestBuilder は TeamDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultTeamDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultTeamDigestBuilder は DefaultTeamDigestBuilder を生成する。
 func NewDefaultTeamDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultTeamDigestBuilder {
-	return &DefaultTeamDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultTeamDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // TeamDigest は digest フィールドに格納されるチームダイジェスト構造体（spec §13.6）。
@@ -136,22 +127,7 @@ func (b *DefaultTeamDigestBuilder) Build(ctx context.Context, teamID int, opt Te
 		LLMHints: hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "team",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("team", digestData, warnings), nil
 }
 
 // buildTeamDigestSummary は決定論的チームサマリーを構築する（spec §13.6）。

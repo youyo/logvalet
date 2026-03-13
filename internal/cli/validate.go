@@ -65,6 +65,15 @@ func readContentFromFile(path string) (string, error) {
 	return string(data), nil
 }
 
+// resolveContent はテキストまたはファイルパスからコンテンツを解決する
+// filePath が指定されている場合はファイルから読み込み、そうでなければ text を返す
+func resolveContent(text, filePath string) (string, error) {
+	if filePath != "" {
+		return readContentFromFile(filePath)
+	}
+	return text, nil
+}
+
 // dryRunOutput は dry-run 時の出力構造体。
 type dryRunOutput struct {
 	DryRun    bool                   `json:"dry_run"`

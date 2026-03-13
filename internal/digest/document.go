@@ -21,20 +21,12 @@ type DocumentDigestBuilder interface {
 // DefaultDocumentDigestBuilder は DocumentDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultDocumentDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultDocumentDigestBuilder は DefaultDocumentDigestBuilder を生成する。
 func NewDefaultDocumentDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultDocumentDigestBuilder {
-	return &DefaultDocumentDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultDocumentDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // DocumentDigest は digest フィールドに格納されるドキュメントダイジェスト構造体（spec §13.5）。
@@ -150,22 +142,7 @@ func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID int
 		LLMHints:    hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "document",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("document", digestData, warnings), nil
 }
 
 // buildDigestDocumentDetail は domain.Document から DigestDocumentDetail を構築する。
@@ -179,12 +156,7 @@ func buildDigestDocumentDetail(doc *domain.Document) DigestDocumentDetail {
 		Updated:   doc.Updated,
 	}
 
-	if doc.CreatedUser != nil {
-		dd.CreatedUser = &domain.UserRef{
-			ID:   doc.CreatedUser.ID,
-			Name: doc.CreatedUser.Name,
-		}
-	}
+	dd.CreatedUser = toUserRef(doc.CreatedUser)
 
 	return dd
 }

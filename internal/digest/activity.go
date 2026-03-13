@@ -28,20 +28,12 @@ type ActivityDigestBuilder interface {
 
 // DefaultActivityDigestBuilder は ActivityDigestBuilder の標準実装。
 type DefaultActivityDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultActivityDigestBuilder は DefaultActivityDigestBuilder を生成する。
 func NewDefaultActivityDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultActivityDigestBuilder {
-	return &DefaultActivityDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultActivityDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // ActivityDigest は digest フィールドに格納されるアクティビティダイジェスト構造体（spec §13.3）。
@@ -146,22 +138,7 @@ func (b *DefaultActivityDigestBuilder) Build(ctx context.Context, opt ActivityDi
 		LLMHints:   hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "activity",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("activity", digestData, warnings), nil
 }
 
 // normalizeActivities は []domain.Activity を []domain.NormalizedActivity に変換する。
@@ -174,12 +151,7 @@ func normalizeActivities(activities []domain.Activity) []domain.NormalizedActivi
 			Type:    activityTypeName(a.Type),
 			Created: a.Created,
 		}
-		if a.CreatedUser != nil {
-			na.Actor = &domain.UserRef{
-				ID:   a.CreatedUser.ID,
-				Name: a.CreatedUser.Name,
-			}
-		}
+		na.Actor = toUserRef(a.CreatedUser)
 		// Content から Issue 参照を抽出
 		if a.Content != nil {
 			if issueRef := extractIssueRef(a.Content); issueRef != nil {
@@ -219,12 +191,7 @@ func extractCommentsFromActivities(activities []domain.Activity) []DigestComment
 		if content, ok := commentMap["content"].(string); ok {
 			dc.Content = content
 		}
-		if a.CreatedUser != nil {
-			dc.Author = &domain.UserRef{
-				ID:   a.CreatedUser.ID,
-				Name: a.CreatedUser.Name,
-			}
-		}
+		dc.Author = toUserRef(a.CreatedUser)
 		comments = append(comments, dc)
 	}
 	if comments == nil {

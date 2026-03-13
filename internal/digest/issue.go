@@ -29,20 +29,12 @@ type IssueDigestBuilder interface {
 // DefaultIssueDigestBuilder は IssueDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultIssueDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultIssueDigestBuilder は DefaultIssueDigestBuilder を生成する。
 func NewDefaultIssueDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultIssueDigestBuilder {
-	return &DefaultIssueDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultIssueDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // IssueDigest は digest フィールドに格納される課題ダイジェスト構造体（spec §13.1）。
@@ -164,12 +156,7 @@ func (b *DefaultIssueDigestBuilder) Build(ctx context.Context, issueKey string, 
 				Content: c.Content,
 				Created: c.Created,
 			}
-			if c.CreatedUser != nil {
-				dc.Author = &domain.UserRef{
-					ID:   c.CreatedUser.ID,
-					Name: c.CreatedUser.Name,
-				}
-			}
+			dc.Author = toUserRef(c.CreatedUser)
 			digestComments = append(digestComments, dc)
 		}
 	}
@@ -177,61 +164,9 @@ func (b *DefaultIssueDigestBuilder) Build(ctx context.Context, issueKey string, 
 		digestComments = []DigestComment{}
 	}
 
-	// 4. プロジェクトメタ情報取得（オプション）
-	meta := DigestMeta{
-		Statuses:     []domain.Status{},
-		Categories:   []domain.Category{},
-		Versions:     []domain.Version{},
-		CustomFields: []domain.CustomFieldDefinition{},
-	}
-
-	statuses, err := b.client.ListProjectStatuses(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "statuses_fetch_failed",
-			Message:   fmt.Sprintf("ステータス一覧の取得に失敗しました: %v", err),
-			Component: "meta.statuses",
-			Retryable: true,
-		})
-	} else if statuses != nil {
-		meta.Statuses = statuses
-	}
-
-	categories, err := b.client.ListProjectCategories(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "categories_fetch_failed",
-			Message:   fmt.Sprintf("カテゴリ一覧の取得に失敗しました: %v", err),
-			Component: "meta.categories",
-			Retryable: true,
-		})
-	} else if categories != nil {
-		meta.Categories = categories
-	}
-
-	versions, err := b.client.ListProjectVersions(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "versions_fetch_failed",
-			Message:   fmt.Sprintf("バージョン一覧の取得に失敗しました: %v", err),
-			Component: "meta.versions",
-			Retryable: true,
-		})
-	} else if versions != nil {
-		meta.Versions = versions
-	}
-
-	customFields, err := b.client.ListProjectCustomFields(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "custom_fields_fetch_failed",
-			Message:   fmt.Sprintf("カスタムフィールド定義の取得に失敗しました: %v", err),
-			Component: "meta.custom_fields",
-			Retryable: true,
-		})
-	} else if customFields != nil {
-		meta.CustomFields = customFields
-	}
+	// 4. プロジェクトメタ情報取得（並行・オプション）
+	meta, metaWarnings := fetchProjectMeta(ctx, b.client, projectKey)
+	warnings = append(warnings, metaWarnings...)
 
 	// 5. DigestIssue 組み立て
 	di := buildDigestIssue(issue)
@@ -259,32 +194,7 @@ func (b *DefaultIssueDigestBuilder) Build(ctx context.Context, issueKey string, 
 		LLMHints: hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "issue",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
-}
-
-// extractProjectKey は issueKey（例: "PROJ-123"）からプロジェクトキー（"PROJ"）を抽出する。
-func extractProjectKey(issueKey string) string {
-	for i, c := range issueKey {
-		if c == '-' {
-			return issueKey[:i]
-		}
-	}
-	return issueKey
+	return b.newEnvelope("issue", digestData, warnings), nil
 }
 
 // buildDigestIssue は domain.Issue から DigestIssue を構築する。
@@ -304,20 +214,10 @@ func buildDigestIssue(issue *domain.Issue) DigestIssue {
 	}
 
 	// Assignee を UserRef に変換
-	if issue.Assignee != nil {
-		di.Assignee = &domain.UserRef{
-			ID:   issue.Assignee.ID,
-			Name: issue.Assignee.Name,
-		}
-	}
+	di.Assignee = toUserRef(issue.Assignee)
 
 	// Reporter を UserRef に変換
-	if issue.Reporter != nil {
-		di.Reporter = &domain.UserRef{
-			ID:   issue.Reporter.ID,
-			Name: issue.Reporter.Name,
-		}
-	}
+	di.Reporter = toUserRef(issue.Reporter)
 
 	// カテゴリ名のスライスを構築
 	categories := make([]string, 0, len(issue.Categories))

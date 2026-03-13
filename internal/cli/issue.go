@@ -71,13 +71,9 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	}
 
 	// description-file からの読み込み
-	description := c.Description
-	if c.DescriptionFile != "" {
-		content, err := readContentFromFile(c.DescriptionFile)
-		if err != nil {
-			return err
-		}
-		description = content
+	description, err := resolveContent(c.Description, c.DescriptionFile)
+	if err != nil {
+		return err
 	}
 
 	if c.DryRun {
@@ -150,7 +146,7 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	// description-file からの読み込み
 	var resolvedDescription *string
 	if c.DescriptionFile != "" {
-		content, err := readContentFromFile(c.DescriptionFile)
+		content, err := resolveContent("", c.DescriptionFile)
 		if err != nil {
 			return err
 		}
@@ -214,13 +210,9 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 	}
 
 	// content-file からの読み込み
-	content := c.Content
-	if c.ContentFile != "" {
-		text, err := readContentFromFile(c.ContentFile)
-		if err != nil {
-			return err
-		}
-		content = text
+	content, err := resolveContent(c.Content, c.ContentFile)
+	if err != nil {
+		return err
 	}
 
 	if c.DryRun {
@@ -256,13 +248,9 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 	}
 
 	// content-file からの読み込み
-	content := c.Content
-	if c.ContentFile != "" {
-		text, err := readContentFromFile(c.ContentFile)
-		if err != nil {
-			return err
-		}
-		content = text
+	content, err := resolveContent(c.Content, c.ContentFile)
+	if err != nil {
+		return err
 	}
 
 	if c.DryRun {

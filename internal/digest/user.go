@@ -29,20 +29,12 @@ type UserDigestBuilder interface {
 // DefaultUserDigestBuilder は UserDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultUserDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultUserDigestBuilder は DefaultUserDigestBuilder を生成する。
 func NewDefaultUserDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultUserDigestBuilder {
-	return &DefaultUserDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultUserDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // UserDigest は digest フィールドに格納されるユーザーダイジェスト構造体（spec §13.4）。
@@ -144,22 +136,7 @@ func (b *DefaultUserDigestBuilder) Build(ctx context.Context, userID string, opt
 		LLMHints:   hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "user",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("user", digestData, warnings), nil
 }
 
 // buildUserDigestSummary は決定論的なユーザーダイジェストサマリーを構築する（spec §13.4）。

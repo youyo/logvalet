@@ -3,7 +3,6 @@ package digest
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -21,20 +20,12 @@ type ProjectDigestBuilder interface {
 // DefaultProjectDigestBuilder は ProjectDigestBuilder の標準実装。
 // backlog.Client を使って必要なデータを収集し DigestEnvelope を構築する。
 type DefaultProjectDigestBuilder struct {
-	client  backlog.Client
-	profile string
-	space   string
-	baseURL string
+	BaseDigestBuilder
 }
 
 // NewDefaultProjectDigestBuilder は DefaultProjectDigestBuilder を生成する。
 func NewDefaultProjectDigestBuilder(client backlog.Client, profile, space, baseURL string) *DefaultProjectDigestBuilder {
-	return &DefaultProjectDigestBuilder{
-		client:  client,
-		profile: profile,
-		space:   space,
-		baseURL: baseURL,
-	}
+	return &DefaultProjectDigestBuilder{BaseDigestBuilder{client: client, profile: profile, space: space, baseURL: baseURL}}
 }
 
 // ProjectDigest は digest フィールドに格納されるプロジェクトダイジェスト構造体（spec §13.2）。
@@ -80,61 +71,9 @@ func (b *DefaultProjectDigestBuilder) Build(ctx context.Context, projectKey stri
 		return nil, fmt.Errorf("GetProject(%s): %w", projectKey, err)
 	}
 
-	// 2. プロジェクトメタ情報取得（オプション）
-	meta := DigestMeta{
-		Statuses:     []domain.Status{},
-		Categories:   []domain.Category{},
-		Versions:     []domain.Version{},
-		CustomFields: []domain.CustomFieldDefinition{},
-	}
-
-	statuses, err := b.client.ListProjectStatuses(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "statuses_fetch_failed",
-			Message:   fmt.Sprintf("ステータス一覧の取得に失敗しました: %v", err),
-			Component: "meta.statuses",
-			Retryable: true,
-		})
-	} else if statuses != nil {
-		meta.Statuses = statuses
-	}
-
-	categories, err := b.client.ListProjectCategories(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "categories_fetch_failed",
-			Message:   fmt.Sprintf("カテゴリ一覧の取得に失敗しました: %v", err),
-			Component: "meta.categories",
-			Retryable: true,
-		})
-	} else if categories != nil {
-		meta.Categories = categories
-	}
-
-	versions, err := b.client.ListProjectVersions(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "versions_fetch_failed",
-			Message:   fmt.Sprintf("バージョン一覧の取得に失敗しました: %v", err),
-			Component: "meta.versions",
-			Retryable: true,
-		})
-	} else if versions != nil {
-		meta.Versions = versions
-	}
-
-	customFields, err := b.client.ListProjectCustomFields(ctx, projectKey)
-	if err != nil {
-		warnings = append(warnings, domain.Warning{
-			Code:      "custom_fields_fetch_failed",
-			Message:   fmt.Sprintf("カスタムフィールド定義の取得に失敗しました: %v", err),
-			Component: "meta.custom_fields",
-			Retryable: true,
-		})
-	} else if customFields != nil {
-		meta.CustomFields = customFields
-	}
+	// 2. プロジェクトメタ情報取得（並行・オプション）
+	meta, metaWarnings := fetchProjectMeta(ctx, b.client, projectKey)
+	warnings = append(warnings, metaWarnings...)
 
 	// 3. チーム取得（オプション）
 	var teams []domain.Team
@@ -195,22 +134,7 @@ func (b *DefaultProjectDigestBuilder) Build(ctx context.Context, projectKey stri
 		LLMHints:       hints,
 	}
 
-	if warnings == nil {
-		warnings = []domain.Warning{}
-	}
-
-	envelope := &domain.DigestEnvelope{
-		SchemaVersion: "1",
-		Resource:      "project",
-		GeneratedAt:   time.Now().UTC(),
-		Profile:       b.profile,
-		Space:         b.space,
-		BaseURL:       b.baseURL,
-		Warnings:      warnings,
-		Digest:        digestData,
-	}
-
-	return envelope, nil
+	return b.newEnvelope("project", digestData, warnings), nil
 }
 
 // buildProjectDigestSummary は決定論的プロジェクトサマリーを構築する（spec §13.2 summary）。
