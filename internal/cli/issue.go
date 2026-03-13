@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
 )
 
 // IssueCmd は issue コマンド群のルート。
@@ -21,7 +25,16 @@ type IssueGetCmd struct {
 }
 
 func (c *IssueGetCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("issue get")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	issue, err := rc.Client.GetIssue(ctx, c.IssueIDOrKey)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // IssueListCmd は issue list コマンド。
@@ -31,7 +44,23 @@ type IssueListCmd struct {
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("issue list")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	opt := backlog.ListIssuesOptions{
+		Limit:  c.Count,
+		Offset: c.Offset,
+	}
+	if len(c.ProjectKey) > 0 {
+		opt.ProjectKey = c.ProjectKey[0]
+	}
+	issues, err := rc.Client.ListIssues(ctx, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, issues)
 }
 
 // IssueDigestCmd は issue digest コマンド（spec §14.3）。
@@ -42,7 +71,20 @@ type IssueDigestCmd struct {
 }
 
 func (c *IssueDigestCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("issue digest")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	builder := digest.NewDefaultIssueDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
+	envelope, err := builder.Build(ctx, c.IssueKey, digest.IssueDigestOptions{
+		MaxComments:     c.Comments,
+		IncludeActivity: !c.NoActivity,
+	})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, envelope)
 }
 
 // IssueCreateCmd は issue create コマンド（spec §14.4）。
@@ -98,7 +140,23 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		return nil
 	}
 
-	return ErrNotImplemented("issue create")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	issue, err := rc.Client.CreateIssue(ctx, backlog.CreateIssueRequest{
+		ProjectKey:  c.ProjectKey,
+		Summary:     c.Summary,
+		IssueType:   c.IssueType,
+		Description: description,
+		Priority:    c.Priority,
+		Assignee:    c.Assignee,
+	})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // IssueUpdateCmd は issue update コマンド（spec §14.5）。
@@ -174,7 +232,20 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 		return nil
 	}
 
-	return ErrNotImplemented("issue update")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	issue, err := rc.Client.UpdateIssue(ctx, c.IssueIDOrKey, backlog.UpdateIssueRequest{
+		Summary:     c.Summary,
+		Description: resolvedDescription,
+		Status:      c.Status,
+	})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // IssueCommentCmd は issue comment コマンド群。
@@ -191,7 +262,20 @@ type IssueCommentListCmd struct {
 }
 
 func (c *IssueCommentListCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("issue comment list")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	opt := backlog.ListCommentsOptions{
+		Limit:  c.Count,
+		Offset: c.Offset,
+	}
+	comments, err := rc.Client.ListIssueComments(ctx, c.IssueIDOrKey, opt)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, comments)
 }
 
 // IssueCommentAddCmd は issue comment add コマンド（spec §14.7）。
@@ -228,7 +312,18 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 		return nil
 	}
 
-	return ErrNotImplemented("issue comment add")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	comment, err := rc.Client.AddIssueComment(ctx, c.IssueIDOrKey, backlog.AddCommentRequest{
+		Content: content,
+	})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, comment)
 }
 
 // IssueCommentUpdateCmd は issue comment update コマンド（spec §14.8）。
@@ -267,7 +362,18 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 		return nil
 	}
 
-	return ErrNotImplemented("issue comment update")
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	comment, err := rc.Client.UpdateIssueComment(ctx, c.IssueIDOrKey, int64(c.CommentID), backlog.UpdateCommentRequest{
+		Content: content,
+	})
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, comment)
 }
 
 // ---- ヘルパー ----
