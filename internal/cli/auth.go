@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
+	"github.com/youyo/logvalet/internal/config"
 	"github.com/youyo/logvalet/internal/credentials"
 )
 
@@ -32,11 +35,122 @@ type AuthLoginRequest struct {
 type AuthLoginCmd struct{}
 
 // Run は auth login のメインエントリポイント。
-// Kong から呼び出される際は OAuth フロー等が必要になるが、
-// M03 では API key での直接保存のみサポート。
-// OAuth フロー実行は RunWithLoginRequestCapture を呼び出す。
+// OAuth PKCE フローを実行し、取得したトークンを tokens.json に保存する。
 func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
-	return ErrNotImplemented("auth login (OAuth フローは --client-id / --client-secret が必要)")
+	// stdin からクライアント資格情報を読み取る
+	var clientID, clientSecret string
+	fmt.Fprint(os.Stderr, "Client ID: ")
+	if _, err := fmt.Fscanln(os.Stdin, &clientID); err != nil {
+		return fmt.Errorf("Client ID の読み取りに失敗しました: %w", err)
+	}
+	fmt.Fprint(os.Stderr, "Client Secret: ")
+	if _, err := fmt.Fscanln(os.Stdin, &clientSecret); err != nil {
+		return fmt.Errorf("Client Secret の読み取りに失敗しました: %w", err)
+	}
+
+	// BaseURL を解決（プロファイルまたは直接指定）
+	baseURL, space, err := resolveAuthBaseURL(g)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	// コールバックサーバーを起動
+	resultCh, redirectURI, err := credentials.StartCallbackServer(ctx)
+	if err != nil {
+		return fmt.Errorf("コールバックサーバーの起動に失敗しました: %w", err)
+	}
+
+	// CSRF 防止用 state を生成
+	state, err := credentials.GenerateState()
+	if err != nil {
+		return fmt.Errorf("state の生成に失敗しました: %w", err)
+	}
+
+	// 認可 URL を構築して表示
+	authURL := credentials.BuildAuthorizeURL(space, clientID, redirectURI, state)
+	fmt.Fprintf(os.Stderr, "\n以下の URL をブラウザで開いて認可してください:\n%s\n\n", authURL)
+
+	// コールバックを待機
+	result := <-resultCh
+	if result.Err != nil {
+		return fmt.Errorf("OAuth 認可に失敗しました: %w", result.Err)
+	}
+	if result.State != state {
+		return fmt.Errorf("OAuth state が一致しません (CSRF 攻撃の可能性)")
+	}
+
+	// トークンエンドポイント URL を構築
+	tokenURL := fmt.Sprintf("%s/api/v2/oauth2/token", baseURL)
+
+	// authorization code をトークンに交換
+	tokenResp, err := credentials.ExchangeCode(ctx, tokenURL, clientID, clientSecret, result.Code, redirectURI)
+	if err != nil {
+		return fmt.Errorf("トークン交換に失敗しました: %w", err)
+	}
+
+	// トークンを保存
+	req := AuthLoginRequest{
+		AuthType:     credentials.AuthTypeOAuth,
+		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
+		TokenExpiry:  credentials.TokenExpiry(tokenResp.ExpiresIn),
+		Space:        space,
+		BaseURL:      baseURL,
+	}
+
+	store := credentials.NewStore(credentials.DefaultTokensPath(os.Getenv))
+	output, err := c.RunWithLoginRequestCapture(g, store, req)
+	if err != nil {
+		return err
+	}
+	fmt.Println(output)
+	return nil
+}
+
+// resolveAuthBaseURL は auth login の BaseURL と space 名を解決する。
+// プロファイルが指定されている場合はプロファイルから取得。
+// --profile が存在しない場合、または BaseURL が設定されていない場合はエラー。
+func resolveAuthBaseURL(g *GlobalFlags) (baseURL, space string, err error) {
+	configPath := config.DefaultConfigPath()
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return "", "", fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+	}
+
+	flags := config.OverrideFlags{Profile: g.Profile}
+	resolved, err := config.Resolve(cfg, flags, os.Getenv)
+	if err != nil {
+		return "", "", fmt.Errorf("設定の解決に失敗しました: %w", err)
+	}
+
+	baseURL = resolved.BaseURL
+	space = resolved.Space
+
+	if baseURL == "" && space != "" {
+		baseURL = fmt.Sprintf("https://%s.backlog.com", space)
+	}
+
+	if baseURL == "" {
+		return "", "", fmt.Errorf("Backlog スペースの URL が設定されていません。--profile でプロファイルを指定するか、LOGVALET_BASE_URL 環境変数を設定してください (exit 2)")
+	}
+
+	if space == "" {
+		// BaseURL からスペース名を抽出（簡略: backlog.com のサブドメイン）
+		// https://example.backlog.com → example
+		u := baseURL
+		if len(u) > 8 && u[:8] == "https://" {
+			u = u[8:]
+		}
+		if idx := len(u) - len(".backlog.com"); idx > 0 && u[idx:] == ".backlog.com" {
+			space = u[:idx]
+		} else {
+			space = u
+		}
+	}
+
+	return baseURL, space, nil
 }
 
 // RunWithLoginRequestCapture は認証情報を受け取って tokens.json に保存する。
