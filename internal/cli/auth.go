@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,20 +31,23 @@ type AuthLoginRequest struct {
 }
 
 // AuthLoginCmd は auth login コマンド。
-type AuthLoginCmd struct{}
+type AuthLoginCmd struct {
+	APIKey string `name:"api-key" help:"Backlog API キー" env:"LOGVALET_API_KEY"`
+}
 
 // Run は auth login のメインエントリポイント。
-// OAuth PKCE フローを実行し、取得したトークンを tokens.json に保存する。
+// API キーを受け取り tokens.json に保存する。
 func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
-	// stdin からクライアント資格情報を読み取る
-	var clientID, clientSecret string
-	fmt.Fprint(os.Stderr, "Client ID: ")
-	if _, err := fmt.Fscanln(os.Stdin, &clientID); err != nil {
-		return fmt.Errorf("Client ID の読み取りに失敗しました: %w", err)
+	// API キーを解決（フラグ > stdin プロンプト）
+	apiKey := c.APIKey
+	if apiKey == "" {
+		fmt.Fprint(os.Stderr, "API Key: ")
+		if _, err := fmt.Fscanln(os.Stdin, &apiKey); err != nil {
+			return fmt.Errorf("API Key の読み取りに失敗しました: %w", err)
+		}
 	}
-	fmt.Fprint(os.Stderr, "Client Secret: ")
-	if _, err := fmt.Fscanln(os.Stdin, &clientSecret); err != nil {
-		return fmt.Errorf("Client Secret の読み取りに失敗しました: %w", err)
+	if apiKey == "" {
+		return fmt.Errorf("API Key が指定されていません")
 	}
 
 	// BaseURL を解決（プロファイルまたは直接指定）
@@ -54,50 +56,11 @@ func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	ctx := context.Background()
-
-	// コールバックサーバーを起動
-	resultCh, redirectURI, err := credentials.StartCallbackServer(ctx)
-	if err != nil {
-		return fmt.Errorf("コールバックサーバーの起動に失敗しました: %w", err)
-	}
-
-	// CSRF 防止用 state を生成
-	state, err := credentials.GenerateState()
-	if err != nil {
-		return fmt.Errorf("state の生成に失敗しました: %w", err)
-	}
-
-	// 認可 URL を構築して表示
-	authURL := credentials.BuildAuthorizeURL(space, clientID, redirectURI, state)
-	fmt.Fprintf(os.Stderr, "\n以下の URL をブラウザで開いて認可してください:\n%s\n\n", authURL)
-
-	// コールバックを待機
-	result := <-resultCh
-	if result.Err != nil {
-		return fmt.Errorf("OAuth 認可に失敗しました: %w", result.Err)
-	}
-	if result.State != state {
-		return fmt.Errorf("OAuth state が一致しません (CSRF 攻撃の可能性)")
-	}
-
-	// トークンエンドポイント URL を構築
-	tokenURL := fmt.Sprintf("%s/api/v2/oauth2/token", baseURL)
-
-	// authorization code をトークンに交換
-	tokenResp, err := credentials.ExchangeCode(ctx, tokenURL, clientID, clientSecret, result.Code, redirectURI)
-	if err != nil {
-		return fmt.Errorf("トークン交換に失敗しました: %w", err)
-	}
-
-	// トークンを保存
 	req := AuthLoginRequest{
-		AuthType:     credentials.AuthTypeOAuth,
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenExpiry:  credentials.TokenExpiry(tokenResp.ExpiresIn),
-		Space:        space,
-		BaseURL:      baseURL,
+		AuthType: credentials.AuthTypeAPIKey,
+		APIKey:   apiKey,
+		Space:    space,
+		BaseURL:  baseURL,
 	}
 
 	store := credentials.NewStore(credentials.DefaultTokensPath(os.Getenv))
