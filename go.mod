@@ -10,4 +10,5 @@ require (
 	github.com/posener/complete v1.2.3 // indirect
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/willabides/kongplete v0.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

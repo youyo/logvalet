@@ -14,11 +14,18 @@ type Renderer interface {
 
 // NewRenderer はフォーマット名に対応する Renderer を返す。
 // 未知のフォーマットはエラーを返す。
+// サポートするフォーマット: json, yaml, md, markdown, text
 func NewRenderer(format string, pretty bool) (Renderer, error) {
 	switch format {
 	case "json":
 		return NewJSONRenderer(pretty), nil
+	case "yaml":
+		return NewYAMLRenderer(), nil
+	case "md", "markdown":
+		return NewMarkdownRenderer(), nil
+	case "text":
+		return NewTextRenderer(), nil
 	default:
-		return nil, fmt.Errorf("未サポートのフォーマット: %q (サポート: json)", format)
+		return nil, fmt.Errorf("未サポートのフォーマット: %q (サポート: json, yaml, md, markdown, text)", format)
 	}
 }
