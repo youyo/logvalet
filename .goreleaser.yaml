@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: logvalet
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: logvalet
+    main: ./cmd/lv/main.go
+    binary: logvalet
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/youyo/logvalet/internal/version.Version={{ .Version }}
+      - -X github.com/youyo/logvalet/internal/version.Commit={{ .Commit }}
+      - -X github.com/youyo/logvalet/internal/version.Date={{ .Date }}
+
+archives:
+  - id: default
+    builds:
+      - logvalet
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "arm64" }}arm64
+      {{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{incpatch .Version}}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - name: logvalet
+    repository:
+      owner: youyo
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/youyo/logvalet"
+    description: "LLM-first Backlog CLI with digest-oriented output"
+    license: "MIT"
+    install: |
+      bin.install "logvalet"
+    test: |
+      system "#{bin}/logvalet", "--help"
+
+release:
+  github:
+    owner: youyo
+    name: logvalet
+  prerelease: auto
