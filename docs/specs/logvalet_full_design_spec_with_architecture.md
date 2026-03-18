@@ -273,33 +273,25 @@ auth_ref = "example-dev"
 }
 ```
 
-### OAuth flow
+> **Note:** `auth_type: "oauth"` entries are reserved for future OAuth support. Currently only `auth_type: "api_key"` is used by the CLI.
 
-- Authentication method: **OAuth localhost callback**
-- Browser-based flow
-- CLI starts a temporary localhost callback server
-- Access token and refresh token are stored in `tokens.json`
+### Authentication method
 
-### Why localhost callback
+- Primary method: **API key authentication**
+- API key is provided via `--api-key` flag, `LOGVALET_API_KEY` environment variable, or `tokens.json`
+- `lv auth login` prompts for API key interactively (or accepts `--api-key` flag)
 
-- straightforward implementation
-- best UX for a local CLI
-- consistent with standard authorization-code flows
-- avoids inventing a pseudo-device flow
+### OAuth support (future)
 
-### API key support
-
-API key support is also allowed via:
-
-- `--api-key`
-- `LOGVALET_API_KEY`
-- `tokens.json`
+- OAuth localhost callback flow is planned for future implementation
+- `internal/credentials/oauth.go` contains the OAuth flow implementation (currently unused by CLI)
+- When implemented, OAuth will provide browser-based authorization-code flow
 
 ### Auth commands
 
 #### `lv auth login`
 
-Purpose: login using OAuth and save credentials.
+Purpose: login using API key and save credentials.
 
 Required:
 
@@ -314,7 +306,7 @@ Output example:
   "profile": "work",
   "space": "example-space",
   "base_url": "https://example-space.backlog.com",
-  "auth_type": "oauth",
+  "auth_type": "api_key",
   "saved": true
 }
 ```
@@ -1133,7 +1125,7 @@ This section defines the recommended implementation layout.
 ```text
 logvalet/
 ├── cmd/
-│   └── lv/
+│   └── logvalet/
 │       └── main.go
 ├── internal/
 │   ├── app/
@@ -1657,7 +1649,7 @@ before:
 
 builds:
   - id: logvalet
-    main: ./cmd/lv/main.go
+    main: ./cmd/logvalet/main.go
     binary: logvalet
     env:
       - CGO_ENABLED=0

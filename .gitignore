@@ -9,3 +9,4 @@ logvalet
 *.dylib
 *.exe
 .DS_Store
+.envrc

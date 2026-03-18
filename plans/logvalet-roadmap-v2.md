@@ -1,99 +1,90 @@
-# Roadmap: logvalet
+# Roadmap v2: logvalet
 
 ## Meta
 | 項目 | 値 |
 |------|---|
-| ゴール | Backlog 向け LLM-first CLI の MVP 完成 |
-| 成功基準 | 全 digest コマンドが安定 JSON スキーマで動作し、Homebrew tap 経由でインストール可能 |
+| ゴール | Backlog 向け LLM-first CLI の MVP 完成 + スペック完全準拠 |
+| 成功基準 | 全 digest コマンドが安定 JSON スキーマで動作し、Homebrew tap 経由でインストール可能。スペック §9 エラーエンベロープ対応。GlobalFlags 完全実装 |
 | 制約 | Go 1.26.1 / Kong CLI / TDD 必須 / モックベーステスト / コード品質優先 |
-| 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvaret |
-| 作成日 | 2026-03-13 |
+| 対象リポジトリ | github.com/youyo/logvalet |
+| 作成日 | 2026-03-18 |
 | 最終更新 | 2026-03-18 |
-| ステータス | 完了 — roadmap-v2 に移行 |
+| ステータス | 進行中 |
+| 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **ステータス**: 全 12 マイルストーン完了。roadmap-v2 (`plans/logvalet-roadmap-v2.md`) に移行済み
-- **次のアクション**: roadmap-v2 の M13 以降を参照
+- **マイルストーン**: M13 — GlobalFlags 完全実装
+- **直近の完了**: M12 — Release pipeline & distribution
+- **次のアクション**: M13 の詳細計画を確定し実装を開始する
 
-## Progress
+## 完了済みマイルストーン (v1)
 
-### M01: Project scaffold & CLI foundation
+### M01: Project scaffold & CLI foundation ✅
 - [x] go.mod 初期化 (github.com/youyo/logvalet)
 - [x] ディレクトリ構造作成 (spec §16)
-- [x] cmd/lv/main.go — Kong エントリポイント
+- [x] cmd/logvalet/main.go — Kong エントリポイント
 - [x] GlobalFlags / DigestFlags / ListFlags / WriteFlags (spec §17.1-17.2)
 - [x] Root CLI struct — 全コマンドプレースホルダー (spec §17.3)
 - [x] Version package — ldflags 注入 (spec §23)
 - [x] Exit code 定義 (spec §8)
 - [x] JSON renderer (デフォルト出力)
 - [x] Completion commands — bash/zsh/fish + --short (spec §6)
-- 📄 詳細: plans/logvalet-m01-scaffold.md
 
-### M02: Config system
+### M02: Config system ✅
 - [x] config.toml スキーマ定義・ローダー (spec §5)
 - [x] Profile 解決ロジック
 - [x] 環境変数オーバーライド
 - [x] Boolean env parsing (1/true/yes/on)
 - [x] 設定値優先順位 (CLI flags > env > config > defaults)
-- 📄 詳細: plans/logvalet-m02-config.md (着手時に生成)
 
-### M03: Credential system & auth commands
+### M03: Credential system & auth commands ✅
 - [x] tokens.json スキーマ・ストア (spec §5)
 - [x] Credential resolver (優先順位付き)
-- [x] ~~OAuth localhost callback フロー~~ → API key 認証に変更
 - [x] API key サポート
 - [x] auth login / logout / whoami / list (spec §5)
-- 📄 詳細: plans/logvalet-m03-auth.md (着手時に生成)
 
-### M04: Backlog API client core
+### M04: Backlog API client core ✅
 - [x] Client interface 定義 (spec §18.1 — 全メソッド)
 - [x] HTTP transport + auth header injection
 - [x] Request/Response option types (spec §18.2-18.3)
 - [x] Typed error handling (spec §18.4 — ErrNotFound 等)
 - [x] Exit code マッピング
-- 📄 詳細: plans/logvalet-m04-api-client.md (着手時に生成)
 
-### M05: Domain models & full rendering
+### M05: Domain models & full rendering ✅
 - [x] Domain types: issue, project, activity, user, document, team, space (spec §11-12)
-- [x] Warning / error envelope types (spec §9)
 - [x] Renderer interface (spec §20)
 - [x] JSON renderer (pretty-print 対応)
 - [x] YAML renderer
 - [x] Markdown renderer
 - [x] Text renderer
-- 📄 詳細: plans/logvalet-m05-domain-render.md (着手時に生成)
 
-### M06: Issue read & digest
+### M06: Issue read & digest ✅
 - [x] issue get コマンド (spec §14.1)
 - [x] issue list コマンド (spec §14.2)
 - [x] IssueDigestBuilder (spec §19)
 - [x] issue digest コマンド (spec §14.3, §13.1)
 - [x] Golden tests — digest JSON 出力
-- 📄 詳細: plans/logvalet-m06-issue-read.md (着手時に生成)
 
-### M07: Project & meta commands
+### M07: Project & meta commands ✅
 - [x] project get / list (spec §14.9-14.10)
 - [x] ProjectDigestBuilder
 - [x] project digest (spec §14.11, §13.2)
 - [x] meta status / category / version / custom-field (spec §14.23-14.26)
-- 📄 詳細: plans/logvalet-m07-project-meta.md (着手時に生成)
 
-### M08: Issue write operations
+### M08: Issue write operations ✅
 - [x] issue create (spec §14.4)
 - [x] issue update (spec §14.5)
 - [x] issue comment list / add / update (spec §14.6-14.8)
 - [x] 排他フラグバリデーション (--content vs --content-file)
 - [x] --dry-run サポート
-- 📄 詳細: plans/logvalet-m08-issue-write.md (着手時に生成)
 
-### M09: Document commands
+### M09: Document commands ✅
 - [x] document get / list / tree (spec §14.18-14.20)
 - [x] DocumentDigestBuilder (spec §13.5)
 - [x] document digest (spec §14.21)
 - [x] document create (spec §14.22)
-- 📄 詳細: plans/logvalet-m09-document.md (着手時に生成)
 
-### M10: Activity & user commands
+### M10: Activity & user commands ✅
 - [x] activity list (spec §14.12)
 - [x] ActivityDigestBuilder (spec §13.3)
 - [x] activity digest (spec §14.13)
@@ -101,23 +92,44 @@
 - [x] user activity (spec §14.16)
 - [x] UserDigestBuilder (spec §13.4)
 - [x] user digest (spec §14.17)
-- 📄 詳細: plans/logvalet-m10-activity-user.md (着手時に生成)
 
-### M11: Team & space commands
+### M11: Team & space commands ✅
 - [x] team list / project (spec §14.27-14.28)
 - [x] TeamDigestBuilder (spec §13.6)
 - [x] team digest (spec §14.29)
 - [x] space info / disk-usage (spec §14.30-14.31)
 - [x] SpaceDigestBuilder (spec §13.7)
 - [x] space digest (spec §14.32)
-- 📄 詳細: plans/logvalet-m11-team-space.md (着手時に生成)
 
-### M12: Release pipeline & distribution
+### M12: Release pipeline & distribution ✅
 - [x] .goreleaser.yaml (spec §21)
 - [x] .github/workflows/release.yml (spec §22)
-- [x] README.md / README.ja.md
-- [x] skills/SKILL.md (docs/specs からコピー・調整)
-- 📄 詳細: plans/logvalet-m12-release.md (着手時に生成)
+
+## 新マイルストーン
+
+### M13: GlobalFlags 完全実装
+- [ ] `internal/cli/global_flags.go`: 欠落6フラグを Kong struct に追加
+  - `--api-key` / `LOGVALET_API_KEY`
+  - `--access-token` / `LOGVALET_ACCESS_TOKEN`
+  - `--base-url` / `LOGVALET_BASE_URL`
+  - `--space` / `-s` / `LOGVALET_SPACE`
+  - `--config` / `-c` / `LOGVALET_CONFIG`
+  - `--no-color` / `LOGVALET_NO_COLOR`
+- [ ] `internal/cli/runner.go`: `buildRunContext()` 修正
+  - `CredentialFlags{}` → GlobalFlags から api-key/access-token を渡す
+  - `config.OverrideFlags` に Space/BaseURL/NoColor/ConfigPath を渡す
+- [ ] テスト: GlobalFlags → OverrideFlags → RunContext の結合テスト
+
+### M14: JSON エラーエンベロープ (§9)
+- [ ] `internal/domain/` に ErrorEnvelope/WarningEnvelope 型定義
+- [ ] `cmd/logvalet/main.go` のエラーハンドリング修正
+  - エラー時に JSON エンベロープを stdout に出力
+  - exit code との整合性
+- [ ] テスト: 各 exit code に対応するエラーの JSON 出力確認
+
+### M15 (optional): `lv version` コマンド
+- [ ] `internal/cli/root.go`: Version コマンド追加
+- [ ] `--version` グローバルフラグ対応
 
 ## Blockers
 なし
@@ -128,9 +140,10 @@
 | 1 | TDD 必須 (Red→Green→Refactor) | CLAUDE.md ルール + コード品質優先の方針 | 2026-03-13 |
 | 2 | Backlog API テストはモックのみ | interface ベースで Client を定義し、テストではモック実装を使用 | 2026-03-13 |
 | 3 | 12 マイルストーン分割 | スペックの 5 フェーズをより細かい粒度に分割し、各マイルストーンを独立してデリバリー可能にする | 2026-03-13 |
-| 4 | M2 以降の詳細計画は遅延生成 | 着手時に最新のコードベース状態を反映するため | 2026-03-13 |
+| 4 | OAuth は API key 認証に変更 | Backlog の OAuth2 は client_id/secret の事前登録が必要で CLI 組み込みが複雑。API key 認証に絞る | 2026-03-13 |
+| 5 | roadmap v2 で残差分を管理 | v1 の M01-M12 完了後、スペックとの差分を新 M13-M15 で管理 | 2026-03-18 |
 
 ## Changelog
 | 日時 | 種別 | 内容 |
 |------|------|------|
-| 2026-03-13 09:30 | 作成 | ロードマップ初版作成。スペックの 5 フェーズを 12 マイルストーンに分割 |
+| 2026-03-18 | 作成 | roadmap v2 作成。v1 M01-M12 完了を反映、新 M13-M15 を追加 |
