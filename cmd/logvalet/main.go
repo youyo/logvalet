@@ -40,6 +40,11 @@ func run() int {
 		return app.HandleError(os.Stdout, err, app.ExitGenericError)
 	}
 
+	// --completion-bash フラグを Parse 前にインターセプト
+	if handleCompletionBash(parser, os.Args[1:]) {
+		return app.ExitSuccess
+	}
+
 	ctx, err := parser.Parse(os.Args[1:])
 	if err != nil {
 		// パースエラー（引数不正、未知のサブコマンド等）
@@ -54,4 +59,49 @@ func run() int {
 	}
 
 	return app.ExitSuccess
+}
+
+// handleCompletionBash は --completion-bash フラグを処理する。
+// 補完スクリプトから呼ばれ、利用可能なサブコマンドを stdout に出力する。
+func handleCompletionBash(k *kong.Kong, args []string) bool {
+	idx := -1
+	for i, a := range args {
+		if a == "--completion-bash" {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return false
+	}
+
+	// --completion-bash の後の引数がユーザーが入力中のコマンド列
+	partial := args[idx+1:]
+
+	// Kong モデルのコマンドツリーを歩く
+	node := k.Model.Node
+	for _, word := range partial {
+		if word == "" {
+			continue
+		}
+		found := false
+		for _, child := range node.Children {
+			if child.Name == word {
+				node = child
+				found = true
+				break
+			}
+		}
+		if !found {
+			break
+		}
+	}
+
+	// 子コマンド名を出力
+	for _, child := range node.Children {
+		if !child.Hidden {
+			fmt.Println(child.Name)
+		}
+	}
+	return true
 }

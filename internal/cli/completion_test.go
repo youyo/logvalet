@@ -15,38 +15,38 @@ func TestCompletionCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("bash completion が logvalet を含む", func(t *testing.T) {
-		output := cli.GenerateCompletion("bash", "logvalet", false)
-		if !strings.Contains(output, "logvalet") {
-			t.Errorf("bash completion に 'logvalet' が含まれていない: %s", output)
+	t.Run("zsh completion が --completion-bash を含む", func(t *testing.T) {
+		output := cli.GenerateCompletion("zsh", "logvalet", false)
+		if !strings.Contains(output, "--completion-bash") {
+			t.Errorf("zsh completion に '--completion-bash' が含まれていない: %s", output)
 		}
 	})
 
-	t.Run("fish completion が logvalet を含む", func(t *testing.T) {
-		output := cli.GenerateCompletion("fish", "logvalet", false)
-		if !strings.Contains(output, "logvalet") {
-			t.Errorf("fish completion に 'logvalet' が含まれていない: %s", output)
-		}
-	})
-
-	t.Run("--short=true のとき lv エイリアスも含む (zsh)", func(t *testing.T) {
+	t.Run("--short=true のとき alias lv=logvalet が含まれる (zsh)", func(t *testing.T) {
 		output := cli.GenerateCompletion("zsh", "logvalet", true)
-		if !strings.Contains(output, "lv") {
-			t.Errorf("--short モードに 'lv' が含まれていない: %s", output)
+		if !strings.Contains(output, "alias lv=logvalet") {
+			t.Errorf("--short モードに 'alias lv=logvalet' が含まれていない: %s", output)
 		}
 	})
 
-	t.Run("--short=true のとき lv エイリアスも含む (bash)", func(t *testing.T) {
-		output := cli.GenerateCompletion("bash", "logvalet", true)
-		if !strings.Contains(output, "lv") {
-			t.Errorf("--short モードに 'lv' が含まれていない: %s", output)
+	t.Run("--short=true のとき compdef _logvalet lv が含まれる (zsh)", func(t *testing.T) {
+		output := cli.GenerateCompletion("zsh", "logvalet", true)
+		if !strings.Contains(output, "compdef _logvalet lv") {
+			t.Errorf("--short モードに 'compdef _logvalet lv' が含まれていない: %s", output)
 		}
 	})
 
-	t.Run("--short=true のとき lv エイリアスも含む (fish)", func(t *testing.T) {
-		output := cli.GenerateCompletion("fish", "logvalet", true)
-		if !strings.Contains(output, "lv") {
-			t.Errorf("--short モードに 'lv' が含まれていない: %s", output)
+	t.Run("--short=false のとき alias が含まれない (zsh)", func(t *testing.T) {
+		output := cli.GenerateCompletion("zsh", "logvalet", false)
+		if strings.Contains(output, "alias lv=logvalet") {
+			t.Errorf("--short=false なのに alias が含まれている: %s", output)
+		}
+	})
+
+	t.Run("未対応シェルはコメントを返す", func(t *testing.T) {
+		output := cli.GenerateCompletion("powershell", "logvalet", false)
+		if !strings.Contains(output, "not supported") {
+			t.Errorf("未対応シェルのメッセージがない: %s", output)
 		}
 	})
 
