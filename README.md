@@ -168,13 +168,13 @@ logvalet includes an agent skill that teaches AI coding agents how to use logval
 ### Install (all supported agents)
 
 ```bash
-npx skills add https://github.com/youyo/logvalet
+npx skills add youyo/logvalet
 ```
 
 ### Install (Claude Code only)
 
 ```bash
-npx skills add https://github.com/youyo/logvalet -a claude-code
+npx skills add youyo/logvalet -a claude-code
 ```
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.

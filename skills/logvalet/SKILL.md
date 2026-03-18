@@ -1,6 +1,6 @@
 ---
 name: logvalet
-summary: Use logvalet (lv) to read, summarize, and safely update Backlog with LLM-friendly JSON digests.
+description: Use logvalet (lv) to read, summarize, and safely update Backlog with LLM-friendly JSON digests.
 ---
 
 # logvalet
