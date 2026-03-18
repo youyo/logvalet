@@ -353,7 +353,7 @@ Non-interactive flags:
 
 ## completion
 
-Completion is generated dynamically and should be loaded with `eval` or `source`.
+Completion is generated dynamically and should be loaded with `eval`.
 
 ### zsh
 
@@ -363,26 +363,6 @@ Put this in `.zshrc`:
 if command -v logvalet >/dev/null 2>&1; then
   eval "$(logvalet completion zsh --short)"
 fi
-```
-
-### bash
-
-Put this in `.bashrc`:
-
-```bash
-if command -v logvalet >/dev/null 2>&1; then
-  eval "$(logvalet completion bash --short)"
-fi
-```
-
-### fish
-
-Put this in `config.fish`:
-
-```fish
-if type -q logvalet
-    logvalet completion fish --short | source
-end
 ```
 
 `--short` enables completion for both `logvalet` and `lv`.

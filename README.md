@@ -72,7 +72,7 @@ Token store:
 
 ## Shell Completion
 
-### zsh
+Add this to `.zshrc`:
 
 ```zsh
 if command -v logvalet >/dev/null 2>&1; then
@@ -80,21 +80,7 @@ if command -v logvalet >/dev/null 2>&1; then
 fi
 ```
 
-### bash
-
-```bash
-if command -v logvalet >/dev/null 2>&1; then
-  eval "$(logvalet completion bash --short)"
-fi
-```
-
-### fish
-
-```fish
-if type -q logvalet
-    logvalet completion fish --short | source
-end
-```
+This enables completion for both `logvalet` and `lv`.
 
 ## Commands
 
