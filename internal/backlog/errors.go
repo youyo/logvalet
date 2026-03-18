@@ -66,6 +66,26 @@ func (e *BacklogError) Unwrap() error {
 	return e.Err
 }
 
+// ExitCode は BacklogError に対応する exit code を返す。
+// app.ExitCoder インターフェースの実装。
+func (e *BacklogError) ExitCode() int {
+	return ExitCodeFor(e)
+}
+
+// ErrorCode はエラーコード文字列を返す。
+// app.ErrorCoder インターフェースの実装。
+// BacklogError.Code フィールドの値をそのまま返す。
+func (e *BacklogError) ErrorCode() string {
+	return e.Code
+}
+
+// Retryable はリトライ可能かを返す。
+// app.Retryabler インターフェースの実装。
+// ErrRateLimited または ErrAPI の場合に true を返す。
+func (e *BacklogError) Retryable() bool {
+	return errors.Is(e.Err, ErrRateLimited) || errors.Is(e.Err, ErrAPI)
+}
+
 // ExitCodeFor は error から app.Exit* 定数へのマッピングを返す。
 // typed errors (ErrNotFound 等) および BacklogError のラップにも対応する。
 func ExitCodeFor(err error) int {

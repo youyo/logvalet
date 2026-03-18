@@ -13,9 +13,9 @@
 | 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **マイルストーン**: M14 — JSON エラーエンベロープ (§9)
-- **直近の完了**: M13 — GlobalFlags 完全実装
-- **次のアクション**: M14 の詳細計画を確定し実装を開始する
+- **マイルストーン**: M15 — `logvalet config init` コマンド（対話型セットアップ）
+- **直近の完了**: M14 — JSON エラーエンベロープ (§9)
+- **次のアクション**: M15 の詳細計画を確定し実装を開始する
 
 ## 完了済みマイルストーン (v1)
 
@@ -124,12 +124,14 @@
 - [x] `internal/cli/issue.go`: IssueDigestCmd.Comments の `-c` 短縮フラグを削除（GlobalFlags.Config と衝突回避）
 - [x] テスト: GlobalFlags パース + 環境変数 + 排他バリデーション
 
-### M14: JSON エラーエンベロープ (§9)
-- [ ] `internal/domain/` に ErrorEnvelope/WarningEnvelope 型定義
-- [ ] `cmd/logvalet/main.go` のエラーハンドリング修正
+### M14: JSON エラーエンベロープ (§9) ✅
+- [x] `internal/app/error_envelope.go`: ExitCoder/ErrorCoder/Retryabler interface + HandleError + NewErrorEnvelope + ExitCodeToErrorCode
+- [x] `internal/backlog/errors.go`: BacklogError に ExitCode()/ErrorCode()/Retryable() メソッド追加
+- [x] `cmd/logvalet/main.go` のエラーハンドリング修正
+  - kong.New + parser.Parse 分離でパースエラーをハンドリング
   - エラー時に JSON エンベロープを stdout に出力
   - exit code との整合性
-- [ ] テスト: 各 exit code に対応するエラーの JSON 出力確認
+- [x] テスト: HandleError + ExitCodeToErrorCode + BacklogError 新メソッド
 
 ### M15: `logvalet config init` コマンド（対話型セットアップ）
 - [ ] `internal/cli/config.go`: `ConfigInitCmd` 追加（`aws configure` 相当）
