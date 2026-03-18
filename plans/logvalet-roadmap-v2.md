@@ -13,9 +13,9 @@
 | 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **マイルストーン**: M15 — `logvalet config init` コマンド（対話型セットアップ）
-- **直近の完了**: M14 — JSON エラーエンベロープ (§9)
-- **次のアクション**: M15 の詳細計画を確定し実装を開始する
+- **マイルストーン**: M16 — `logvalet version` コマンド（optional）
+- **直近の完了**: M15 — `logvalet config init` コマンド（対話型セットアップ）
+- **次のアクション**: M16 の検討、またはリリース準備
 
 ## 完了済みマイルストーン (v1)
 
@@ -133,15 +133,15 @@
   - exit code との整合性
 - [x] テスト: HandleError + ExitCodeToErrorCode + BacklogError 新メソッド
 
-### M15: `logvalet config init` コマンド（対話型セットアップ）
-- [ ] `internal/cli/config.go`: `ConfigInitCmd` 追加（`aws configure` 相当）
+### M15: `logvalet config init` コマンド（対話型セットアップ） ✅
+- [x] `internal/cli/config_cmd.go`: `ConfigInitCmd` 追加（`aws configure` 相当）
   - 対話プロンプトで profile 名、space 名、base_url を入力
   - `~/.config/logvalet/config.toml` を生成・追記
-  - 既存プロファイルがある場合は上書き確認
-- [ ] `logvalet configure` をトップレベルエイリアスとして追加（Kong `cmd:"configure"` + `hidden` or alias）
-- [ ] `auth login` との連携: config init → auth login の導線
-- [ ] `internal/config/writer.go`: config.toml の書き出しロジック
-- [ ] テスト: 対話入力のモック + 生成された config.toml の検証
+  - 既存プロファイルがある場合は上書き確認（対話モードのみ）
+- [x] `logvalet configure` をトップレベルエイリアスとして追加（ConfigureCmd → ConfigInitCmd に委譲）
+- [x] `auth login` との連携: config init 完了後に stderr で auth login を案内
+- [x] `internal/config/writer.go`: config.toml の書き出しロジック（Writer interface）
+- [x] テスト: 対話入力の Prompter モック + 生成された config.toml の検証（14テストケース）
 
 ### M16 (optional): `logvalet version` コマンド
 - [ ] `internal/cli/root.go`: Version コマンド追加

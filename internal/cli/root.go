@@ -6,6 +6,8 @@ type CLI struct {
 	GlobalFlags
 
 	Auth       AuthCmd       `cmd:"" help:"Backlog 認証の管理"`
+	Config     ConfigCmd     `cmd:"" help:"設定の管理"`
+	Configure  ConfigureCmd  `cmd:"" help:"対話型で設定を初期化する（config init のエイリアス）"`
 	Completion CompletionCmd `cmd:"" help:"シェル補完スクリプトを出力する"`
 	Issue      IssueCmd      `cmd:"" help:"課題の操作"`
 	Project    ProjectCmd    `cmd:"" help:"プロジェクトの操作"`
