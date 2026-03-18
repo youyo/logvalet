@@ -161,23 +161,23 @@ lv issue create --project PROJ --summary "Fix bug" --issue-type "Bug" --dry-run
 lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
 ```
 
-## Claude Code Skill
+## Skill
 
-logvalet includes a Claude Code skill that teaches Claude how to use logvalet commands effectively.
+logvalet includes an agent skill that teaches AI coding agents how to use logvalet commands effectively.
 
-### Install via npx
-
-```bash
-npx @anthropic-ai/claude-code skills add /path/to/logvalet/skills
-```
-
-### Install from GitHub
+### Install (all supported agents)
 
 ```bash
-npx @anthropic-ai/claude-code skills add https://github.com/youyo/logvalet/tree/main/skills
+npx skills add https://github.com/youyo/logvalet
 ```
 
-After installation, Claude Code will automatically know how to use logvalet commands for Backlog operations.
+### Install (Claude Code only)
+
+```bash
+npx skills add https://github.com/youyo/logvalet -a claude-code
+```
+
+After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 
 ## License
 
