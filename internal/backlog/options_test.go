@@ -17,14 +17,14 @@ func TestListIssuesOptions(t *testing.T) {
 
 	t.Run("all fields settable", func(t *testing.T) {
 		opt := backlog.ListIssuesOptions{
-			ProjectKey: "PROJ",
+			ProjectIDs: []int{1, 2},
 			Assignee:   "user1",
 			Status:     "処理中",
 			Limit:      20,
 			Offset:     10,
 		}
-		if opt.ProjectKey != "PROJ" {
-			t.Errorf("ProjectKey = %q, want %q", opt.ProjectKey, "PROJ")
+		if len(opt.ProjectIDs) != 2 || opt.ProjectIDs[0] != 1 {
+			t.Errorf("ProjectIDs = %v, want [1 2]", opt.ProjectIDs)
 		}
 		if opt.Limit != 20 {
 			t.Errorf("Limit = %d, want 20", opt.Limit)

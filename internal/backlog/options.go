@@ -5,7 +5,7 @@ import "time"
 // ListIssuesOptions は GetIssues リクエストのオプション。
 // spec §18.2 準拠。
 type ListIssuesOptions struct {
-	ProjectKey string
+	ProjectIDs []int
 	Assignee   string
 	Status     string
 	Limit      int

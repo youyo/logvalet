@@ -53,8 +53,13 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 		Limit:  c.Count,
 		Offset: c.Offset,
 	}
-	if len(c.ProjectKey) > 0 {
-		opt.ProjectKey = c.ProjectKey[0]
+	// projectKey → projectId 変換
+	for _, key := range c.ProjectKey {
+		proj, err := rc.Client.GetProject(ctx, key)
+		if err != nil {
+			return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", key, err)
+		}
+		opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
 	}
 	issues, err := rc.Client.ListIssues(ctx, opt)
 	if err != nil {

@@ -260,8 +260,8 @@ func (c *HTTPClient) GetIssue(ctx context.Context, issueKey string) (*domain.Iss
 // GET /api/v2/issues
 func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]domain.Issue, error) {
 	q := url.Values{}
-	if opt.ProjectKey != "" {
-		q.Set("projectKey[]", opt.ProjectKey)
+	for _, id := range opt.ProjectIDs {
+		q.Add("projectId[]", strconv.Itoa(id))
 	}
 	if opt.Assignee != "" {
 		q.Set("assigneeUserId[]", opt.Assignee)
@@ -480,8 +480,8 @@ func (c *HTTPClient) ListSpaceActivities(ctx context.Context, opt ListActivities
 
 // GetDocument は指定ドキュメントIDのドキュメントを返す。
 // GET /api/v2/documents/{documentID}
-func (c *HTTPClient) GetDocument(ctx context.Context, documentID int64) (*domain.Document, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v2/documents/%d", documentID), nil)
+func (c *HTTPClient) GetDocument(ctx context.Context, documentID string) (*domain.Document, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/documents/"+url.PathEscape(documentID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -493,16 +493,15 @@ func (c *HTTPClient) GetDocument(ctx context.Context, documentID int64) (*domain
 }
 
 // ListDocuments は指定プロジェクトのドキュメント一覧を返す。
-// GET /api/v2/projects/{projectKey}/documents
-func (c *HTTPClient) ListDocuments(ctx context.Context, projectKey string, opt ListDocumentsOptions) ([]domain.Document, error) {
+// GET /api/v2/documents?projectId[]={id}&offset=N
+func (c *HTTPClient) ListDocuments(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error) {
 	q := url.Values{}
+	q.Add("projectId[]", strconv.Itoa(projectID))
+	q.Set("offset", strconv.Itoa(opt.Offset))
 	if opt.Limit > 0 {
 		q.Set("count", strconv.Itoa(opt.Limit))
 	}
-	if opt.Offset > 0 {
-		q.Set("offset", strconv.Itoa(opt.Offset))
-	}
-	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/documents", q)
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/documents", q)
 	if err != nil {
 		return nil, err
 	}
@@ -514,28 +513,30 @@ func (c *HTTPClient) ListDocuments(ctx context.Context, projectKey string, opt L
 }
 
 // GetDocumentTree は指定プロジェクトのドキュメントツリーを返す。
-// GET /api/v2/projects/{projectKey}/documents/tree
-func (c *HTTPClient) GetDocumentTree(ctx context.Context, projectKey string) ([]domain.DocumentNode, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/documents/tree", nil)
+// GET /api/v2/documents/tree?projectIdOrKey={key}
+func (c *HTTPClient) GetDocumentTree(ctx context.Context, projectKey string) (*domain.DocumentTree, error) {
+	q := url.Values{}
+	q.Set("projectIdOrKey", projectKey)
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/documents/tree", q)
 	if err != nil {
 		return nil, err
 	}
-	var tree []domain.DocumentNode
+	var tree domain.DocumentTree
 	if err := c.do(req, &tree); err != nil {
 		return nil, err
 	}
-	return tree, nil
+	return &tree, nil
 }
 
 // CreateDocument は新しいドキュメントを作成する。
 // POST /api/v2/documents
 func (c *HTTPClient) CreateDocument(ctx context.Context, reqBody CreateDocumentRequest) (*domain.Document, error) {
 	q := url.Values{}
-	q.Set("projectKey", reqBody.ProjectKey)
+	q.Set("projectId", strconv.Itoa(reqBody.ProjectID))
 	q.Set("name", reqBody.Title)
 	q.Set("content", reqBody.Content)
 	if reqBody.ParentID != nil {
-		q.Set("parentDocumentId", strconv.FormatInt(*reqBody.ParentID, 10))
+		q.Set("parentDocumentId", *reqBody.ParentID)
 	}
 	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/documents", q)
 	if err != nil {
@@ -550,8 +551,8 @@ func (c *HTTPClient) CreateDocument(ctx context.Context, reqBody CreateDocumentR
 
 // ListDocumentAttachments は指定ドキュメントの添付ファイル一覧を返す。
 // GET /api/v2/documents/{documentID}/attachments
-func (c *HTTPClient) ListDocumentAttachments(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v2/documents/%d/attachments", documentID), nil)
+func (c *HTTPClient) ListDocumentAttachments(ctx context.Context, documentID string) ([]domain.Attachment, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/documents/"+url.PathEscape(documentID)+"/attachments", nil)
 	if err != nil {
 		return nil, err
 	}

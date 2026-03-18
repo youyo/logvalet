@@ -169,10 +169,10 @@ func TestHTTPClientGetIssue(t *testing.T) {
 }
 
 func TestHTTPClientListIssues(t *testing.T) {
-	t.Run("sets query params", func(t *testing.T) {
-		var gotProjectKey string
+	t.Run("sets query params with projectId", func(t *testing.T) {
+		var gotProjectIDs []string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			gotProjectKey = r.URL.Query().Get("projectKey[]")
+			gotProjectIDs = r.URL.Query()["projectId[]"]
 			issues := []map[string]interface{}{
 				{"id": 1, "issueKey": "PROJ-1", "summary": "Issue 1"},
 			}
@@ -183,14 +183,14 @@ func TestHTTPClientListIssues(t *testing.T) {
 
 		client := newOAuthClient(t, srv.URL)
 		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
-			ProjectKey: "PROJ",
+			ProjectIDs: []int{42, 99},
 			Limit:      10,
 		})
 		if err != nil {
 			t.Fatalf("ListIssues() error = %v", err)
 		}
-		if gotProjectKey != "PROJ" {
-			t.Errorf("projectKey[] query = %q, want %q", gotProjectKey, "PROJ")
+		if len(gotProjectIDs) != 2 || gotProjectIDs[0] != "42" || gotProjectIDs[1] != "99" {
+			t.Errorf("projectId[] query = %v, want [42 99]", gotProjectIDs)
 		}
 	})
 }
