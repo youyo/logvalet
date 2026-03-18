@@ -66,7 +66,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 // IssueDigestCmd は issue digest コマンド（spec §14.3）。
 type IssueDigestCmd struct {
 	IssueKey   string `arg:"" required:"" help:"課題キー (例: PROJ-123)"`
-	Comments   int    `short:"c" help:"取得するコメント数" default:"5" env:"LOGVALET_COMMENTS"`
+	Comments   int    `help:"取得するコメント数" default:"5" env:"LOGVALET_COMMENTS"`
 	NoActivity bool   `help:"アクティビティを含めない" env:"LOGVALET_NO_ACTIVITY"`
 }
 

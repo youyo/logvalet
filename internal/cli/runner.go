@@ -17,14 +17,22 @@ type RunContext struct {
 	Renderer render.Renderer
 }
 
+// boolPtr は bool 値のポインタを返すヘルパー。
+// GlobalFlags の bool フィールドを config.OverrideFlags の *bool に変換するために使用する。
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 // buildRunContext は GlobalFlags から RunContext を構築する。
-// 1. config.toml をロード
-// 2. credential resolver でトークン解決
-// 3. backlog.NewHTTPClient でクライアント生成
-// 4. render.NewRenderer でレンダラー生成
+// 1. config パスを解決
+// 2. config.toml をロード
+// 3. 設定値を優先順位に従い解決
+// 4. 認証情報を解決
+// 5. Backlog クライアントを生成
+// 6. レンダラーを生成
 func buildRunContext(g *GlobalFlags) (*RunContext, error) {
-	// 1. config.toml をロード（ファイル不在はゼロ値で継続）
-	configPath := config.DefaultConfigPath()
+	// 1. config パスを解決（--config > LOGVALET_CONFIG > デフォルト）
+	configPath := config.ResolveConfigPath(g.Config, os.Getenv)
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
@@ -32,8 +40,14 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 
 	// 2. 設定値を解決（CLI flags > env > config.toml > デフォルト）
 	flags := config.OverrideFlags{
-		Profile: g.Profile,
-		Format:  g.Format,
+		Profile:    g.Profile,
+		Format:     g.Format,
+		Pretty:     boolPtr(g.Pretty),
+		Space:      g.Space,
+		BaseURL:    g.BaseURL,
+		Verbose:    boolPtr(g.Verbose),
+		NoColor:    boolPtr(g.NoColor),
+		ConfigPath: g.Config,
 	}
 	resolved, err := config.Resolve(cfg, flags, os.Getenv)
 	if err != nil {
@@ -44,7 +58,11 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	tokensPath := credentials.DefaultTokensPath(os.Getenv)
 	store := credentials.NewStore(tokensPath)
 	resolver := credentials.NewResolver(store)
-	cred, err := resolver.Resolve(resolved.AuthRef, credentials.CredentialFlags{}, os.Getenv)
+	credFlags := credentials.CredentialFlags{
+		APIKey:      g.APIKey,
+		AccessToken: g.AccessToken,
+	}
+	cred, err := resolver.Resolve(resolved.AuthRef, credFlags, os.Getenv)
 	if err != nil {
 		return nil, fmt.Errorf("認証情報の解決に失敗しました (logvalet auth login を実行してください): %w", err)
 	}

@@ -13,9 +13,9 @@
 | 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **マイルストーン**: M13 — GlobalFlags 完全実装
-- **直近の完了**: M12 — Release pipeline & distribution
-- **次のアクション**: M13 の詳細計画を確定し実装を開始する
+- **マイルストーン**: M14 — JSON エラーエンベロープ (§9)
+- **直近の完了**: M13 — GlobalFlags 完全実装
+- **次のアクション**: M14 の詳細計画を確定し実装を開始する
 
 ## 完了済みマイルストーン (v1)
 
@@ -107,18 +107,22 @@
 
 ## 新マイルストーン
 
-### M13: GlobalFlags 完全実装
-- [ ] `internal/cli/global_flags.go`: 欠落6フラグを Kong struct に追加
+### M13: GlobalFlags 完全実装 ✅
+- [x] `internal/cli/global_flags.go`: 欠落6フラグを Kong struct に追加
   - `--api-key` / `LOGVALET_API_KEY`
   - `--access-token` / `LOGVALET_ACCESS_TOKEN`
   - `--base-url` / `LOGVALET_BASE_URL`
   - `--space` / `-s` / `LOGVALET_SPACE`
   - `--config` / `-c` / `LOGVALET_CONFIG`
   - `--no-color` / `LOGVALET_NO_COLOR`
-- [ ] `internal/cli/runner.go`: `buildRunContext()` 修正
-  - `CredentialFlags{}` → GlobalFlags から api-key/access-token を渡す
-  - `config.OverrideFlags` に Space/BaseURL/NoColor/ConfigPath を渡す
-- [ ] テスト: GlobalFlags → OverrideFlags → RunContext の結合テスト
+- [x] `GlobalFlags.Validate()`: --api-key/--access-token 排他バリデーション
+- [x] `internal/cli/runner.go`: `buildRunContext()` 修正
+  - `CredentialFlags` に GlobalFlags から api-key/access-token を渡す
+  - `config.OverrideFlags` に Pretty/Space/BaseURL/Verbose/NoColor/ConfigPath を渡す
+  - `config.ResolveConfigPath()` で --config/LOGVALET_CONFIG に対応
+- [x] `internal/cli/auth.go`: AuthLoginCmd の重複 --api-key フラグを削除（GlobalFlags に統合）
+- [x] `internal/cli/issue.go`: IssueDigestCmd.Comments の `-c` 短縮フラグを削除（GlobalFlags.Config と衝突回避）
+- [x] テスト: GlobalFlags パース + 環境変数 + 排他バリデーション
 
 ### M14: JSON エラーエンベロープ (§9)
 - [ ] `internal/domain/` に ErrorEnvelope/WarningEnvelope 型定義

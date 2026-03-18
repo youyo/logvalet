@@ -1,22 +1,40 @@
 // Package cli は logvalet CLI のコマンド定義を提供する。
 package cli
 
+import "fmt"
+
 // GlobalFlags は全サブコマンドで共有するグローバルフラグ。
-// spec §17.1 準拠。
+// spec §4, §17.1 準拠。
 type GlobalFlags struct {
+	// Profile は使用する設定プロファイル名。
+	Profile string `short:"p" help:"使用するプロファイル名" env:"LOGVALET_PROFILE"`
+
 	// Format は出力フォーマット (json|yaml|markdown|text)。
-	// 環境変数 LOGVALET_FORMAT で上書き可能。
 	Format string `short:"f" help:"出力フォーマット (json|yaml|markdown|text)" default:"json" env:"LOGVALET_FORMAT"`
 
 	// Pretty はインデント付き JSON/YAML 出力を有効にする。
 	Pretty bool `help:"インデント付きで出力する" env:"LOGVALET_PRETTY"`
 
-	// Profile は使用する設定プロファイル名。
-	// 環境変数 LOGVALET_PROFILE で上書き可能。
-	Profile string `short:"p" help:"使用するプロファイル名" env:"LOGVALET_PROFILE"`
+	// Config は設定ファイルパスの直接指定。
+	Config string `short:"c" help:"設定ファイルパスを指定する" type:"path" env:"LOGVALET_CONFIG"`
+
+	// APIKey は Backlog API キーの直接指定。
+	APIKey string `help:"API キーを直接指定する" env:"LOGVALET_API_KEY"`
+
+	// AccessToken は Backlog アクセストークンの直接指定。
+	AccessToken string `help:"アクセストークンを直接指定する" env:"LOGVALET_ACCESS_TOKEN"`
+
+	// BaseURL は Backlog ベース URL の直接指定。
+	BaseURL string `help:"Backlog ベース URL を直接指定する" env:"LOGVALET_BASE_URL"`
+
+	// Space は Backlog スペース名の直接指定。
+	Space string `short:"s" help:"Backlog スペース名を直接指定する" env:"LOGVALET_SPACE"`
 
 	// Verbose は詳細なデバッグ出力を有効にする (stderr)。
 	Verbose bool `short:"v" help:"詳細なデバッグ出力を有効にする" env:"LOGVALET_VERBOSE"`
+
+	// NoColor はカラー出力を無効にする。
+	NoColor bool `help:"カラー出力を無効にする" env:"LOGVALET_NO_COLOR"`
 
 	// Version はバージョン情報。goreleaser ldflags で注入される。
 	Version string `kong:"-"`
@@ -24,6 +42,16 @@ type GlobalFlags struct {
 	Commit string `kong:"-"`
 	// Date はビルド日時。goreleaser ldflags で注入される。
 	Date string `kong:"-"`
+}
+
+// Validate は GlobalFlags のバリデーションを行う。
+// Kong が Parse 後に自動で呼び出す。
+// spec §17 Validation rules: --api-key と --access-token は同時に指定できない。
+func (g *GlobalFlags) Validate() error {
+	if g.APIKey != "" && g.AccessToken != "" {
+		return fmt.Errorf("--api-key と --access-token は同時に指定できません")
+	}
+	return nil
 }
 
 // DigestFlags は digest コマンドで共通するフラグ。

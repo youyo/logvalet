@@ -31,15 +31,14 @@ type AuthLoginRequest struct {
 }
 
 // AuthLoginCmd は auth login コマンド。
-type AuthLoginCmd struct {
-	APIKey string `name:"api-key" help:"Backlog API キー" env:"LOGVALET_API_KEY"`
-}
+// API キーは GlobalFlags.APIKey (--api-key / LOGVALET_API_KEY) から取得する。
+type AuthLoginCmd struct{}
 
 // Run は auth login のメインエントリポイント。
 // API キーを受け取り tokens.json に保存する。
 func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
-	// API キーを解決（フラグ > stdin プロンプト）
-	apiKey := c.APIKey
+	// API キーを解決（GlobalFlags --api-key > stdin プロンプト）
+	apiKey := g.APIKey
 	if apiKey == "" {
 		fmt.Fprint(os.Stderr, "API Key: ")
 		if _, err := fmt.Fscanln(os.Stdin, &apiKey); err != nil {
