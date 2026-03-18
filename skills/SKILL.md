@@ -74,7 +74,7 @@ Supported write operations:
 - issue comment update
 - document create
 
-Explicitly unsupported in MVP:
+Explicitly unsupported:
 
 - document update
 - document delete
@@ -110,11 +110,11 @@ Secrets are not stored in project-local files.
 
 Primary auth mode:
 
-- OAuth with localhost callback
+- API key (via `config init --init-api-key` or `auth login`)
 
 Secondary auth mode:
 
-- API key override
+- OAuth (access token via `--access-token` flag or env var)
 
 Useful environment variables:
 
@@ -247,11 +247,11 @@ Use `digest` first for reasoning tasks.
 Examples:
 
 ```bash
-lv issue digest PROJ-123
-lv project digest PROJ
-lv activity digest --project PROJ --since 30d
-lv document digest 12345
-lv user digest 12345 --since 30d
+logvalet issue digest PROJ-123
+logvalet project digest PROJ
+logvalet activity digest --project PROJ --since 30d
+logvalet document digest 019b0240-4a9a-7c90-xxxx
+logvalet user digest 12345 --since 30d
 ```
 
 ---
@@ -286,10 +286,10 @@ Use the full user shape only in user-focused commands such as `user list` and `u
 
 ## auth
 
-### Login with OAuth
+### Login with API key
 
 ```bash
-lv auth login --profile work
+logvalet auth login --profile work
 ```
 
 Use this to authenticate and save tokens into `~/.config/logvalet/tokens.json`.
@@ -297,19 +297,56 @@ Use this to authenticate and save tokens into `~/.config/logvalet/tokens.json`.
 ### Show active identity
 
 ```bash
-lv auth whoami --profile work
+logvalet auth whoami --profile work
 ```
+
+Backlog API から認証ユーザー情報を取得して表示する。API にアクセスできない場合は認証情報のみ表示。
 
 ### List configured profiles and auth state
 
 ```bash
-lv auth list
+logvalet auth list
 ```
 
 ### Remove stored credentials for a profile
 
 ```bash
-lv auth logout --profile work
+logvalet auth logout --profile work
+```
+
+---
+
+## config
+
+### Initialize configuration interactively
+
+```bash
+logvalet config init
+```
+
+or use the top-level alias:
+
+```bash
+logvalet configure
+```
+
+This creates `~/.config/logvalet/config.toml` with profile, space, and base URL.
+
+### One-command setup with API key
+
+```bash
+logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_KEY
+```
+
+This creates `config.toml` and saves the API key to `tokens.json` in a single step. No separate `auth login` is needed.
+
+Non-interactive flags:
+
+```text
+--init-profile <name>
+--init-space <space>
+--init-base-url <url>
+--init-api-key <key>
 ```
 
 ---
@@ -357,7 +394,7 @@ end
 ### Get one issue
 
 ```bash
-lv issue get PROJ-123
+logvalet issue get PROJ-123
 ```
 
 Use when you want structured issue details without the extra context-building behavior of `digest`.
@@ -365,20 +402,20 @@ Use when you want structured issue details without the extra context-building be
 ### List issues
 
 ```bash
-lv issue list --project PROJ --limit 20
+logvalet issue list --project-key PROJ --limit 20
 ```
 
 Common filters:
 
 ```bash
-lv issue list --project PROJ --assignee me
-lv issue list --project PROJ --status 3
+logvalet issue list --project-key PROJ --assignee me
+logvalet issue list --project-key PROJ --status 3
 ```
 
 ### Issue digest
 
 ```bash
-lv issue digest PROJ-123
+logvalet issue digest PROJ-123
 ```
 
 Recommended defaults:
@@ -390,9 +427,9 @@ Recommended defaults:
 Useful variants:
 
 ```bash
-lv issue digest PROJ-123 --comments 10
-lv issue digest PROJ-123 --no-activity
-lv issue digest PROJ-123 -f md
+logvalet issue digest PROJ-123 --comments 10
+logvalet issue digest PROJ-123 --no-activity
+logvalet issue digest PROJ-123 -f md
 ```
 
 Use this when you need:
@@ -404,7 +441,7 @@ Use this when you need:
 ### Create an issue
 
 ```bash
-lv issue create \
+logvalet issue create \
   --project PROJ \
   --summary "Fix login bug" \
   --issue-type "Bug"
@@ -413,7 +450,7 @@ lv issue create \
 With description file:
 
 ```bash
-lv issue create \
+logvalet issue create \
   --project PROJ \
   --summary "Fix login bug" \
   --issue-type "Bug" \
@@ -423,7 +460,7 @@ lv issue create \
 Review request payload first:
 
 ```bash
-lv issue create \
+logvalet issue create \
   --project PROJ \
   --summary "Fix login bug" \
   --issue-type "Bug" \
@@ -433,13 +470,13 @@ lv issue create \
 ### Update an issue
 
 ```bash
-lv issue update PROJ-123 --status 3 --assignee 12345
+logvalet issue update PROJ-123 --status 3 --assignee 12345
 ```
 
 With description file:
 
 ```bash
-lv issue update PROJ-123 --description-file ./description.md
+logvalet issue update PROJ-123 --description-file ./description.md
 ```
 
 Use `--dry-run` before update when a coding agent is preparing the change.
@@ -451,31 +488,31 @@ Use `--dry-run` before update when a coding agent is preparing the change.
 ### List comments
 
 ```bash
-lv issue comment list PROJ-123
+logvalet issue comment list PROJ-123
 ```
 
 ### Add a comment
 
 ```bash
-lv issue comment add PROJ-123 --content "I confirmed this issue."
+logvalet issue comment add PROJ-123 --content "I confirmed this issue."
 ```
 
 From file:
 
 ```bash
-lv issue comment add PROJ-123 --content-file ./comment.md
+logvalet issue comment add PROJ-123 --content-file ./comment.md
 ```
 
 Dry run:
 
 ```bash
-lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
+logvalet issue comment add PROJ-123 --content-file ./comment.md --dry-run
 ```
 
 ### Update a comment
 
 ```bash
-lv issue comment update PROJ-123 999 --content "Updated note"
+logvalet issue comment update PROJ-123 999 --content "Updated note"
 ```
 
 ---
@@ -485,19 +522,19 @@ lv issue comment update PROJ-123 999 --content "Updated note"
 ### Get one project
 
 ```bash
-lv project get PROJ
+logvalet project get PROJ
 ```
 
 ### List projects
 
 ```bash
-lv project list
+logvalet project list
 ```
 
 ### Project digest
 
 ```bash
-lv project digest PROJ
+logvalet project digest PROJ
 ```
 
 Use when you need:
@@ -514,13 +551,13 @@ Use when you need:
 ### List activity
 
 ```bash
-lv activity list --project PROJ --limit 50
+logvalet activity list --project PROJ --limit 50
 ```
 
 ### Activity digest
 
 ```bash
-lv activity digest --project PROJ --since 30d
+logvalet activity digest --project PROJ --since 30d
 ```
 
 Important design note:
@@ -542,7 +579,7 @@ Use this for:
 ### List users
 
 ```bash
-lv user list
+logvalet user list
 ```
 
 Use this when you need the mapping between Backlog user IDs and names.
@@ -550,19 +587,19 @@ Use this when you need the mapping between Backlog user IDs and names.
 ### Get one user
 
 ```bash
-lv user get 12345
+logvalet user get 12345
 ```
 
 ### User activity
 
 ```bash
-lv user activity 12345 --since 30d
+logvalet user activity 12345 --since 30d
 ```
 
 ### User digest
 
 ```bash
-lv user digest 12345 --since 30d
+logvalet user digest 12345 --since 30d
 ```
 
 This is especially useful for monthly summaries of a specific user's work.
@@ -576,8 +613,8 @@ Important behavior:
 Recommended usage for monthly reporting:
 
 ```bash
-lv user digest 12345 --since 30d -f json
-lv user digest 12345 --since 30d -f md
+logvalet user digest 12345 --since 30d -f json
+logvalet user digest 12345 --since 30d -f md
 ```
 
 ---
@@ -587,31 +624,33 @@ lv user digest 12345 --since 30d -f md
 ### Get one document
 
 ```bash
-lv document get 12345
+logvalet document get 019b0240-4a9a-7c90-xxxx
 ```
 
 ### List documents in a project
 
 ```bash
-lv document list --project PROJ
+logvalet document list --project PROJ
 ```
 
 ### Get document tree
 
 ```bash
-lv document tree --project PROJ
+logvalet document tree --project PROJ
 ```
+
+Returns the document tree structure with `activeTree` and `trashTree` nodes. Each node has `id` (UUID), `name`, `emoji`, and `children`.
 
 ### Document digest
 
 ```bash
-lv document digest 12345
+logvalet document digest 019b0240-4a9a-7c90-xxxx
 ```
 
 ### Create a document
 
 ```bash
-lv document create \
+logvalet document create \
   --project PROJ \
   --title "Runbook" \
   --content-file ./runbook.md
@@ -626,6 +665,12 @@ Document mutation is intentionally limited:
 - delete is not supported
 - replace is not supported
 
+Document data model notes:
+
+- Document IDs are UUID strings (not integers)
+- Document body is split into `plain` (plain text) and `json` (structured content) fields
+- Documents include `tags`, `emoji`, `statusId`, and `updatedUser` metadata
+
 ---
 
 ## meta
@@ -635,25 +680,25 @@ Use project metadata commands when an agent needs the project dictionary.
 ### Statuses
 
 ```bash
-lv meta status PROJ
+logvalet meta status PROJ
 ```
 
 ### Categories
 
 ```bash
-lv meta category PROJ
+logvalet meta category PROJ
 ```
 
 ### Versions / milestones
 
 ```bash
-lv meta version PROJ
+logvalet meta version PROJ
 ```
 
 ### Custom fields
 
 ```bash
-lv meta custom-field PROJ
+logvalet meta custom-field PROJ
 ```
 
 Use these commands to resolve names, IDs, and valid metadata choices before creating or updating issues.
@@ -665,19 +710,19 @@ Use these commands to resolve names, IDs, and valid metadata choices before crea
 ### List teams
 
 ```bash
-lv team list
+logvalet team list
 ```
 
 ### Teams for a project
 
 ```bash
-lv team project PROJ
+logvalet team project PROJ
 ```
 
 ### Team digest
 
 ```bash
-lv team digest 1
+logvalet team digest 1
 ```
 
 Use when you need team-to-project context or want to summarize ownership.
@@ -689,22 +734,38 @@ Use when you need team-to-project context or want to summarize ownership.
 ### Show space info
 
 ```bash
-lv space info
+logvalet space info
 ```
 
 ### Show disk usage
 
 ```bash
-lv space disk-usage
+logvalet space disk-usage
 ```
 
 ### Space digest
 
 ```bash
-lv space digest
+logvalet space digest
 ```
 
 Use for admin-oriented overview and space-level context.
+
+---
+
+## version
+
+### Show version information
+
+```bash
+logvalet version
+```
+
+or use the global flag:
+
+```bash
+logvalet --version
+```
 
 ---
 
@@ -715,13 +776,13 @@ Use for admin-oriented overview and space-level context.
 Good:
 
 ```bash
-lv issue digest PROJ-123
+logvalet issue digest PROJ-123
 ```
 
 Less useful for reasoning alone:
 
 ```bash
-lv issue get PROJ-123
+logvalet issue get PROJ-123
 ```
 
 ### 2. Use JSON unless a human needs to read it directly
@@ -729,13 +790,13 @@ lv issue get PROJ-123
 Good:
 
 ```bash
-lv user digest 12345 --since 30d -f json
+logvalet user digest 12345 --since 30d -f json
 ```
 
 Use Markdown for sharing:
 
 ```bash
-lv user digest 12345 --since 30d -f md
+logvalet user digest 12345 --since 30d -f md
 ```
 
 ### 3. Resolve metadata before mutating issues
@@ -743,10 +804,10 @@ lv user digest 12345 --since 30d -f md
 Typical flow:
 
 ```bash
-lv meta status PROJ
-lv meta category PROJ
-lv meta version PROJ
-lv issue create --project PROJ ...
+logvalet meta status PROJ
+logvalet meta category PROJ
+logvalet meta version PROJ
+logvalet issue create --project PROJ ...
 ```
 
 ### 4. Use `user digest` for reporting workflows
@@ -754,15 +815,15 @@ lv issue create --project PROJ ...
 For monthly activity review:
 
 ```bash
-lv user digest 12345 --since 30d
+logvalet user digest 12345 --since 30d
 ```
 
 ### 5. Use `--dry-run` for write commands prepared by an agent
 
 ```bash
-lv issue update PROJ-123 --status 3 --dry-run
-lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
-lv document create --project PROJ --title "Runbook" --content-file ./runbook.md --dry-run
+logvalet issue update PROJ-123 --status 3 --dry-run
+logvalet issue comment add PROJ-123 --content-file ./comment.md --dry-run
+logvalet document create --project PROJ --title "Runbook" --content-file ./runbook.md --dry-run
 ```
 
 ---
@@ -784,14 +845,14 @@ Avoid these:
 If you only remember a few commands, remember these:
 
 ```bash
-lv issue digest PROJ-123
-lv issue list --project PROJ
-lv issue create --project PROJ --summary "..." --issue-type "Bug"
-lv issue comment add PROJ-123 --content "..."
-lv project digest PROJ
-lv activity digest --project PROJ --since 30d
-lv user digest 12345 --since 30d
-lv document digest 12345
-lv document create --project PROJ --title "..." --content-file ./doc.md
+logvalet issue digest PROJ-123
+logvalet issue list --project-key PROJ
+logvalet issue create --project PROJ --summary "..." --issue-type "Bug"
+logvalet issue comment add PROJ-123 --content "..."
+logvalet project digest PROJ
+logvalet activity digest --project PROJ --since 30d
+logvalet user digest 12345 --since 30d
+logvalet document digest 019b0240-4a9a-7c90-xxxx
+logvalet document create --project PROJ --title "..." --content-file ./doc.md
 ```
 

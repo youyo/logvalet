@@ -15,7 +15,7 @@ brew install youyo/tap/logvalet
 ### go install
 
 ```bash
-go install github.com/youyo/logvalet/cmd/lv@latest
+go install github.com/youyo/logvalet/cmd/logvalet@latest
 ```
 
 The installed binary is named `logvalet`. You can alias it to `lv` in your shell:
@@ -26,25 +26,37 @@ alias lv=logvalet
 
 ## Quick Start
 
-### Authenticate
+### 1. Setup
 
 ```bash
-logvalet auth login --profile work
+logvalet config init --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
 
-### Get an issue digest
+Or interactively:
+
+```bash
+logvalet config init
+```
+
+### 2. Verify
+
+```bash
+logvalet auth whoami
+```
+
+### 3. Get an issue digest
 
 ```bash
 logvalet issue digest PROJ-123
 ```
 
-### Short alias
+## Configuration
+
+Run `logvalet config init` to create the configuration interactively, or use flags for non-interactive setup:
 
 ```bash
-lv issue digest PROJ-123
+logvalet config init --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
-
-## Configuration
 
 Configuration file:
 
@@ -88,7 +100,7 @@ end
 
 | Command | Description |
 |---------|-------------|
-| `auth login` | Authenticate via OAuth |
+| `auth login` | Authenticate with API key |
 | `auth logout` | Remove stored credentials |
 | `auth whoami` | Show current identity |
 | `auth list` | List configured profiles |
@@ -125,6 +137,9 @@ end
 | `space info` | Show space information |
 | `space disk-usage` | Show disk usage |
 | `space digest` | Get space overview digest |
+| `config init` | Interactive configuration setup |
+| `configure` | Alias for config init |
+| `version` | Show version information |
 
 ## Global Flags
 
@@ -159,6 +174,24 @@ Write operations support `--dry-run` to preview the request payload before execu
 lv issue create --project PROJ --summary "Fix bug" --issue-type "Bug" --dry-run
 lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
 ```
+
+## Claude Code Skill
+
+logvalet includes a Claude Code skill that teaches Claude how to use logvalet commands effectively.
+
+### Install via npx
+
+```bash
+npx @anthropic-ai/claude-code skills add /path/to/logvalet/skills
+```
+
+### Install from GitHub
+
+```bash
+npx @anthropic-ai/claude-code skills add https://github.com/youyo/logvalet/tree/main/skills
+```
+
+After installation, Claude Code will automatically know how to use logvalet commands for Backlog operations.
 
 ## License
 
