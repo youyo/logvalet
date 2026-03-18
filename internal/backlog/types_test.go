@@ -95,9 +95,9 @@ func TestUpdateCommentRequest(t *testing.T) {
 func TestCreateDocumentRequest(t *testing.T) {
 	t.Run("without parent", func(t *testing.T) {
 		req := backlog.CreateDocumentRequest{
-			ProjectKey: "PROJ",
-			Title:      "Test Doc",
-			Content:    "Content",
+			ProjectID: 10,
+			Title:     "Test Doc",
+			Content:   "Content",
 		}
 		if req.ParentID != nil {
 			t.Error("ParentID should be nil")
@@ -105,15 +105,15 @@ func TestCreateDocumentRequest(t *testing.T) {
 	})
 
 	t.Run("with parent", func(t *testing.T) {
-		parentID := int64(100)
+		parentID := "parent-uuid-100"
 		req := backlog.CreateDocumentRequest{
-			ProjectKey: "PROJ",
-			Title:      "Child Doc",
-			Content:    "Content",
-			ParentID:   &parentID,
+			ProjectID: 10,
+			Title:     "Child Doc",
+			Content:   "Content",
+			ParentID:  &parentID,
 		}
-		if req.ParentID == nil || *req.ParentID != 100 {
-			t.Errorf("ParentID = %v, want 100", req.ParentID)
+		if req.ParentID == nil || *req.ParentID != "parent-uuid-100" {
+			t.Errorf("ParentID = %v, want %q", req.ParentID, "parent-uuid-100")
 		}
 	})
 }

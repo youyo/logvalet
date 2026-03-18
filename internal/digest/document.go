@@ -15,7 +15,7 @@ type DocumentDigestOptions struct{}
 
 // DocumentDigestBuilder はインターフェース（spec §13.5）。
 type DocumentDigestBuilder interface {
-	Build(ctx context.Context, documentID int64, opt DocumentDigestOptions) (*domain.DigestEnvelope, error)
+	Build(ctx context.Context, documentID string, opt DocumentDigestOptions) (*domain.DigestEnvelope, error)
 }
 
 // DefaultDocumentDigestBuilder は DocumentDigestBuilder の標準実装。
@@ -40,13 +40,15 @@ type DocumentDigest struct {
 
 // DigestDocumentDetail は Document Digest 内のドキュメント詳細情報（spec §13.5 document）。
 type DigestDocumentDetail struct {
-	ID          int64           `json:"id"`
+	ID          string          `json:"id"`
 	ProjectID   int             `json:"project_id"`
 	Title       string          `json:"title"`
-	Content     string          `json:"content,omitempty"`
+	Plain       string          `json:"plain,omitempty"`
+	JSON        string          `json:"json,omitempty"`
 	Created     *time.Time      `json:"created,omitempty"`
 	Updated     *time.Time      `json:"updated,omitempty"`
 	CreatedUser *domain.UserRef `json:"created_user,omitempty"`
+	UpdatedUser *domain.UserRef `json:"updated_user,omitempty"`
 }
 
 // DocumentDigestSummary は Document Digest の決定論的サマリー（spec §13.5 summary）。
@@ -65,13 +67,13 @@ type DocumentDigestSummary struct {
 // 注意: Backlog API の GetProject は projectKey(string) を引数に取るが、
 // domain.Document には ProjectID(int) しか含まれない。そのため ListProjects で全件取得し
 // ID マッチでプロジェクト情報を解決する。
-func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID int64, opt DocumentDigestOptions) (*domain.DigestEnvelope, error) {
+func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID string, opt DocumentDigestOptions) (*domain.DigestEnvelope, error) {
 	var warnings []domain.Warning
 
 	// 1. ドキュメント取得（必須）
 	doc, err := b.client.GetDocument(ctx, documentID)
 	if err != nil {
-		return nil, fmt.Errorf("GetDocument(%d): %w", documentID, err)
+		return nil, fmt.Errorf("GetDocument(%s): %w", documentID, err)
 	}
 
 	// 2. プロジェクト取得（オプション）
@@ -151,31 +153,31 @@ func buildDigestDocumentDetail(doc *domain.Document) DigestDocumentDetail {
 		ID:        doc.ID,
 		ProjectID: doc.ProjectID,
 		Title:     doc.Title,
-		Content:   doc.Content,
+		Plain:     doc.Plain,
+		JSON:      doc.JSON,
 		Created:   doc.Created,
 		Updated:   doc.Updated,
 	}
-
 	dd.CreatedUser = toUserRef(doc.CreatedUser)
-
+	dd.UpdatedUser = toUserRef(doc.UpdatedUser)
 	return dd
 }
 
 // buildDocumentDigestSummary は決定論的ドキュメントサマリーを構築する（spec §13.5 summary）。
 func buildDocumentDigestSummary(doc *domain.Document, attachmentCount int) DocumentDigestSummary {
-	headline := fmt.Sprintf("ドキュメント「%s」（ID: %d）", doc.Title, doc.ID)
+	headline := fmt.Sprintf("ドキュメント「%s」（ID: %s）", doc.Title, doc.ID)
 
 	return DocumentDigestSummary{
 		Headline:        headline,
 		AttachmentCount: attachmentCount,
-		HasContent:      doc.Content != "",
-		ContentLength:   len([]rune(doc.Content)),
+		HasContent:      doc.Plain != "",
+		ContentLength:   len([]rune(doc.Plain)),
 	}
 }
 
 // buildDocumentLLMHints は LLM ヒントを構築する（spec §13.5 llm_hints）。
 func buildDocumentLLMHints(doc *domain.Document, project DigestProject) DigestLLMHints {
-	entities := []string{fmt.Sprintf("document:%d", doc.ID), doc.Title}
+	entities := []string{fmt.Sprintf("document:%s", doc.ID), doc.Title}
 	if project.Key != "" {
 		entities = append(entities, project.Key)
 	}

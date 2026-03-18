@@ -86,15 +86,15 @@ type Client interface {
 
 	// GetDocument は指定ドキュメントIDのドキュメントを返す。
 	// Backlog API: GET /api/v2/documents/{documentID}
-	GetDocument(ctx context.Context, documentID int64) (*domain.Document, error)
+	GetDocument(ctx context.Context, documentID string) (*domain.Document, error)
 
 	// ListDocuments は指定プロジェクトのドキュメント一覧を返す。
-	// Backlog API: GET /api/v2/projects/{projectKey}/documents
-	ListDocuments(ctx context.Context, projectKey string, opt ListDocumentsOptions) ([]domain.Document, error)
+	// Backlog API: GET /api/v2/documents?projectId[]={id}&offset=N
+	ListDocuments(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
 
 	// GetDocumentTree は指定プロジェクトのドキュメントツリーを返す。
-	// Backlog API: GET /api/v2/projects/{projectKey}/documents/tree
-	GetDocumentTree(ctx context.Context, projectKey string) ([]domain.DocumentNode, error)
+	// Backlog API: GET /api/v2/documents/tree?projectIdOrKey={key}
+	GetDocumentTree(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
 
 	// CreateDocument は新しいドキュメントを作成する。
 	// Backlog API: POST /api/v2/documents
@@ -102,7 +102,7 @@ type Client interface {
 
 	// ListDocumentAttachments は指定ドキュメントの添付ファイル一覧を返す。
 	// Backlog API: GET /api/v2/documents/{documentID}/attachments
-	ListDocumentAttachments(ctx context.Context, documentID int64) ([]domain.Attachment, error)
+	ListDocumentAttachments(ctx context.Context, documentID string) ([]domain.Attachment, error)
 
 	// Project meta
 

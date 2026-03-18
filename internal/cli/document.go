@@ -21,7 +21,7 @@ type DocumentCmd struct {
 // DocumentGetCmd は document get コマンド（spec §14.18）。
 // lv document get <document_id>
 type DocumentGetCmd struct {
-	DocumentID int64 `arg:"" required:"" help:"ドキュメントID"`
+	DocumentID string `arg:"" required:"" help:"ドキュメントID"`
 }
 
 func (c *DocumentGetCmd) Run(g *GlobalFlags) error {
@@ -50,11 +50,16 @@ func (c *DocumentListCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
+	// projectKey → projectID 変換
+	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
+	if err != nil {
+		return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", c.ProjectKey, err)
+	}
 	opt := backlog.ListDocumentsOptions{
 		Limit:  c.Count,
 		Offset: c.Offset,
 	}
-	docs, err := rc.Client.ListDocuments(ctx, c.ProjectKey, opt)
+	docs, err := rc.Client.ListDocuments(ctx, proj.ID, opt)
 	if err != nil {
 		return err
 	}
@@ -84,7 +89,7 @@ func (c *DocumentTreeCmd) Run(g *GlobalFlags) error {
 // lv document digest <document_id>
 type DocumentDigestCmd struct {
 	DigestFlags
-	DocumentID int64 `arg:"" required:"" help:"ドキュメントID"`
+	DocumentID string `arg:"" required:"" help:"ドキュメントID"`
 }
 
 func (c *DocumentDigestCmd) Run(g *GlobalFlags) error {
@@ -105,11 +110,11 @@ func (c *DocumentDigestCmd) Run(g *GlobalFlags) error {
 // lv document create --project <key> --title <text> (--content <text> | --content-file <path>)
 type DocumentCreateCmd struct {
 	WriteFlags
-	ProjectKey  string `required:"" help:"プロジェクトキー"`
-	Title       string `required:"" help:"ドキュメントのタイトル"`
-	Content     string `help:"ドキュメントの本文（--content-file と排他）"`
-	ContentFile string `help:"ドキュメント本文のファイルパス（--content と排他）" type:"existingfile"`
-	ParentID    *int64 `help:"親ドキュメントID（任意）"`
+	ProjectKey  string  `required:"" help:"プロジェクトキー"`
+	Title       string  `required:"" help:"ドキュメントのタイトル"`
+	Content     string  `help:"ドキュメントの本文（--content-file と排他）"`
+	ContentFile string  `help:"ドキュメント本文のファイルパス（--content と排他）" type:"existingfile"`
+	ParentID    *string `help:"親ドキュメントID（任意）"`
 }
 
 func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
@@ -150,11 +155,16 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
+	// projectKey → projectID 変換
+	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
+	if err != nil {
+		return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", c.ProjectKey, err)
+	}
 	req := backlog.CreateDocumentRequest{
-		ProjectKey: c.ProjectKey,
-		Title:      c.Title,
-		Content:    content,
-		ParentID:   c.ParentID,
+		ProjectID: proj.ID,
+		Title:     c.Title,
+		Content:   content,
+		ParentID:  c.ParentID,
 	}
 	doc, err := rc.Client.CreateDocument(ctx, req)
 	if err != nil {

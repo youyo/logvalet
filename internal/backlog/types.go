@@ -48,10 +48,10 @@ type UpdateCommentRequest struct {
 
 // CreateDocumentRequest は CreateDocument リクエストのパラメータ。
 type CreateDocumentRequest struct {
-	ProjectKey string
-	Title      string
-	Content    string
-	ParentID   *int64
+	ProjectID int
+	Title     string
+	Content   string
+	ParentID  *string
 }
 
 // ---- Response metadata ----

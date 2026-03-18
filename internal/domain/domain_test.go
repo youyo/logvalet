@@ -65,7 +65,7 @@ func TestIssue_JSONTags(t *testing.T) {
 // TestDocument_JSONTags は Document の JSON タグが Backlog API (camelCase) に準拠しているかを検証する。
 func TestDocument_JSONTags(t *testing.T) {
 	doc := domain.Document{
-		ID:          1,
+		ID:          "test-doc-001",
 		ProjectID:   100,
 		Title:       "テストドキュメント",
 		CreatedUser: &domain.User{ID: 1, Name: "テストユーザー"},

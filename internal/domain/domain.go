@@ -102,19 +102,39 @@ type NormalizedActivity struct {
 
 // Document は Backlog のドキュメントモデル。
 type Document struct {
-	ID          int64      `json:"id"`
-	ProjectID   int        `json:"projectId"`
-	Title       string     `json:"title"`
-	Content     string     `json:"content,omitempty"`
-	Created     *time.Time `json:"created,omitempty"`
-	Updated     *time.Time `json:"updated,omitempty"`
-	CreatedUser *User      `json:"createdUser,omitempty"`
+	ID          string       `json:"id"`
+	ProjectID   int          `json:"projectId"`
+	Title       string       `json:"title"`
+	Plain       string       `json:"plain,omitempty"`
+	JSON        string       `json:"json,omitempty"`
+	StatusID    int          `json:"statusId,omitempty"`
+	Emoji       string       `json:"emoji,omitempty"`
+	Attachments []Attachment `json:"attachments,omitempty"`
+	Tags        []Tag        `json:"tags,omitempty"`
+	CreatedUser *User        `json:"createdUser,omitempty"`
+	Created     *time.Time   `json:"created,omitempty"`
+	UpdatedUser *User        `json:"updatedUser,omitempty"`
+	Updated     *time.Time   `json:"updated,omitempty"`
+}
+
+// Tag はドキュメントのタグ。
+type Tag struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// DocumentTree はドキュメントツリーの API レスポンス。
+type DocumentTree struct {
+	ProjectID  int          `json:"projectId"`
+	ActiveTree DocumentNode `json:"activeTree"`
+	TrashTree  DocumentNode `json:"trashTree"`
 }
 
 // DocumentNode はドキュメントツリーのノード。
 type DocumentNode struct {
-	ID       int64          `json:"id"`
-	Title    string         `json:"title"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Emoji    string         `json:"emoji,omitempty"`
 	Children []DocumentNode `json:"children,omitempty"`
 }
 

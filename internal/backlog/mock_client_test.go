@@ -75,7 +75,7 @@ func TestMockClientListIssues(t *testing.T) {
 		mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
 			return []domain.Issue{{IssueKey: "A-1"}, {IssueKey: "A-2"}}, nil
 		}
-		got, err := mock.ListIssues(context.Background(), backlog.ListIssuesOptions{ProjectKey: "A"})
+		got, err := mock.ListIssues(context.Background(), backlog.ListIssuesOptions{ProjectIDs: []int{1}})
 		if err != nil {
 			t.Fatalf("ListIssues() error = %v", err)
 		}

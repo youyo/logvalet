@@ -13,10 +13,10 @@ import (
 func TestDocumentDigestBuilder_Build_success(t *testing.T) {
 	now := time.Now().UTC()
 	doc := &domain.Document{
-		ID:        42,
+		ID:        "test-doc-uuid-001",
 		ProjectID: 10,
 		Title:     "テストドキュメント",
-		Content:   "本文テキスト",
+		Plain:     "本文テキスト",
 		Created:   &now,
 		Updated:   &now,
 		CreatedUser: &domain.User{
@@ -34,8 +34,8 @@ func TestDocumentDigestBuilder_Build_success(t *testing.T) {
 	}
 
 	mock := backlog.NewMockClient()
-	mock.GetDocumentFunc = func(ctx context.Context, documentID int64) (*domain.Document, error) {
-		if documentID != 42 {
+	mock.GetDocumentFunc = func(ctx context.Context, documentID string) (*domain.Document, error) {
+		if documentID != "test-doc-uuid-001" {
 			return nil, errors.New("unexpected documentID")
 		}
 		return doc, nil
@@ -43,12 +43,12 @@ func TestDocumentDigestBuilder_Build_success(t *testing.T) {
 	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
 		return []domain.Project{*project}, nil
 	}
-	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
+	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID string) ([]domain.Attachment, error) {
 		return attachments, nil
 	}
 
 	builder := NewDefaultDocumentDigestBuilder(mock, "default", "myspace", "https://example.backlog.com")
-	envelope, err := builder.Build(context.Background(), 42, DocumentDigestOptions{})
+	envelope, err := builder.Build(context.Background(), "test-doc-uuid-001", DocumentDigestOptions{})
 	if err != nil {
 		t.Fatalf("Build() returned error: %v", err)
 	}
@@ -64,8 +64,8 @@ func TestDocumentDigestBuilder_Build_success(t *testing.T) {
 	if !ok {
 		t.Fatalf("Digest is not *DocumentDigest")
 	}
-	if d.Document.ID != 42 {
-		t.Errorf("Document.ID = %d, want 42", d.Document.ID)
+	if d.Document.ID != "test-doc-uuid-001" {
+		t.Errorf("Document.ID = %q, want %q", d.Document.ID, "test-doc-uuid-001")
 	}
 	if d.Document.Title != "テストドキュメント" {
 		t.Errorf("Document.Title = %q, want %q", d.Document.Title, "テストドキュメント")
@@ -89,12 +89,12 @@ func TestDocumentDigestBuilder_Build_success(t *testing.T) {
 
 func TestDocumentDigestBuilder_Build_document_not_found(t *testing.T) {
 	mock := backlog.NewMockClient()
-	mock.GetDocumentFunc = func(ctx context.Context, documentID int64) (*domain.Document, error) {
+	mock.GetDocumentFunc = func(ctx context.Context, documentID string) (*domain.Document, error) {
 		return nil, backlog.ErrNotFound
 	}
 
 	builder := NewDefaultDocumentDigestBuilder(mock, "default", "myspace", "https://example.backlog.com")
-	_, err := builder.Build(context.Background(), 999, DocumentDigestOptions{})
+	_, err := builder.Build(context.Background(), "nonexistent-uuid", DocumentDigestOptions{})
 	if err == nil {
 		t.Fatal("Build() should return error when document not found")
 	}
@@ -103,10 +103,10 @@ func TestDocumentDigestBuilder_Build_document_not_found(t *testing.T) {
 func TestDocumentDigestBuilder_Build_attachments_fetch_failed(t *testing.T) {
 	now := time.Now().UTC()
 	doc := &domain.Document{
-		ID:        42,
+		ID:        "test-doc-uuid-001",
 		ProjectID: 10,
 		Title:     "テスト",
-		Content:   "",
+		Plain:     "",
 		Created:   &now,
 	}
 	project := &domain.Project{
@@ -116,18 +116,18 @@ func TestDocumentDigestBuilder_Build_attachments_fetch_failed(t *testing.T) {
 	}
 
 	mock := backlog.NewMockClient()
-	mock.GetDocumentFunc = func(ctx context.Context, documentID int64) (*domain.Document, error) {
+	mock.GetDocumentFunc = func(ctx context.Context, documentID string) (*domain.Document, error) {
 		return doc, nil
 	}
 	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
 		return []domain.Project{*project}, nil
 	}
-	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
+	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID string) ([]domain.Attachment, error) {
 		return nil, errors.New("network error")
 	}
 
 	builder := NewDefaultDocumentDigestBuilder(mock, "default", "myspace", "https://example.backlog.com")
-	envelope, err := builder.Build(context.Background(), 42, DocumentDigestOptions{})
+	envelope, err := builder.Build(context.Background(), "test-doc-uuid-001", DocumentDigestOptions{})
 	if err != nil {
 		t.Fatalf("Build() returned error: %v", err)
 	}
@@ -149,25 +149,25 @@ func TestDocumentDigestBuilder_Build_attachments_fetch_failed(t *testing.T) {
 func TestDocumentDigestBuilder_Build_project_fetch_failed(t *testing.T) {
 	now := time.Now().UTC()
 	doc := &domain.Document{
-		ID:        42,
+		ID:        "test-doc-uuid-001",
 		ProjectID: 10,
 		Title:     "テスト",
 		Created:   &now,
 	}
 
 	mock := backlog.NewMockClient()
-	mock.GetDocumentFunc = func(ctx context.Context, documentID int64) (*domain.Document, error) {
+	mock.GetDocumentFunc = func(ctx context.Context, documentID string) (*domain.Document, error) {
 		return doc, nil
 	}
 	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
 		return nil, errors.New("projects fetch failed")
 	}
-	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
+	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID string) ([]domain.Attachment, error) {
 		return []domain.Attachment{}, nil
 	}
 
 	builder := NewDefaultDocumentDigestBuilder(mock, "default", "myspace", "https://example.backlog.com")
-	envelope, err := builder.Build(context.Background(), 42, DocumentDigestOptions{})
+	envelope, err := builder.Build(context.Background(), "test-doc-uuid-001", DocumentDigestOptions{})
 	if err != nil {
 		t.Fatalf("Build() returned error: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestDocumentDigestBuilder_Build_project_fetch_failed(t *testing.T) {
 func TestDocumentDigestBuilder_Build_project_id_not_matched(t *testing.T) {
 	now := time.Now().UTC()
 	doc := &domain.Document{
-		ID:        42,
+		ID:        "test-doc-uuid-001",
 		ProjectID: 999, // どのプロジェクトにもマッチしない
 		Title:     "テスト",
 		Created:   &now,
@@ -202,18 +202,18 @@ func TestDocumentDigestBuilder_Build_project_id_not_matched(t *testing.T) {
 	}
 
 	mock := backlog.NewMockClient()
-	mock.GetDocumentFunc = func(ctx context.Context, documentID int64) (*domain.Document, error) {
+	mock.GetDocumentFunc = func(ctx context.Context, documentID string) (*domain.Document, error) {
 		return doc, nil
 	}
 	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
 		return []domain.Project{*otherProject}, nil
 	}
-	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
+	mock.ListDocumentAttachmentsFunc = func(ctx context.Context, documentID string) ([]domain.Attachment, error) {
 		return []domain.Attachment{}, nil
 	}
 
 	builder := NewDefaultDocumentDigestBuilder(mock, "default", "myspace", "https://example.backlog.com")
-	envelope, err := builder.Build(context.Background(), 42, DocumentDigestOptions{})
+	envelope, err := builder.Build(context.Background(), "test-doc-uuid-001", DocumentDigestOptions{})
 	if err != nil {
 		t.Fatalf("Build() returned error: %v", err)
 	}

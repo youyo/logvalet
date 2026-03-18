@@ -38,11 +38,11 @@ type MockClient struct {
 	ListSpaceActivitiesFunc func(ctx context.Context, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Documents
-	GetDocumentFunc            func(ctx context.Context, documentID int64) (*domain.Document, error)
-	ListDocumentsFunc          func(ctx context.Context, projectKey string, opt ListDocumentsOptions) ([]domain.Document, error)
-	GetDocumentTreeFunc        func(ctx context.Context, projectKey string) ([]domain.DocumentNode, error)
+	GetDocumentFunc            func(ctx context.Context, documentID string) (*domain.Document, error)
+	ListDocumentsFunc          func(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
+	GetDocumentTreeFunc        func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
 	CreateDocumentFunc         func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
-	ListDocumentAttachmentsFunc func(ctx context.Context, documentID int64) ([]domain.Attachment, error)
+	ListDocumentAttachmentsFunc func(ctx context.Context, documentID string) ([]domain.Attachment, error)
 
 	// Project meta
 	ListProjectStatusesFunc      func(ctx context.Context, projectKey string) ([]domain.Status, error)
@@ -205,7 +205,7 @@ func (m *MockClient) ListSpaceActivities(ctx context.Context, opt ListActivities
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) GetDocument(ctx context.Context, documentID int64) (*domain.Document, error) {
+func (m *MockClient) GetDocument(ctx context.Context, documentID string) (*domain.Document, error) {
 	m.increment("GetDocument")
 	if m.GetDocumentFunc != nil {
 		return m.GetDocumentFunc(ctx, documentID)
@@ -213,15 +213,15 @@ func (m *MockClient) GetDocument(ctx context.Context, documentID int64) (*domain
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) ListDocuments(ctx context.Context, projectKey string, opt ListDocumentsOptions) ([]domain.Document, error) {
+func (m *MockClient) ListDocuments(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error) {
 	m.increment("ListDocuments")
 	if m.ListDocumentsFunc != nil {
-		return m.ListDocumentsFunc(ctx, projectKey, opt)
+		return m.ListDocumentsFunc(ctx, projectID, opt)
 	}
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) GetDocumentTree(ctx context.Context, projectKey string) ([]domain.DocumentNode, error) {
+func (m *MockClient) GetDocumentTree(ctx context.Context, projectKey string) (*domain.DocumentTree, error) {
 	m.increment("GetDocumentTree")
 	if m.GetDocumentTreeFunc != nil {
 		return m.GetDocumentTreeFunc(ctx, projectKey)
@@ -237,7 +237,7 @@ func (m *MockClient) CreateDocument(ctx context.Context, req CreateDocumentReque
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) ListDocumentAttachments(ctx context.Context, documentID int64) ([]domain.Attachment, error) {
+func (m *MockClient) ListDocumentAttachments(ctx context.Context, documentID string) ([]domain.Attachment, error) {
 	m.increment("ListDocumentAttachments")
 	if m.ListDocumentAttachmentsFunc != nil {
 		return m.ListDocumentAttachmentsFunc(ctx, documentID)
