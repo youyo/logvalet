@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/cli"
+	"github.com/youyo/logvalet/internal/config"
 	"github.com/youyo/logvalet/internal/credentials"
 )
 
@@ -73,7 +74,7 @@ func TestAuthLogoutCmd_Run_NoProfile(t *testing.T) {
 	store := credentials.NewStore(filepath.Join(dir, "tokens.json"))
 
 	cmd := &cli.AuthLogoutCmd{}
-	g := &cli.GlobalFlags{Profile: ""}
+	g := &cli.GlobalFlags{Profile: "", Config: filepath.Join(dir, "nonexistent-config.toml")}
 	err := cmd.RunWithStore(g, store)
 	if err == nil {
 		t.Fatal("Run() returned nil error when profile not specified, want error")
@@ -219,7 +220,7 @@ func TestAuthWhoamiCmd_Run_NoProfile(t *testing.T) {
 	store := credentials.NewStore(filepath.Join(dir, "tokens.json"))
 
 	cmd := &cli.AuthWhoamiCmd{}
-	g := &cli.GlobalFlags{Profile: ""}
+	g := &cli.GlobalFlags{Profile: "", Config: filepath.Join(dir, "nonexistent-config.toml")}
 	_, err := cmd.RunWithStoreCapture(g, store, "")
 	if err == nil {
 		t.Fatal("Run() returned nil error when no profile specified, want error")
@@ -303,7 +304,7 @@ func TestAuthLoginCmd_NoProfile(t *testing.T) {
 	store := credentials.NewStore(filepath.Join(dir, "tokens.json"))
 
 	cmd := &cli.AuthLoginCmd{}
-	g := &cli.GlobalFlags{Profile: ""}
+	g := &cli.GlobalFlags{Profile: "", Config: filepath.Join(dir, "nonexistent-config.toml")}
 	loginReq := cli.AuthLoginRequest{
 		AuthType: "api_key",
 		APIKey:   "KEY",
@@ -311,6 +312,165 @@ func TestAuthLoginCmd_NoProfile(t *testing.T) {
 	_, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
 	if err == nil {
 		t.Fatal("Run() returned nil error when no profile specified, want error")
+	}
+}
+
+// ---- default_profile テスト ----
+
+func TestAuthWhoamiCmd_Run_DefaultProfile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// config.toml を作成
+	configPath := filepath.Join(dir, "config.toml")
+	w := config.NewWriter()
+	if err := w.Write(configPath, &config.Config{
+		Version:        1,
+		DefaultProfile: "work",
+		Profiles: map[string]config.ProfileConfig{
+			"work": {Space: "example", BaseURL: "https://example.backlog.com", AuthRef: "work"},
+		},
+	}); err != nil {
+		t.Fatalf("setup config: %v", err)
+	}
+
+	// tokens.json を作成
+	tokensPath := filepath.Join(dir, "tokens.json")
+	store := credentials.NewStore(tokensPath)
+	tokens := &credentials.TokensFile{
+		Version: 1,
+		Auth: map[string]credentials.AuthEntry{
+			"work": {AuthType: "api_key", APIKey: "TEST_KEY"},
+		},
+	}
+	if err := store.Save(tokens); err != nil {
+		t.Fatalf("setup tokens: %v", err)
+	}
+
+	cmd := &cli.AuthWhoamiCmd{}
+	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
+	output, err := cmd.RunWithStoreCapture(g, store, "")
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+
+	var result struct {
+		Profile  string `json:"profile"`
+		AuthType string `json:"auth_type"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("json.Unmarshal() error: %v", err)
+	}
+	if result.Profile != "work" {
+		t.Errorf("profile = %q, want work", result.Profile)
+	}
+	if result.AuthType != "api_key" {
+		t.Errorf("auth_type = %q, want api_key", result.AuthType)
+	}
+}
+
+func TestAuthLoginCmd_DefaultProfile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// config.toml を作成
+	configPath := filepath.Join(dir, "config.toml")
+	w := config.NewWriter()
+	if err := w.Write(configPath, &config.Config{
+		Version:        1,
+		DefaultProfile: "work",
+		Profiles: map[string]config.ProfileConfig{
+			"work": {Space: "example", BaseURL: "https://example.backlog.com", AuthRef: "work"},
+		},
+	}); err != nil {
+		t.Fatalf("setup config: %v", err)
+	}
+
+	tokensPath := filepath.Join(dir, "tokens.json")
+	store := credentials.NewStore(tokensPath)
+
+	cmd := &cli.AuthLoginCmd{}
+	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
+	loginReq := cli.AuthLoginRequest{
+		AuthType: "api_key",
+		APIKey:   "MY_API_KEY",
+		Space:    "example",
+		BaseURL:  "https://example.backlog.com",
+	}
+	output, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+
+	var result struct {
+		Profile  string `json:"profile"`
+		Result   string `json:"result"`
+		AuthType string `json:"auth_type"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("json.Unmarshal() error: %v", err)
+	}
+	if result.Profile != "work" {
+		t.Errorf("profile = %q, want work", result.Profile)
+	}
+	if result.Result != "ok" {
+		t.Errorf("result = %q, want ok", result.Result)
+	}
+
+	// tokens.json に work プロファイルで保存されていることを確認
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if _, ok := loaded.Auth["work"]; !ok {
+		t.Error("work entry not found in tokens.json after login with default_profile")
+	}
+}
+
+func TestAuthLogoutCmd_DefaultProfile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// config.toml を作成
+	configPath := filepath.Join(dir, "config.toml")
+	w := config.NewWriter()
+	if err := w.Write(configPath, &config.Config{
+		Version:        1,
+		DefaultProfile: "work",
+		Profiles: map[string]config.ProfileConfig{
+			"work": {Space: "example", BaseURL: "https://example.backlog.com", AuthRef: "work"},
+		},
+	}); err != nil {
+		t.Fatalf("setup config: %v", err)
+	}
+
+	// tokens.json を作成
+	tokensPath := filepath.Join(dir, "tokens.json")
+	store := credentials.NewStore(tokensPath)
+	tokens := &credentials.TokensFile{
+		Version: 1,
+		Auth: map[string]credentials.AuthEntry{
+			"work": {AuthType: "api_key", APIKey: "TEST_KEY"},
+		},
+	}
+	if err := store.Save(tokens); err != nil {
+		t.Fatalf("setup tokens: %v", err)
+	}
+
+	cmd := &cli.AuthLogoutCmd{}
+	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
+	err := cmd.RunWithStore(g, store)
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+
+	// tokens.json から work が削除されていることを確認
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if _, ok := loaded.Auth["work"]; ok {
+		t.Error("work entry still exists in tokens.json after logout with default_profile")
 	}
 }
 

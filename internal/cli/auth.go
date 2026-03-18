@@ -119,8 +119,9 @@ func resolveAuthBaseURL(g *GlobalFlags) (baseURL, space string, err error) {
 // テストおよび内部実装から呼び出す。
 // 出力 JSON 文字列を返す。
 func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credentials.Store, req AuthLoginRequest) (string, error) {
-	if g.Profile == "" {
-		return "", fmt.Errorf("auth login: --profile is required")
+	profile, err := resolveProfile(g)
+	if err != nil {
+		return "", fmt.Errorf("auth login: %w", err)
 	}
 
 	// tokens.json をロードして更新
@@ -143,7 +144,7 @@ func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credenti
 		RefreshToken: req.RefreshToken,
 		TokenExpiry:  req.TokenExpiry,
 	}
-	tokens.Auth[g.Profile] = entry
+	tokens.Auth[profile] = entry
 
 	if err := store.Save(tokens); err != nil {
 		return "", fmt.Errorf("auth login: failed to save tokens: %w", err)
@@ -153,7 +154,7 @@ func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credenti
 	resp := authLoginResponse{
 		SchemaVersion: "1",
 		Result:        "ok",
-		Profile:       g.Profile,
+		Profile:       profile,
 		Space:         req.Space,
 		BaseURL:       req.BaseURL,
 		AuthType:      req.AuthType,
@@ -191,8 +192,9 @@ func (c *AuthLogoutCmd) Run(g *GlobalFlags) error {
 
 // RunWithStore は tokens.json から指定プロファイルのエントリを削除する（テスト用DI）。
 func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) error {
-	if g.Profile == "" {
-		return fmt.Errorf("auth logout: --profile is required")
+	profile, err := resolveProfile(g)
+	if err != nil {
+		return fmt.Errorf("auth logout: %w", err)
 	}
 
 	tokens, err := store.Load()
@@ -201,14 +203,14 @@ func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) er
 	}
 
 	if tokens.Auth == nil || len(tokens.Auth) == 0 {
-		return fmt.Errorf("auth logout: profile %q not found in tokens.json", g.Profile)
+		return fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
 	}
 
-	if _, ok := tokens.Auth[g.Profile]; !ok {
-		return fmt.Errorf("auth logout: profile %q not found in tokens.json", g.Profile)
+	if _, ok := tokens.Auth[profile]; !ok {
+		return fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
 	}
 
-	delete(tokens.Auth, g.Profile)
+	delete(tokens.Auth, profile)
 
 	if err := store.Save(tokens); err != nil {
 		return fmt.Errorf("auth logout: failed to save tokens: %w", err)
@@ -217,7 +219,7 @@ func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) er
 	resp := authLogoutResponse{
 		SchemaVersion: "1",
 		Result:        "ok",
-		Profile:       g.Profile,
+		Profile:       profile,
 		Removed:       true,
 	}
 	data, err := json.Marshal(resp)
@@ -258,8 +260,9 @@ func (c *AuthWhoamiCmd) Run(g *GlobalFlags) error {
 // RunWithStoreCapture は tokens.json から認証情報を取得して JSON 文字列を返す（テスト用DI）。
 // M03: Backlog API 呼び出しなし。tokens.json の情報のみ表示。
 func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store, authRef string) (string, error) {
-	if g.Profile == "" {
-		return "", fmt.Errorf("auth whoami: --profile is required")
+	profile, err := resolveProfile(g)
+	if err != nil {
+		return "", fmt.Errorf("auth whoami: %w", err)
 	}
 
 	tokens, err := store.Load()
@@ -268,12 +271,16 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 	}
 
 	if tokens.Auth == nil {
-		return "", fmt.Errorf("auth whoami: no credentials found for profile %q", g.Profile)
+		return "", fmt.Errorf("auth whoami: no credentials found for profile %q", profile)
+	}
+
+	if authRef == "" {
+		authRef = profile
 	}
 
 	entry, ok := tokens.Auth[authRef]
 	if !ok {
-		return "", fmt.Errorf("auth whoami: no credentials found for profile %q (auth_ref %q)", g.Profile, authRef)
+		return "", fmt.Errorf("auth whoami: no credentials found for profile %q (auth_ref %q)", profile, authRef)
 	}
 
 	// token_expiry から有効期限チェック
@@ -287,7 +294,7 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 
 	resp := authWhoamiResponse{
 		SchemaVersion: "1",
-		Profile:       g.Profile,
+		Profile:       profile,
 		AuthType:      entry.AuthType,
 		ExpiresAt:     expiresAt,
 		Expired:       expired,
@@ -377,6 +384,29 @@ type authListProfileEntry struct {
 type authListResponse struct {
 	SchemaVersion string                 `json:"schema_version"`
 	Profiles      []authListProfileEntry `json:"profiles"`
+}
+
+// resolveProfile は GlobalFlags と config.toml の default_profile からプロファイル名を解決する。
+// --profile フラグが指定されている場合はそれを優先し、
+// 未指定の場合は config.toml の default_profile を使用する。
+func resolveProfile(g *GlobalFlags) (string, error) {
+	if g.Profile != "" {
+		return g.Profile, nil
+	}
+	configPath := config.ResolveConfigPath(g.Config, os.Getenv)
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return "", fmt.Errorf("設定ファイルの読み込みに失敗: %w", err)
+	}
+	flags := config.OverrideFlags{Profile: g.Profile}
+	resolved, err := config.Resolve(cfg, flags, os.Getenv)
+	if err != nil {
+		return "", fmt.Errorf("設定の解決に失敗: %w", err)
+	}
+	if resolved.Profile == "" {
+		return "", fmt.Errorf("--profile が必要です。config.toml の default_profile を設定するか --profile を指定してください")
+	}
+	return resolved.Profile, nil
 }
 
 // sortProfileEntries はプロファイルエントリをプロファイル名でソートする（挿入ソート）。
