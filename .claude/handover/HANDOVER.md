@@ -1,58 +1,65 @@
 # HANDOVER.md
 
-> 生成日時: 2026-03-18 14:30
+> 生成日時: 2026-03-18 16:30
 > プロジェクト: logvalet
 > ブランチ: main
 
 ## 今回やったこと
 
-- M13: GlobalFlags 完全実装
-  - `internal/cli/global_flags.go`: 欠落していた 6 フラグを追加
-    - `--api-key` / `LOGVALET_API_KEY`
-    - `--access-token` / `LOGVALET_ACCESS_TOKEN`
-    - `--base-url` / `LOGVALET_BASE_URL`
-    - `--space` / `-s` / `LOGVALET_SPACE`
-    - `--config` / `-c` / `LOGVALET_CONFIG`
-    - `--no-color` / `LOGVALET_NO_COLOR`
-  - `GlobalFlags.Validate()`: --api-key/--access-token の排他バリデーション（spec §17 Validation rules）
-  - `internal/cli/runner.go`: `buildRunContext()` を修正
-    - `config.ResolveConfigPath()` で --config / LOGVALET_CONFIG に対応
-    - `config.OverrideFlags` に Pretty/Space/BaseURL/Verbose/NoColor/ConfigPath を全て渡す
-    - `credentials.CredentialFlags` に APIKey/AccessToken を渡す
-    - `boolPtr()` ヘルパーで bool → *bool 変換
-  - `internal/cli/auth.go`: AuthLoginCmd の独自 --api-key フラグを削除し GlobalFlags に統合
-  - `internal/cli/issue.go`: IssueDigestCmd.Comments の `-c` 短縮フラグを削除（GlobalFlags.Config の `-c` と衝突回避）
-  - テスト: 新フラグの CLI パース / 環境変数オーバーライド / 排他バリデーション
-- `plans/logvalet-m13-global-flags.md`: M13 詳細計画ファイルを作成
-- `plans/logvalet-roadmap-v2.md`: M13 完了マーク + Current Focus を M14 に更新
-- コミット: `326cc71`
+- M15: `logvalet config init` コマンド（対話型セットアップ）実装
+  - `internal/config/writer.go`: 新規作成
+    - `Writer` interface 定義（config.toml の書き出し担当）
+    - `defaultWriter` 実装: TOML エンコード、ディレクトリ自動作成（0700）、ファイルパーミッション 0600
+  - `internal/config/writer_test.go`: 4テストケース
+    - WriteNewFile / WriteExistingFile / CreateDirectory / FilePermissions
+  - `internal/cli/config_cmd.go`: 新規作成
+    - `ConfigCmd` (config サブコマンド群) + `ConfigInitCmd` (config init)
+    - `ConfigureCmd` (トップレベルエイリアス、ConfigInitCmd に委譲)
+    - `Prompter` interface + `stdinPrompter` 実装（対話入力の抽象化）
+    - `ConfigInitDeps` struct（テスト用DI: Writer, Loader, Prompter, stdout/stderr）
+    - 対話モード: profile/space/base_url をプロンプトで入力
+    - 非対話モード: --init-profile + --init-space 指定時はプロンプトスキップ
+    - 既存プロファイル上書き確認（対話モードのみ。非対話は確認なし上書き）
+    - auth_ref をプロファイル名と同じ値で自動設定
+    - default_profile が空の場合のみ自動設定
+    - default_format が空の場合は "json" を設定
+    - stderr に次のステップ（auth login）を案内
+  - `internal/cli/config_cmd_test.go`: 10テストケース
+    - AllFlags_NewProfile / AllFlags_ExistingProfile / Interactive / OverwriteYes / OverwriteNo / DefaultBaseURL / AuthRef_AutoSet / DefaultProfile_AutoSet / OutputJSON / StderrGuidance
+  - `internal/cli/root.go`: Config + Configure コマンド登録
+  - `plans/logvalet-m15-config-init.md`: 詳細計画ファイル作成
+  - `plans/logvalet-roadmap-v2.md`: M15 完了マーク + Current Focus を M16 に更新
+  - コミット: `1076649`
 
 ## 決定事項
 
-- **AuthLoginCmd の --api-key は GlobalFlags に統合**: 元々 AuthLoginCmd が独自に `--api-key` フラグを持っていたが、GlobalFlags に同名フラグを追加したため Kong で重複エラーが発生。auth login は GlobalFlags.APIKey を使うように変更
-- **IssueDigestCmd.Comments の `-c` 短縮フラグを削除**: GlobalFlags.Config が `-c` を使うため衝突。サブコマンドのフラグは長い名前 `--comments` のみとした
-- **bool → *bool 変換は boolPtr() ヘルパーで統一**: Kong の bool フラグは未指定=false、指定=true。config.OverrideFlags の *bool（nil=未指定）との変換が必要。Kong が env タグを先に処理するため、boolPtr で常に渡しても問題なし
+- **ConfigureCmd は embedding ではなく委譲パターン**: Kong で型エイリアスは動作しない。ConfigureCmd は独自フィールドを持ち、Run で ConfigInitCmd に委譲する
+- **非対話モードの判定**: `--init-profile` と `--init-space` の両方が指定された場合に非対話モード
+- **非対話モードでの上書き**: 確認プロンプトなし、暗黙的に上書き（CI/自動化の利便性）
+- **auth_ref の自動設定**: プロファイル名と同じ値。auth login との連携を確保
+- **default_profile の自動設定**: config.toml の default_profile が空の場合のみ、新しいプロファイル名を設定
+- **フラグ名**: GlobalFlags.Profile との衝突を避け `--init-profile`, `--init-space`, `--init-base-url` を使用
+- **stdout は JSON のみ**: spec §7 準拠。プロンプトと案内は stderr に出力
 
 ## 捨てた選択肢と理由
 
-- **buildRunContextWith() DI リファクタリング**: テスタビリティ向上のため検討したが、GlobalFlags のパーステスト + config/credentials の既存単体テストで十分カバーされるため取りやめ
-- **bool フラグの negatable タグ**: Kong の `negatable` タグで `--no-pretty` のような否定形を実現できるが、spec の定義とずれるため不採用
+- **ConfigureCmd の型エイリアス (`type ConfigureCmd = ConfigInitCmd`)**: Kong が型エイリアスのタグを正しく処理しない可能性。独立した struct + Run 委譲に変更
+- **ConfigInitCmd のフラグを --profile / --space にする**: GlobalFlags.Profile (--profile) と衝突。--init-profile に変更
+- **TTY 判定による対話/非対話切り替え**: 過剰。フラグの有無で十分
+- **--force フラグ**: 非対話モードでは常に上書きするため不要
 
 ## ハマりどころ
 
-- Kong のグローバルフラグ（CLI struct の埋め込み）とサブコマンドのフラグが同名だと `duplicate flag` エラーになる
-- 環境変数が前のテストから漏れて Validate() が意図しないエラーを出す問題 → `t.Setenv` で各テストの先頭で認証系 env をクリア
+- TOML の `default_format = ""` が空文字列として出力される。Config struct に `omitempty` がないため、config init で明示的に "json" を設定するようにした
 
 ## 学び
 
-- Kong は struct に `Validate() error` メソッドがあると Parse 後に自動で呼び出す
-- `type:"path"` タグは Kong の補完ヒントのみで、ファイル存在チェックは行わない
-- グローバルフラグの短縮名はサブコマンド全体で一意である必要がある
+- Kong の embedding パターン: embedded struct の Run メソッドは呼ばれるが、トップレベルコマンドとして使う場合は委譲パターンの方が制御しやすい
+- Prompter interface による対話入力の抽象化は、テストの書きやすさに大きく貢献する
+- 非対話モードの判定条件を明確に定義しておくことで、CI での利用がスムーズになる
 
 ## 次にやること（優先度順）
 
-- [ ] M14: JSON エラーエンベロープ (§9) — ErrorEnvelope/WarningEnvelope 型定義 + main.go 修正（中）
-- [ ] M15: `logvalet config init` + `logvalet configure` エイリアス — 対話型セットアップ（中）
 - [ ] M16: `logvalet version` コマンド実装（低・optional）
 - [ ] `auth whoami` の user フィールドが null の原因調査（低）
 - [ ] GitHub Secrets に `APP_ID` と `APP_PRIVATE_KEY` を設定（Homebrew tap 更新用）（高）
@@ -60,10 +67,10 @@
 
 ## 関連ファイル
 
-- `internal/cli/global_flags.go` — 6 フラグ追加 + Validate()
-- `internal/cli/global_flags_test.go` — 新フラグテスト
-- `internal/cli/runner.go` — buildRunContext() 修正
-- `internal/cli/auth.go` — AuthLoginCmd の --api-key 削除
-- `internal/cli/issue.go` — IssueDigestCmd.Comments の -c 削除
-- `plans/logvalet-m13-global-flags.md` — M13 詳細計画
-- `plans/logvalet-roadmap-v2.md` — M13 完了マーク
+- `internal/config/writer.go` — Writer interface + defaultWriter 実装
+- `internal/config/writer_test.go` — Writer テスト（4件）
+- `internal/cli/config_cmd.go` — ConfigCmd / ConfigInitCmd / ConfigureCmd / Prompter
+- `internal/cli/config_cmd_test.go` — ConfigInitCmd テスト（10件）
+- `internal/cli/root.go` — Config + Configure コマンド登録
+- `plans/logvalet-m15-config-init.md` — 詳細計画
+- `plans/logvalet-roadmap-v2.md` — M15 完了マーク
