@@ -127,7 +127,17 @@
   - exit code との整合性
 - [ ] テスト: 各 exit code に対応するエラーの JSON 出力確認
 
-### M15 (optional): `lv version` コマンド
+### M15: `logvalet config init` コマンド（対話型セットアップ）
+- [ ] `internal/cli/config.go`: `ConfigInitCmd` 追加（`aws configure` 相当）
+  - 対話プロンプトで profile 名、space 名、base_url を入力
+  - `~/.config/logvalet/config.toml` を生成・追記
+  - 既存プロファイルがある場合は上書き確認
+- [ ] `logvalet configure` をトップレベルエイリアスとして追加（Kong `cmd:"configure"` + `hidden` or alias）
+- [ ] `auth login` との連携: config init → auth login の導線
+- [ ] `internal/config/writer.go`: config.toml の書き出しロジック
+- [ ] テスト: 対話入力のモック + 生成された config.toml の検証
+
+### M16 (optional): `logvalet version` コマンド
 - [ ] `internal/cli/root.go`: Version コマンド追加
 - [ ] `--version` グローバルフラグ対応
 
@@ -141,9 +151,11 @@
 | 2 | Backlog API テストはモックのみ | interface ベースで Client を定義し、テストではモック実装を使用 | 2026-03-13 |
 | 3 | 12 マイルストーン分割 | スペックの 5 フェーズをより細かい粒度に分割し、各マイルストーンを独立してデリバリー可能にする | 2026-03-13 |
 | 4 | OAuth は API key 認証に変更 | Backlog の OAuth2 は client_id/secret の事前登録が必要で CLI 組み込みが複雑。API key 認証に絞る | 2026-03-13 |
-| 5 | roadmap v2 で残差分を管理 | v1 の M01-M12 完了後、スペックとの差分を新 M13-M15 で管理 | 2026-03-18 |
+| 5 | roadmap v2 で残差分を管理 | v1 の M01-M12 完了後、スペックとの差分を新 M13-M16 で管理 | 2026-03-18 |
+| 6 | `logvalet config init` で初期セットアップの障壁を下げる | config.toml を手書きするハードルが高い。`aws configure` のような対話型セットアップが必要 | 2026-03-18 |
 
 ## Changelog
 | 日時 | 種別 | 内容 |
 |------|------|------|
 | 2026-03-18 | 作成 | roadmap v2 作成。v1 M01-M12 完了を反映、新 M13-M15 を追加 |
+| 2026-03-18 | 追加 | M15 `logvalet config init` を追加、旧 M15 version を M16 に繰り下げ |
