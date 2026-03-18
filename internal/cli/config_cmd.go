@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/youyo/logvalet/internal/config"
+	"github.com/youyo/logvalet/internal/credentials"
 )
 
 // ConfigCmd は config サブコマンド群。
@@ -22,6 +23,7 @@ type ConfigureCmd struct {
 	InitProfile string `help:"プロファイル名" name:"init-profile"`
 	InitSpace   string `help:"Backlog スペース名" name:"init-space"`
 	InitBaseURL string `help:"Backlog ベース URL" name:"init-base-url"`
+	InitAPIKey  string `help:"API キーを設定する" name:"init-api-key"`
 }
 
 // Run は configure のメインエントリポイント（Kong から呼び出し）。
@@ -31,6 +33,7 @@ func (c *ConfigureCmd) Run(g *GlobalFlags) error {
 		InitProfile: c.InitProfile,
 		InitSpace:   c.InitSpace,
 		InitBaseURL: c.InitBaseURL,
+		InitAPIKey:  c.InitAPIKey,
 	}
 	return cmd.Run(g)
 }
@@ -41,6 +44,7 @@ type ConfigInitCmd struct {
 	InitProfile string `help:"プロファイル名" name:"init-profile"`
 	InitSpace   string `help:"Backlog スペース名" name:"init-space"`
 	InitBaseURL string `help:"Backlog ベース URL" name:"init-base-url"`
+	InitAPIKey  string `help:"API キーを設定する" name:"init-api-key"`
 }
 
 // Prompter は対話入力を抽象化するインターフェース。
@@ -110,6 +114,7 @@ type ConfigInitDeps struct {
 	Prompter   Prompter
 	Stdout     io.Writer
 	Stderr     io.Writer
+	CredStore  credentials.Store // tokens.json ストア（nil の場合スキップ）
 }
 
 // Run は config init のメインエントリポイント（Kong から呼び出し）。
@@ -122,14 +127,15 @@ func (c *ConfigInitCmd) Run(g *GlobalFlags) error {
 		Prompter:   newStdinPrompter(),
 		Stdout:     os.Stdout,
 		Stderr:     os.Stderr,
+		CredStore:  credentials.NewStore(credentials.DefaultTokensPath(os.Getenv)),
 	}
-	return c.RunWithDeps(deps, c.InitProfile, c.InitSpace, c.InitBaseURL)
+	return c.RunWithDeps(deps, c.InitProfile, c.InitSpace, c.InitBaseURL, c.InitAPIKey)
 }
 
 // RunWithDeps はテスト用の依存注入付き実行。
 // profileName, space, baseURL が全て非空の場合は非対話モード。
 // それ以外は対話プロンプトで入力を取得する。
-func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, baseURL string) error {
+func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, baseURL, apiKey string) error {
 	interactive := profileName == "" || space == ""
 
 	// 対話モード: プロンプトで入力を取得
@@ -158,6 +164,14 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 		defaultBaseURL := fmt.Sprintf("https://%s.backlog.com", space)
 		if baseURL == "" {
 			baseURL, err = deps.Prompter.Prompt("Base URL", defaultBaseURL)
+			if err != nil {
+				return err
+			}
+		}
+
+		// API Key 入力（対話モード）
+		if apiKey == "" {
+			apiKey, err = deps.Prompter.Prompt("API Key (空欄でスキップ)", "")
 			if err != nil {
 				return err
 			}
@@ -220,6 +234,29 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 		return fmt.Errorf("設定ファイルの書き出しに失敗しました: %w", err)
 	}
 
+	// API Key が入力された場合、tokens.json に保存
+	authSaved := false
+	if apiKey != "" && deps.CredStore != nil {
+		tokens, err := deps.CredStore.Load()
+		if err != nil {
+			return fmt.Errorf("認証情報の読み込みに失敗しました: %w", err)
+		}
+		if tokens.Auth == nil {
+			tokens.Auth = make(map[string]credentials.AuthEntry)
+		}
+		if tokens.Version == 0 {
+			tokens.Version = 1
+		}
+		tokens.Auth[profileName] = credentials.AuthEntry{
+			AuthType: credentials.AuthTypeAPIKey,
+			APIKey:   apiKey,
+		}
+		if err := deps.CredStore.Save(tokens); err != nil {
+			return fmt.Errorf("認証情報の保存に失敗しました: %w", err)
+		}
+		authSaved = true
+	}
+
 	// JSON レスポンスを stdout に出力
 	resp := configInitResponse{
 		SchemaVersion: "1",
@@ -229,6 +266,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 		BaseURL:       baseURL,
 		ConfigPath:    deps.ConfigPath,
 		Created:       created,
+		AuthSaved:     authSaved,
 	}
 	data, err := json.Marshal(resp)
 	if err != nil {
@@ -236,9 +274,13 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 	}
 	fmt.Fprintln(deps.Stdout, string(data))
 
-	// stderr に次のステップを案内
+	// stderr に案内
 	fmt.Fprintf(deps.Stderr, "設定を保存しました: %s\n", deps.ConfigPath)
-	fmt.Fprintf(deps.Stderr, "次のステップ: logvalet auth login --profile %s\n", profileName)
+	if authSaved {
+		fmt.Fprintf(deps.Stderr, "セットアップ完了！ logvalet project list で動作確認できます\n")
+	} else {
+		fmt.Fprintf(deps.Stderr, "次のステップ: logvalet auth login --profile %s\n", profileName)
+	}
 
 	return nil
 }
@@ -251,4 +293,5 @@ type configInitResponse struct {
 	BaseURL       string `json:"base_url"`
 	ConfigPath    string `json:"config_path"`
 	Created       bool   `json:"created"`
+	AuthSaved     bool   `json:"auth_saved"`
 }
