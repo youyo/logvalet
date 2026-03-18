@@ -98,7 +98,7 @@ type IssueCreateCmd struct {
 	Priority        string   `help:"優先度"`
 	Assignee        string   `help:"担当者"`
 	Category        []string `help:"カテゴリ（複数指定可）"`
-	Version         []string `help:"バージョン（複数指定可）"`
+	Version         []string `name:"versions" help:"バージョン（複数指定可）"`
 	Milestone       []string `help:"マイルストーン（複数指定可）"`
 	DueDate         string   `help:"期限日 (YYYY-MM-DD)"`
 	StartDate       string   `help:"開始日 (YYYY-MM-DD)"`
@@ -170,7 +170,7 @@ type IssueUpdateCmd struct {
 	Priority        *string  `help:"優先度"`
 	Assignee        *string  `help:"担当者"`
 	Category        []string `help:"カテゴリ（複数指定可）"`
-	Version         []string `help:"バージョン（複数指定可）"`
+	Version         []string `name:"versions" help:"バージョン（複数指定可）"`
 	Milestone       []string `help:"マイルストーン（複数指定可）"`
 	DueDate         *string  `help:"期限日 (YYYY-MM-DD)"`
 	StartDate       *string  `help:"開始日 (YYYY-MM-DD)"`

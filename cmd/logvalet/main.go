@@ -20,11 +20,6 @@ func main() {
 func run() int {
 	var root cli.CLI
 
-	// goreleaser ldflags で埋め込まれたバージョン情報を注入
-	root.GlobalFlags.Version = version.Version
-	root.GlobalFlags.Commit = version.Commit
-	root.GlobalFlags.Date = version.Date
-
 	// Kong パーサーを構築
 	parser, err := kong.New(&root,
 		kong.Name("logvalet"),

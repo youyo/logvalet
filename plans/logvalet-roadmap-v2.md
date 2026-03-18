@@ -13,9 +13,9 @@
 | 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **マイルストーン**: M16 — `logvalet version` コマンド（optional）
-- **直近の完了**: M15 — `logvalet config init` コマンド（対話型セットアップ）
-- **次のアクション**: M16 の検討、またはリリース準備
+- **マイルストーン**: 全マイルストーン完了
+- **直近の完了**: M16 — `logvalet version` コマンド
+- **次のアクション**: リリース準備（git tag + GoReleaser）
 
 ## 完了済みマイルストーン (v1)
 
@@ -143,9 +143,13 @@
 - [x] `internal/config/writer.go`: config.toml の書き出しロジック（Writer interface）
 - [x] テスト: 対話入力の Prompter モック + 生成された config.toml の検証（14テストケース）
 
-### M16 (optional): `logvalet version` コマンド
-- [ ] `internal/cli/root.go`: Version コマンド追加
-- [ ] `--version` グローバルフラグ対応
+### M16: `logvalet version` コマンド ✅
+- [x] `internal/version/version.go`: Info struct + NewInfo() 追加
+- [x] `internal/cli/version_cmd.go`: VersionCmd 新規作成（io.Writer DI 対応）
+- [x] `internal/cli/root.go`: CLI struct に VersionInfo フィールド追加（name:"version" タグ）
+- [x] `internal/cli/global_flags.go`: kong.VersionFlag 追加（--version フラグ）
+- [x] `internal/cli/issue.go`: IssueCreate/UpdateCmd.Version を name:"versions" にリネーム（--version 衝突回避）
+- [x] テスト: version.Info / VersionCmd / Kong パーサー統合テスト
 
 ## Blockers
 なし

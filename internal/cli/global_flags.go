@@ -1,7 +1,11 @@
 // Package cli は logvalet CLI のコマンド定義を提供する。
 package cli
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/alecthomas/kong"
+)
 
 // GlobalFlags は全サブコマンドで共有するグローバルフラグ。
 // spec §4, §17.1 準拠。
@@ -36,12 +40,9 @@ type GlobalFlags struct {
 	// NoColor はカラー出力を無効にする。
 	NoColor bool `help:"カラー出力を無効にする" env:"LOGVALET_NO_COLOR"`
 
-	// Version はバージョン情報。goreleaser ldflags で注入される。
-	Version string `kong:"-"`
-	// Commit は git commit hash。goreleaser ldflags で注入される。
-	Commit string `kong:"-"`
-	// Date はビルド日時。goreleaser ldflags で注入される。
-	Date string `kong:"-"`
+	// Version は --version フラグ。Kong が自動的にバージョン文字列を出力して exit する。
+	// kong.Vars{"version": "..."} で設定されたバージョン文字列を表示する。
+	Version kong.VersionFlag `help:"バージョン情報を表示して終了する"`
 }
 
 // Validate は GlobalFlags のバリデーションを行う。
