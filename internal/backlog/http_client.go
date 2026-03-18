@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"strings"
+
 	"github.com/youyo/logvalet/internal/credentials"
 	"github.com/youyo/logvalet/internal/domain"
 )
@@ -53,7 +55,7 @@ func NewHTTPClient(cfg ClientConfig) *HTTPClient {
 		userAgent = defaultUserAgent
 	}
 	return &HTTPClient{
-		baseURL:    cfg.BaseURL,
+		baseURL:    strings.TrimRight(cfg.BaseURL, "/"),
 		cred:       cfg.Credential,
 		httpClient: httpClient,
 		userAgent:  userAgent,
