@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/youyo/logvalet/internal/cli"
 	"github.com/youyo/logvalet/internal/config"
 	"github.com/youyo/logvalet/internal/credentials"
+	"github.com/youyo/logvalet/internal/domain"
 )
 
 // ---- auth logout ----
@@ -184,7 +186,7 @@ func TestAuthWhoamiCmd_Run_OAuth(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Profile: "work"}
-	output, err := cmd.RunWithStoreCapture(g, store, "work")
+	output, err := cmd.RunWithStoreCapture(g, store, "work", nil)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
@@ -210,7 +212,7 @@ func TestAuthWhoamiCmd_Run_OAuth(t *testing.T) {
 		t.Error("expired = true for future token, want false")
 	}
 	if result.User != nil {
-		t.Errorf("user = %v, want null (M03 has no API call)", result.User)
+		t.Errorf("user = %v, want null (user=nil passed to RunWithStoreCapture)", result.User)
 	}
 }
 
@@ -221,7 +223,7 @@ func TestAuthWhoamiCmd_Run_NoProfile(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Profile: "", Config: filepath.Join(dir, "nonexistent-config.toml")}
-	_, err := cmd.RunWithStoreCapture(g, store, "")
+	_, err := cmd.RunWithStoreCapture(g, store, "", nil)
 	if err == nil {
 		t.Fatal("Run() returned nil error when no profile specified, want error")
 	}
@@ -234,9 +236,36 @@ func TestAuthWhoamiCmd_Run_NotFound(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Profile: "nonexistent"}
-	_, err := cmd.RunWithStoreCapture(g, store, "nonexistent-ref")
+	_, err := cmd.RunWithStoreCapture(g, store, "nonexistent-ref", nil)
 	if err == nil {
 		t.Fatal("Run() returned nil error for nonexistent profile, want error")
+	}
+}
+
+func TestAuthWhoami_WithUser(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tokensPath := filepath.Join(dir, "tokens.json")
+	store := credentials.NewStore(tokensPath)
+	tokens := &credentials.TokensFile{
+		Version: 1,
+		Auth: map[string]credentials.AuthEntry{
+			"default": {AuthType: "api_key", APIKey: "key123"},
+		},
+	}
+	if err := store.Save(tokens); err != nil {
+		t.Fatalf("setup: Save() error: %v", err)
+	}
+
+	user := &domain.User{ID: 42, UserID: "testuser", Name: "Test User"}
+	cmd := &cli.AuthWhoamiCmd{}
+	g := &cli.GlobalFlags{Profile: "default"}
+	output, err := cmd.RunWithStoreCapture(g, store, "default", user)
+	if err != nil {
+		t.Fatalf("RunWithStoreCapture() error = %v", err)
+	}
+	if !strings.Contains(output, `"testuser"`) {
+		t.Errorf("output should contain user info, got: %s", output)
 	}
 }
 
@@ -349,7 +378,7 @@ func TestAuthWhoamiCmd_Run_DefaultProfile(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
-	output, err := cmd.RunWithStoreCapture(g, store, "")
+	output, err := cmd.RunWithStoreCapture(g, store, "", nil)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}

@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/youyo/logvalet/internal/config"
 	"github.com/youyo/logvalet/internal/credentials"
+	"github.com/youyo/logvalet/internal/domain"
 )
 
 // AuthCmd は auth コマンド群のルート。
@@ -248,8 +250,21 @@ func (c *AuthWhoamiCmd) Run(g *GlobalFlags) error {
 	store := credentials.NewStore(credentials.DefaultTokensPath(func(key string) string {
 		return ""
 	}))
-	authRef := g.Profile // M03: auth_ref = profile 名で簡略化
-	output, err := c.RunWithStoreCapture(g, store, authRef)
+	authRef := g.Profile
+
+	// API クライアントを構築して user 情報を取得
+	var user *domain.User
+	rc, err := buildRunContext(g)
+	if err == nil {
+		ctx := context.Background()
+		u, apiErr := rc.Client.GetMyself(ctx)
+		if apiErr == nil {
+			user = u
+		}
+		// API 呼び出し失敗時は user = nil でフォールバック（オフライン対応）
+	}
+
+	output, err := c.RunWithStoreCapture(g, store, authRef, user)
 	if err != nil {
 		return err
 	}
@@ -258,8 +273,8 @@ func (c *AuthWhoamiCmd) Run(g *GlobalFlags) error {
 }
 
 // RunWithStoreCapture は tokens.json から認証情報を取得して JSON 文字列を返す（テスト用DI）。
-// M03: Backlog API 呼び出しなし。tokens.json の情報のみ表示。
-func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store, authRef string) (string, error) {
+// user が非 nil の場合はレスポンスに含める（API 呼び出し成功時）。
+func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store, authRef string, user *domain.User) (string, error) {
 	profile, err := resolveProfile(g)
 	if err != nil {
 		return "", fmt.Errorf("auth whoami: %w", err)
@@ -298,7 +313,7 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 		AuthType:      entry.AuthType,
 		ExpiresAt:     expiresAt,
 		Expired:       expired,
-		User:          nil, // M04 以降で Backlog API 呼び出しで取得
+		User:          user,
 	}
 	data, err := json.Marshal(resp)
 	if err != nil {
@@ -308,13 +323,13 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 }
 
 type authWhoamiResponse struct {
-	SchemaVersion string      `json:"schema_version"`
-	Profile       string      `json:"profile"`
-	Space         string      `json:"space,omitempty"`
-	AuthType      string      `json:"auth_type"`
-	ExpiresAt     *string     `json:"expires_at,omitempty"`
-	Expired       bool        `json:"expired"`
-	User          interface{} `json:"user"`
+	SchemaVersion string       `json:"schema_version"`
+	Profile       string       `json:"profile"`
+	Space         string       `json:"space,omitempty"`
+	AuthType      string       `json:"auth_type"`
+	ExpiresAt     *string      `json:"expires_at,omitempty"`
+	Expired       bool         `json:"expired"`
+	User          *domain.User `json:"user"`
 }
 
 // ---- auth list ----
