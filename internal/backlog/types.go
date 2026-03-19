@@ -6,39 +6,45 @@ import "time"
 
 // CreateIssueRequest は CreateIssue リクエストのパラメータ。
 type CreateIssueRequest struct {
-	ProjectKey   string
-	Summary      string
-	IssueType    string
-	Description  string
-	Priority     string
-	Assignee     string
-	Categories   []string
-	Versions     []string
-	Milestones   []string
-	DueDate      *time.Time
-	StartDate    *time.Time
-	CustomFields map[string]string
+	ProjectID       int
+	Summary         string
+	IssueTypeID     int
+	Description     string
+	PriorityID      int // 0 = 未指定
+	AssigneeID      int // 0 = 未指定
+	CategoryIDs     []int
+	VersionIDs      []int
+	MilestoneIDs    []int
+	DueDate         *time.Time
+	StartDate       *time.Time
+	ParentIssueID   int // 0 = 未指定
+	NotifiedUserIDs []int
+	CustomFields    map[string]string
 }
 
 // UpdateIssueRequest は UpdateIssue リクエストのパラメータ。
 // 全フィールドはポインタ型（nil = 変更しない）。
 type UpdateIssueRequest struct {
-	Summary      *string
-	Description  *string
-	Status       *string
-	Priority     *string
-	Assignee     *string
-	Categories   []string
-	Versions     []string
-	Milestones   []string
-	DueDate      *time.Time
-	StartDate    *time.Time
-	CustomFields map[string]string
+	Summary         *string
+	Description     *string
+	StatusID        *int
+	PriorityID      *int
+	AssigneeID      *int
+	IssueTypeID     *int
+	CategoryIDs     []int
+	VersionIDs      []int
+	MilestoneIDs    []int
+	DueDate         *time.Time
+	StartDate       *time.Time
+	NotifiedUserIDs []int
+	Comment         *string
+	CustomFields    map[string]string
 }
 
 // AddCommentRequest は AddIssueComment リクエストのパラメータ。
 type AddCommentRequest struct {
-	Content string
+	Content         string
+	NotifiedUserIDs []int
 }
 
 // UpdateCommentRequest は UpdateIssueComment リクエストのパラメータ。
@@ -52,6 +58,8 @@ type CreateDocumentRequest struct {
 	Title     string
 	Content   string
 	ParentID  *string
+	Emoji     string
+	AddLast   bool
 }
 
 // ---- Response metadata ----

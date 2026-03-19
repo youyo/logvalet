@@ -291,21 +291,38 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 // POST /api/v2/issues
 func (c *HTTPClient) CreateIssue(ctx context.Context, reqBody CreateIssueRequest) (*domain.Issue, error) {
 	q := url.Values{}
-	q.Set("projectKey", reqBody.ProjectKey)
+	q.Set("projectId", strconv.Itoa(reqBody.ProjectID))
 	q.Set("summary", reqBody.Summary)
-	q.Set("issueTypeId", reqBody.IssueType)
+	q.Set("issueTypeId", strconv.Itoa(reqBody.IssueTypeID))
+	q.Set("priorityId", strconv.Itoa(reqBody.PriorityID))
 	if reqBody.Description != "" {
 		q.Set("description", reqBody.Description)
 	}
-	if reqBody.Priority != "" {
-		q.Set("priorityId", reqBody.Priority)
+	if reqBody.AssigneeID > 0 {
+		q.Set("assigneeId", strconv.Itoa(reqBody.AssigneeID))
 	}
-	if reqBody.Assignee != "" {
-		q.Set("assigneeUserId", reqBody.Assignee)
+	if reqBody.ParentIssueID > 0 {
+		q.Set("parentIssueId", strconv.Itoa(reqBody.ParentIssueID))
+	}
+	for _, id := range reqBody.CategoryIDs {
+		q.Add("categoryId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.VersionIDs {
+		q.Add("versionId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.MilestoneIDs {
+		q.Add("milestoneId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.NotifiedUserIDs {
+		q.Add("notifiedUserId[]", strconv.Itoa(id))
+	}
+	if reqBody.DueDate != nil {
+		q.Set("dueDate", reqBody.DueDate.Format("2006-01-02"))
+	}
+	if reqBody.StartDate != nil {
+		q.Set("startDate", reqBody.StartDate.Format("2006-01-02"))
 	}
 
-	// POST なので query param ではなく form body が本来望ましいが、
-	// M04 では最小限の実装として URL に設定する（M06 以降で整備）
 	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/issues", q)
 	if err != nil {
 		return nil, err
@@ -327,8 +344,38 @@ func (c *HTTPClient) UpdateIssue(ctx context.Context, issueKey string, reqBody U
 	if reqBody.Description != nil {
 		q.Set("description", *reqBody.Description)
 	}
-	if reqBody.Status != nil {
-		q.Set("statusId", *reqBody.Status)
+	if reqBody.StatusID != nil {
+		q.Set("statusId", strconv.Itoa(*reqBody.StatusID))
+	}
+	if reqBody.PriorityID != nil {
+		q.Set("priorityId", strconv.Itoa(*reqBody.PriorityID))
+	}
+	if reqBody.AssigneeID != nil {
+		q.Set("assigneeId", strconv.Itoa(*reqBody.AssigneeID))
+	}
+	if reqBody.IssueTypeID != nil {
+		q.Set("issueTypeId", strconv.Itoa(*reqBody.IssueTypeID))
+	}
+	for _, id := range reqBody.CategoryIDs {
+		q.Add("categoryId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.VersionIDs {
+		q.Add("versionId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.MilestoneIDs {
+		q.Add("milestoneId[]", strconv.Itoa(id))
+	}
+	for _, id := range reqBody.NotifiedUserIDs {
+		q.Add("notifiedUserId[]", strconv.Itoa(id))
+	}
+	if reqBody.DueDate != nil {
+		q.Set("dueDate", reqBody.DueDate.Format("2006-01-02"))
+	}
+	if reqBody.StartDate != nil {
+		q.Set("startDate", reqBody.StartDate.Format("2006-01-02"))
+	}
+	if reqBody.Comment != nil {
+		q.Set("comment", *reqBody.Comment)
 	}
 
 	req, err := c.newRequest(ctx, http.MethodPatch, "/api/v2/issues/"+url.PathEscape(issueKey), q)
@@ -368,6 +415,9 @@ func (c *HTTPClient) ListIssueComments(ctx context.Context, issueKey string, opt
 func (c *HTTPClient) AddIssueComment(ctx context.Context, issueKey string, reqBody AddCommentRequest) (*domain.Comment, error) {
 	q := url.Values{}
 	q.Set("content", reqBody.Content)
+	for _, id := range reqBody.NotifiedUserIDs {
+		q.Add("notifiedUserId[]", strconv.Itoa(id))
+	}
 	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/issues/"+url.PathEscape(issueKey)+"/comments", q)
 	if err != nil {
 		return nil, err
@@ -533,10 +583,16 @@ func (c *HTTPClient) GetDocumentTree(ctx context.Context, projectKey string) (*d
 func (c *HTTPClient) CreateDocument(ctx context.Context, reqBody CreateDocumentRequest) (*domain.Document, error) {
 	q := url.Values{}
 	q.Set("projectId", strconv.Itoa(reqBody.ProjectID))
-	q.Set("name", reqBody.Title)
+	q.Set("title", reqBody.Title)
 	q.Set("content", reqBody.Content)
 	if reqBody.ParentID != nil {
-		q.Set("parentDocumentId", *reqBody.ParentID)
+		q.Set("parentId", *reqBody.ParentID)
+	}
+	if reqBody.Emoji != "" {
+		q.Set("emoji", reqBody.Emoji)
+	}
+	if reqBody.AddLast {
+		q.Set("addLast", "true")
 	}
 	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/documents", q)
 	if err != nil {
@@ -617,6 +673,34 @@ func (c *HTTPClient) ListProjectCustomFields(ctx context.Context, projectKey str
 		return nil, err
 	}
 	return fields, nil
+}
+
+// ListProjectIssueTypes は指定プロジェクトの課題種別一覧を返す。
+// GET /api/v2/projects/{projectKey}/issueTypes
+func (c *HTTPClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/issueTypes", nil)
+	if err != nil {
+		return nil, err
+	}
+	var issueTypes []domain.IDName
+	if err := c.do(req, &issueTypes); err != nil {
+		return nil, err
+	}
+	return issueTypes, nil
+}
+
+// ListPriorities は優先度一覧を返す。
+// GET /api/v2/priorities
+func (c *HTTPClient) ListPriorities(ctx context.Context) ([]domain.IDName, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/priorities", nil)
+	if err != nil {
+		return nil, err
+	}
+	var priorities []domain.IDName
+	if err := c.do(req, &priorities); err != nil {
+		return nil, err
+	}
+	return priorities, nil
 }
 
 // ListTeams はスペースのチーム一覧を返す。

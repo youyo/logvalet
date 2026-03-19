@@ -6,7 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/credentials"
@@ -268,6 +270,305 @@ func TestHTTPClientGetProject(t *testing.T) {
 func TestHTTPClientImplementsClient(t *testing.T) {
 	// HTTPClient が Client interface を実装していることを確認
 	var _ backlog.Client = (*backlog.HTTPClient)(nil)
+}
+
+func TestHTTPClientListProjectIssueTypes(t *testing.T) {
+	t.Run("calls correct endpoint and returns IDName list", func(t *testing.T) {
+		var gotPath string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			issueTypes := []map[string]interface{}{
+				{"id": 1, "name": "課題"},
+				{"id": 2, "name": "バグ"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(issueTypes)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		result, err := client.ListProjectIssueTypes(context.Background(), "PROJ")
+		if err != nil {
+			t.Fatalf("ListProjectIssueTypes() error = %v", err)
+		}
+		if gotPath != "/api/v2/projects/PROJ/issueTypes" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ/issueTypes")
+		}
+		if len(result) != 2 {
+			t.Fatalf("len(result) = %d, want 2", len(result))
+		}
+		if result[0].ID != 1 || result[0].Name != "課題" {
+			t.Errorf("result[0] = %+v, want {ID:1, Name:課題}", result[0])
+		}
+	})
+}
+
+func TestHTTPClientListPriorities(t *testing.T) {
+	t.Run("calls correct endpoint and returns IDName list", func(t *testing.T) {
+		var gotPath string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			priorities := []map[string]interface{}{
+				{"id": 2, "name": "高"},
+				{"id": 3, "name": "中"},
+				{"id": 4, "name": "低"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(priorities)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		result, err := client.ListPriorities(context.Background())
+		if err != nil {
+			t.Fatalf("ListPriorities() error = %v", err)
+		}
+		if gotPath != "/api/v2/priorities" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/priorities")
+		}
+		if len(result) != 3 {
+			t.Fatalf("len(result) = %d, want 3", len(result))
+		}
+	})
+}
+
+func TestHTTPClientCreateIssue_sendsProjectId(t *testing.T) {
+	var gotProjectID string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotProjectID = r.URL.Query().Get("projectId")
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.CreateIssue(context.Background(), backlog.CreateIssueRequest{
+		ProjectID:   42,
+		Summary:     "test",
+		IssueTypeID: 1,
+		PriorityID:  3,
+	})
+	if err != nil {
+		t.Fatalf("CreateIssue() error = %v", err)
+	}
+	if gotProjectID != "42" {
+		t.Errorf("projectId = %q, want %q (should be numeric ID, not key)", gotProjectID, "42")
+	}
+}
+
+func TestHTTPClientCreateIssue_allParams(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.CreateIssue(context.Background(), backlog.CreateIssueRequest{
+		ProjectID:       42,
+		Summary:         "test",
+		IssueTypeID:     1,
+		PriorityID:      3,
+		AssigneeID:      100,
+		CategoryIDs:     []int{10, 11},
+		VersionIDs:      []int{20},
+		MilestoneIDs:    []int{30},
+		DueDate:         &dueDate,
+		StartDate:       &startDate,
+		ParentIssueID:   5,
+		NotifiedUserIDs: []int{50, 51},
+	})
+	if err != nil {
+		t.Fatalf("CreateIssue() error = %v", err)
+	}
+	checks := map[string]string{
+		"projectId":     "42",
+		"issueTypeId":   "1",
+		"priorityId":    "3",
+		"assigneeId":    "100",
+		"parentIssueId": "5",
+		"dueDate":       "2026-04-01",
+		"startDate":     "2026-03-01",
+	}
+	for key, want := range checks {
+		if gotQuery.Get(key) != want {
+			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		}
+	}
+	if catIDs := gotQuery["categoryId[]"]; len(catIDs) != 2 {
+		t.Errorf("categoryId[] = %v, want 2 items", catIDs)
+	}
+	if notIDs := gotQuery["notifiedUserId[]"]; len(notIDs) != 2 {
+		t.Errorf("notifiedUserId[] = %v, want 2 items", notIDs)
+	}
+}
+
+func TestHTTPClientCreateIssue_optionalSkip(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.CreateIssue(context.Background(), backlog.CreateIssueRequest{
+		ProjectID:   42,
+		Summary:     "test",
+		IssueTypeID: 1,
+		PriorityID:  3,
+		AssigneeID:  0, // 未指定
+	})
+	if err != nil {
+		t.Fatalf("CreateIssue() error = %v", err)
+	}
+	if _, ok := gotQuery["assigneeId"]; ok {
+		t.Error("assigneeId should not be present when AssigneeID=0")
+	}
+}
+
+func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	statusID := 2
+	priorityID := 3
+	assigneeID := 100
+	issueTypeID := 1
+	comment := "更新コメント"
+	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.UpdateIssue(context.Background(), "PROJ-1", backlog.UpdateIssueRequest{
+		StatusID:        &statusID,
+		PriorityID:      &priorityID,
+		AssigneeID:      &assigneeID,
+		IssueTypeID:     &issueTypeID,
+		CategoryIDs:     []int{10},
+		VersionIDs:      []int{20},
+		MilestoneIDs:    []int{30},
+		NotifiedUserIDs: []int{50},
+		DueDate:         &dueDate,
+		Comment:         &comment,
+	})
+	if err != nil {
+		t.Fatalf("UpdateIssue() error = %v", err)
+	}
+	checks := map[string]string{
+		"statusId":    "2",
+		"priorityId":  "3",
+		"assigneeId":  "100",
+		"issueTypeId": "1",
+		"dueDate":     "2026-04-01",
+		"comment":     "更新コメント",
+	}
+	for key, want := range checks {
+		if gotQuery.Get(key) != want {
+			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		}
+	}
+}
+
+func TestHTTPClientUpdateIssue_nilSkip(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.UpdateIssue(context.Background(), "PROJ-1", backlog.UpdateIssueRequest{})
+	if err != nil {
+		t.Fatalf("UpdateIssue() error = %v", err)
+	}
+	for _, key := range []string{"statusId", "priorityId", "assigneeId", "issueTypeId", "comment"} {
+		if _, ok := gotQuery[key]; ok {
+			t.Errorf("query[%q] should not be present for nil fields", key)
+		}
+	}
+}
+
+func TestHTTPClientAddIssueComment_withNotify(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		comment := map[string]interface{}{"id": 1, "content": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(comment)
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.AddIssueComment(context.Background(), "PROJ-1", backlog.AddCommentRequest{
+		Content:         "修正完了",
+		NotifiedUserIDs: []int{1, 2},
+	})
+	if err != nil {
+		t.Fatalf("AddIssueComment() error = %v", err)
+	}
+	if gotQuery.Get("content") != "修正完了" {
+		t.Errorf("content = %q, want %q", gotQuery.Get("content"), "修正完了")
+	}
+	notIDs := gotQuery["notifiedUserId[]"]
+	if len(notIDs) != 2 {
+		t.Errorf("notifiedUserId[] = %v, want 2 items", notIDs)
+	}
+}
+
+func TestHTTPClientCreateDocument_allParams(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		doc := map[string]interface{}{"id": "doc-1", "title": "Test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(doc)
+	}))
+	defer srv.Close()
+
+	parentID := "parent-uuid"
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.CreateDocument(context.Background(), backlog.CreateDocumentRequest{
+		ProjectID: 42,
+		Title:     "テストドキュメント",
+		Content:   "本文",
+		ParentID:  &parentID,
+		Emoji:     "📝",
+		AddLast:   true,
+	})
+	if err != nil {
+		t.Fatalf("CreateDocument() error = %v", err)
+	}
+	checks := map[string]string{
+		"projectId": "42",
+		"title":     "テストドキュメント",
+		"content":   "本文",
+		"parentId":  "parent-uuid",
+		"emoji":     "📝",
+		"addLast":   "true",
+	}
+	for key, want := range checks {
+		if gotQuery.Get(key) != want {
+			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		}
+	}
 }
 
 // TestHTTPClientGetMyselfParsesUserFields は GetMyself のレスポンスが正しく domain.User にマップされるかテスト。

@@ -49,6 +49,8 @@ type MockClient struct {
 	ListProjectCategoriesFunc    func(ctx context.Context, projectKey string) ([]domain.Category, error)
 	ListProjectVersionsFunc      func(ctx context.Context, projectKey string) ([]domain.Version, error)
 	ListProjectCustomFieldsFunc  func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
+	ListProjectIssueTypesFunc    func(ctx context.Context, projectKey string) ([]domain.IDName, error)
+	ListPrioritiesFunc           func(ctx context.Context) ([]domain.IDName, error)
 
 	// Teams
 	ListTeamsFunc        func(ctx context.Context) ([]domain.Team, error)
@@ -273,6 +275,22 @@ func (m *MockClient) ListProjectCustomFields(ctx context.Context, projectKey str
 	m.increment("ListProjectCustomFields")
 	if m.ListProjectCustomFieldsFunc != nil {
 		return m.ListProjectCustomFieldsFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error) {
+	m.increment("ListProjectIssueTypes")
+	if m.ListProjectIssueTypesFunc != nil {
+		return m.ListProjectIssueTypesFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListPriorities(ctx context.Context) ([]domain.IDName, error) {
+	m.increment("ListPriorities")
+	if m.ListPrioritiesFunc != nil {
+		return m.ListPrioritiesFunc(ctx)
 	}
 	return nil, ErrNotFound
 }

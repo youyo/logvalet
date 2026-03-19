@@ -115,6 +115,8 @@ type DocumentCreateCmd struct {
 	Content     string  `help:"ドキュメントの本文（--content-file と排他）"`
 	ContentFile string  `help:"ドキュメント本文のファイルパス（--content と排他）" type:"existingfile"`
 	ParentID    *string `help:"親ドキュメントID（任意）"`
+	Emoji       string  `help:"タイトル横の絵文字"`
+	AddLast     bool    `help:"末尾に追加する"`
 }
 
 func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
@@ -138,6 +140,8 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 			"project_key": c.ProjectKey,
 			"title":       c.Title,
 			"content":     content,
+			"emoji":       nilIfEmpty(c.Emoji),
+			"add_last":    c.AddLast,
 		}
 		if c.ParentID != nil {
 			params["parent_id"] = *c.ParentID
@@ -165,6 +169,8 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 		Title:     c.Title,
 		Content:   content,
 		ParentID:  c.ParentID,
+		Emoji:     c.Emoji,
+		AddLast:   c.AddLast,
 	}
 	doc, err := rc.Client.CreateDocument(ctx, req)
 	if err != nil {
