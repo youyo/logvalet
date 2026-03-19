@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
@@ -180,7 +181,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		}
 	}
 
-	// 3. priority 解決（未指定時はデフォルト = 先頭要素）
+	// 3. priority 解決（未指定時はデフォルト = 「中」）
 	priorities, err := rc.Client.ListPriorities(ctx)
 	if err != nil {
 		return fmt.Errorf("優先度の取得に失敗: %w", err)
@@ -190,7 +191,14 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		if len(priorities) == 0 {
 			return fmt.Errorf("優先度の一覧が空です")
 		}
+		// 「中」(Normal) を名前で検索、なければ先頭要素にフォールバック
 		priorityID = priorities[0].ID
+		for _, p := range priorities {
+			if strings.EqualFold(p.Name, "中") || strings.EqualFold(p.Name, "Normal") {
+				priorityID = p.ID
+				break
+			}
+		}
 	} else {
 		priorityID, err = resolveNameOrID(c.Priority, priorities)
 		if err != nil {

@@ -157,7 +157,8 @@ lv issue digest PROJ-123 --format text
 Write operations support `--dry-run` to preview the request payload before executing:
 
 ```bash
-lv issue create --project PROJ --summary "Fix bug" --issue-type "Bug" --dry-run
+lv issue create --project PROJ --summary "Fix bug" --dry-run
+lv issue create --project PROJ --summary "Fix bug" --issue-type "バグ" --priority "高" --dry-run
 lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
 ```
 

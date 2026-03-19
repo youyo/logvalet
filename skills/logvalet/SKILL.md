@@ -177,6 +177,11 @@ Write-oriented flags:
 --content <string>
 --content-file <path>
 --dry-run
+--parent-issue-id <id>
+--notified-user-id <id> (repeatable)
+--emoji <emoji>
+--add-last
+--comment <string>
 ```
 
 Rules:
@@ -420,20 +425,48 @@ Use this when you need:
 
 ### Create an issue
 
+Minimum (issue type and priority use project defaults):
+
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
+  --summary "Fix login bug"
+```
+
+With issue type and priority by name:
+
+```bash
+logvalet issue create \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug"
+  --issue-type "バグ" \
+  --priority "高"
+```
+
+Full options:
+
+```bash
+logvalet issue create \
+  --project-key PROJ \
+  --summary "Fix login bug" \
+  --issue-type "バグ" \
+  --priority "高" \
+  --assignee 12345 \
+  --category "UI" \
+  --versions "v1.0" \
+  --milestone "Sprint 3" \
+  --due-date 2026-04-01 \
+  --parent-issue-id 999 \
+  --notified-user-id 111 \
+  --notified-user-id 222
 ```
 
 With description file:
 
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug" \
   --description-file ./description.md
 ```
 
@@ -441,16 +474,35 @@ Review request payload first:
 
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug" \
   --dry-run
 ```
 
 ### Update an issue
 
+By name:
+
 ```bash
-logvalet issue update PROJ-123 --status 3 --assignee 12345
+logvalet issue update PROJ-123 --status "処理中" --priority "高"
+```
+
+Change assignee and issue type:
+
+```bash
+logvalet issue update PROJ-123 --assignee 12345 --issue-type "バグ"
+```
+
+Update status with inline comment:
+
+```bash
+logvalet issue update PROJ-123 --status "完了" --comment "対応完了しました"
+```
+
+Notify specific users:
+
+```bash
+logvalet issue update PROJ-123 --status "処理中" --notified-user-id 111
 ```
 
 With description file:
@@ -473,6 +525,8 @@ logvalet issue comment list PROJ-123
 
 ### Add a comment
 
+Simple comment:
+
 ```bash
 logvalet issue comment add PROJ-123 --content "I confirmed this issue."
 ```
@@ -481,6 +535,12 @@ From file:
 
 ```bash
 logvalet issue comment add PROJ-123 --content-file ./comment.md
+```
+
+With notification:
+
+```bash
+logvalet issue comment add PROJ-123 --content "確認しました" --notified-user-id 111
 ```
 
 Dry run:
@@ -629,11 +689,33 @@ logvalet document digest 019b0240-4a9a-7c90-xxxx
 
 ### Create a document
 
+Basic:
+
 ```bash
 logvalet document create \
-  --project PROJ \
+  --project-key PROJ \
   --title "Runbook" \
   --content-file ./runbook.md
+```
+
+With emoji:
+
+```bash
+logvalet document create \
+  --project-key PROJ \
+  --title "Runbook" \
+  --content-file ./runbook.md \
+  --emoji "📖"
+```
+
+Append to end of document list:
+
+```bash
+logvalet document create \
+  --project-key PROJ \
+  --title "New Doc" \
+  --content "Content goes here" \
+  --add-last
 ```
 
 Use `--dry-run` first when having an agent prepare content.
@@ -779,15 +861,23 @@ Use Markdown for sharing:
 logvalet user digest 12345 --since 30d -f md
 ```
 
-### 3. Resolve metadata before mutating issues
+### 3. Name-or-ID resolution is automatic
 
-Typical flow:
+`issue create` and `issue update` accept both names and IDs for issue types, priorities, statuses, categories, versions, and milestones.
+
+The CLI resolves names to IDs automatically. You no longer need to call `meta` commands before creating or updating issues.
+
+Good:
+
+```bash
+logvalet issue create --project-key PROJ --summary "Fix bug" --issue-type "バグ" --priority "高"
+```
+
+Still useful for exploring available values:
 
 ```bash
 logvalet meta status PROJ
 logvalet meta category PROJ
-logvalet meta version PROJ
-logvalet issue create --project PROJ ...
 ```
 
 ### 4. Use `user digest` for reporting workflows
@@ -827,12 +917,12 @@ If you only remember a few commands, remember these:
 ```bash
 logvalet issue digest PROJ-123
 logvalet issue list --project-key PROJ
-logvalet issue create --project PROJ --summary "..." --issue-type "Bug"
+logvalet issue create --project-key PROJ --summary "..."
 logvalet issue comment add PROJ-123 --content "..."
 logvalet project digest PROJ
 logvalet activity digest --project PROJ --since 30d
 logvalet user digest 12345 --since 30d
 logvalet document digest 019b0240-4a9a-7c90-xxxx
-logvalet document create --project PROJ --title "..." --content-file ./doc.md
+logvalet document create --project-key PROJ --title "..." --content-file ./doc.md
 ```
 
