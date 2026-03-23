@@ -1,0 +1,14 @@
+version = 1
+default_profile = "work"
+default_format = "json"
+
+[profiles.work]
+space = "example-space"
+base_url = "https://example-space.backlog.com"
+auth_ref = "example-space"
+team_id = 173843
+
+[profiles.dev]
+space = "example-dev"
+base_url = "https://example-dev.backlog.com"
+auth_ref = "example-dev"
