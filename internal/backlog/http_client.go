@@ -275,6 +275,12 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	if opt.DueDateUntil != nil {
 		q.Set("dueDateUntil", opt.DueDateUntil.Format("2006-01-02"))
 	}
+	if opt.Sort != "" {
+		q.Set("sort", opt.Sort)
+	}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
+	}
 	if opt.Limit > 0 {
 		q.Set("count", strconv.Itoa(opt.Limit))
 	}

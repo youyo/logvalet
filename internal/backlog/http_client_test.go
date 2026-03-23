@@ -692,6 +692,58 @@ func TestHTTPClientCreateDocument_allParams(t *testing.T) {
 	}
 }
 
+// TestHTTPClientListIssues_sort_order は Sort/Order フィールドがクエリパラメータとして送信されることを確認。
+func TestHTTPClientListIssues_sort_order(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+		Sort:  "dueDate",
+		Order: "asc",
+	})
+	if err != nil {
+		t.Fatalf("ListIssues() error = %v", err)
+	}
+	if gotQuery.Get("sort") != "dueDate" {
+		t.Errorf("sort = %q, want %q", gotQuery.Get("sort"), "dueDate")
+	}
+	if gotQuery.Get("order") != "asc" {
+		t.Errorf("order = %q, want %q", gotQuery.Get("order"), "asc")
+	}
+}
+
+// TestHTTPClientListIssues_sort_empty は Sort/Order が空のとき sort/order クエリが含まれないことを確認。
+func TestHTTPClientListIssues_sort_empty(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+		Sort:  "",
+		Order: "",
+	})
+	if err != nil {
+		t.Fatalf("ListIssues() error = %v", err)
+	}
+	if _, ok := gotQuery["sort"]; ok {
+		t.Error("sort should not be present when Sort is empty")
+	}
+	if _, ok := gotQuery["order"]; ok {
+		t.Error("order should not be present when Order is empty")
+	}
+}
+
 // TestHTTPClientGetMyselfParsesUserFields は GetMyself のレスポンスが正しく domain.User にマップされるかテスト。
 func TestHTTPClientGetMyselfParsesUserFields(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

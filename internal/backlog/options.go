@@ -10,6 +10,8 @@ type ListIssuesOptions struct {
 	StatusIDs    []int
 	DueDateSince *time.Time
 	DueDateUntil *time.Time
+	Sort         string
+	Order        string
 	Limit        int
 	Offset       int
 }

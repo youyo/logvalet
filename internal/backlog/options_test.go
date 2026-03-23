@@ -24,6 +24,8 @@ func TestListIssuesOptions(t *testing.T) {
 			StatusIDs:    []int{1, 2},
 			DueDateSince: &since,
 			DueDateUntil: &until,
+			Sort:         "dueDate",
+			Order:        "asc",
 			Limit:        20,
 			Offset:       10,
 		}
@@ -39,8 +41,24 @@ func TestListIssuesOptions(t *testing.T) {
 		if opt.DueDateSince == nil || !opt.DueDateSince.Equal(since) {
 			t.Errorf("DueDateSince = %v, want %v", opt.DueDateSince, since)
 		}
+		if opt.Sort != "dueDate" {
+			t.Errorf("Sort = %q, want %q", opt.Sort, "dueDate")
+		}
+		if opt.Order != "asc" {
+			t.Errorf("Order = %q, want %q", opt.Order, "asc")
+		}
 		if opt.Limit != 20 {
 			t.Errorf("Limit = %d, want 20", opt.Limit)
+		}
+	})
+
+	t.Run("Sort and Order zero value is empty string", func(t *testing.T) {
+		var opt backlog.ListIssuesOptions
+		if opt.Sort != "" {
+			t.Errorf("Sort zero value = %q, want empty string", opt.Sort)
+		}
+		if opt.Order != "" {
+			t.Errorf("Order zero value = %q, want empty string", opt.Order)
 		}
 	})
 }
