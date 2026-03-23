@@ -10,6 +10,7 @@ import (
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
+	"github.com/youyo/logvalet/internal/domain"
 )
 
 // IssueCmd は issue コマンド群のルート。
@@ -43,10 +44,12 @@ func (c *IssueGetCmd) Run(g *GlobalFlags) error {
 // IssueListCmd は issue list コマンド。
 type IssueListCmd struct {
 	ListFlags
-	ProjectKey []string `short:"k" help:"プロジェクトキー"`
+	ProjectKey []string `short:"k" help:"プロジェクトキー (--status open/名前指定時に必須)"`
 	Assignee   string   `help:"担当者 (me, 数値ID, またはユーザー名)"`
-	Status     string   `help:"ステータス (open, 名前, カンマ区切り, 数値ID)。名前/open は --project-key 必須"`
-	DueDate    string   `help:"期限日フィルタ (today, overdue, YYYY-MM-DD)"`
+	Status     string   `help:"ステータス (not-closed, open, 名前, カンマ区切り, 数値ID)。open/名前指定は -k 必須"`
+	DueDate    string   `help:"期限日フィルタ (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)。指定時は自動ページングで全件取得"`
+	Sort       string   `help:"ソートキー (dueDate, created, updated, priority, status, assignee)"`
+	Order      string   `help:"ソート順 (asc, desc)" default:"desc" enum:"asc,desc,"`
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
@@ -92,7 +95,15 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 		opt.DueDateSince = since
 		opt.DueDateUntil = until
 	}
-	issues, err := rc.Client.ListIssues(ctx, opt)
+	// sort/order 設定
+	opt.Sort = c.Sort
+	opt.Order = c.Order
+	var issues []domain.Issue
+	if c.DueDate != "" {
+		issues, err = fetchAllIssues(ctx, rc.Client, opt)
+	} else {
+		issues, err = rc.Client.ListIssues(ctx, opt)
+	}
 	if err != nil {
 		return err
 	}
@@ -664,6 +675,30 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 }
 
 // ---- ヘルパー ----
+
+// fetchAllIssues は自動ページングで全件取得する。最大 10,000 件で打ち切る。
+func fetchAllIssues(ctx context.Context, client backlog.Client, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+	const maxTotal = 10000
+	if opt.Limit <= 0 {
+		opt.Limit = 100 // デフォルトページサイズ
+	}
+	var all []domain.Issue
+	for {
+		page, err := client.ListIssues(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < opt.Limit || len(all) >= maxTotal {
+			break
+		}
+		opt.Offset += opt.Limit
+	}
+	if len(all) > maxTotal {
+		all = all[:maxTotal]
+	}
+	return all, nil
+}
 
 // nilIfEmpty は空文字列の場合に nil を返す。dry-run 出力用。
 func nilIfEmpty(s string) interface{} {

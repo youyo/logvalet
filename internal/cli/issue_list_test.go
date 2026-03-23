@@ -400,6 +400,368 @@ func TestResolveStatuses_open_allClosed_fallback(t *testing.T) {
 	}
 }
 
+// ---- resolveStatuses not-closed テスト ----
+
+// NC1: "not-closed", projectKeys=[] → [1,2,3], err=nil
+func TestResolveStatuses_notClosed(t *testing.T) {
+	mc := backlog.NewMockClient()
+	ids, err := resolveStatuses(context.Background(), "not-closed", []string{}, mc)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{1, 2, 3}) {
+		t.Fatalf("期待 [1,2,3], 実際 %v", ids)
+	}
+}
+
+// NC2: "not-closed", projectKeys=["PROJ"] → [1,2,3], err=nil (API 呼び出しなし)
+func TestResolveStatuses_notClosed_withProject(t *testing.T) {
+	mc := backlog.NewMockClient()
+	// ListProjectStatuses が呼ばれないことを確認するため、呼ばれたらエラーにする
+	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		t.Error("not-closed で ListProjectStatuses は呼ばれてはいけない")
+		return nil, nil
+	}
+	ids, err := resolveStatuses(context.Background(), "not-closed", []string{"PROJ"}, mc)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{1, 2, 3}) {
+		t.Fatalf("期待 [1,2,3], 実際 %v", ids)
+	}
+}
+
+// ---- resolveDueDate 範囲テスト ----
+
+// DD1: "2026-03-01:2026-03-31" → Since=03-01, Until=03-31
+func TestResolveDueDate_range_both(t *testing.T) {
+	since, until, err := resolveDueDate("2026-03-01:2026-03-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	expectedSince := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	expectedUntil := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// DD2: "2026-03-01:" → Since=03-01, Until=nil
+func TestResolveDueDate_range_sinceOnly(t *testing.T) {
+	since, until, err := resolveDueDate("2026-03-01:")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until != nil {
+		t.Fatalf("until は nil 期待, 実際 %v", *until)
+	}
+	expectedSince := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+}
+
+// DD3: ":2026-03-31" → Since=nil, Until=03-31
+func TestResolveDueDate_range_untilOnly(t *testing.T) {
+	since, until, err := resolveDueDate(":2026-03-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since != nil {
+		t.Fatalf("since は nil 期待, 実際 %v", *since)
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	expectedUntil := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// DD4: ":" → エラー（両側空）
+func TestResolveDueDate_range_empty(t *testing.T) {
+	_, _, err := resolveDueDate(":")
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// DD5: "invalid:2026-03-31" → エラー
+func TestResolveDueDate_range_invalidDate(t *testing.T) {
+	_, _, err := resolveDueDate("invalid:2026-03-31")
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// DD6: "this-week" → Since=今週月曜, Until=今週日曜
+func TestResolveDueDate_thisWeek(t *testing.T) {
+	since, until, err := resolveDueDate("this-week")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	expectedSince := weekStart(today)
+	expectedUntil := expectedSince.AddDate(0, 0, 6)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// DD7: "this-month" → Since=今月1日, Until=今月末日
+func TestResolveDueDate_thisMonth(t *testing.T) {
+	since, until, err := resolveDueDate("this-month")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	now := time.Now()
+	expectedSince := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	// 翌月1日の前日 = 今月末日
+	expectedUntil := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// E1: "abc:def" → エラー
+func TestResolveDueDate_range_invalidFormat(t *testing.T) {
+	_, _, err := resolveDueDate("abc:def")
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// ---- weekStart ヘルパーテスト ----
+
+func TestWeekStart(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    time.Time
+		expected time.Time
+	}{
+		{
+			name:     "WS1: 月曜日 2026-03-23",
+			input:    time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC),
+			expected: time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "WS2: 水曜日 2026-03-25",
+			input:    time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC),
+			expected: time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "WS3: 日曜日 2026-03-29",
+			input:    time.Date(2026, 3, 29, 0, 0, 0, 0, time.UTC),
+			expected: time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "WS4: 土曜日 2026-03-28",
+			input:    time.Date(2026, 3, 28, 0, 0, 0, 0, time.UTC),
+			expected: time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := weekStart(tt.input)
+			if !got.Equal(tt.expected) {
+				t.Fatalf("期待 %v, 実際 %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+// ---- fetchAllIssues テスト ----
+
+// PG1: 1回目100件、2回目50件 → 全150件返す
+func TestFetchAllIssues_multiPage(t *testing.T) {
+	mc := backlog.NewMockClient()
+	callCount := 0
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		callCount++
+		if callCount == 1 {
+			// 1ページ目: 100件
+			issues := make([]domain.Issue, 100)
+			for i := range issues {
+				issues[i] = domain.Issue{ID: i + 1}
+			}
+			return issues, nil
+		}
+		// 2ページ目: 50件
+		issues := make([]domain.Issue, 50)
+		for i := range issues {
+			issues[i] = domain.Issue{ID: 100 + i + 1}
+		}
+		return issues, nil
+	}
+
+	opt := backlog.ListIssuesOptions{Limit: 100, Offset: 0}
+	all, err := fetchAllIssues(context.Background(), mc, opt)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if len(all) != 150 {
+		t.Fatalf("期待 150件, 実際 %d件", len(all))
+	}
+	if callCount != 2 {
+		t.Fatalf("期待 2回呼び出し, 実際 %d回", callCount)
+	}
+}
+
+// PG2: 50件 → 1回で完了
+func TestFetchAllIssues_singlePage(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		issues := make([]domain.Issue, 50)
+		for i := range issues {
+			issues[i] = domain.Issue{ID: i + 1}
+		}
+		return issues, nil
+	}
+
+	opt := backlog.ListIssuesOptions{Limit: 100, Offset: 0}
+	all, err := fetchAllIssues(context.Background(), mc, opt)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if len(all) != 50 {
+		t.Fatalf("期待 50件, 実際 %d件", len(all))
+	}
+	if mc.GetCallCount("ListIssues") != 1 {
+		t.Fatalf("期待 1回呼び出し, 実際 %d回", mc.GetCallCount("ListIssues"))
+	}
+}
+
+// PG3: 0件 → 即完了、空スライス
+func TestFetchAllIssues_empty(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	opt := backlog.ListIssuesOptions{Limit: 100, Offset: 0}
+	all, err := fetchAllIssues(context.Background(), mc, opt)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("期待 0件, 実際 %d件", len(all))
+	}
+	if mc.GetCallCount("ListIssues") != 1 {
+		t.Fatalf("期待 1回呼び出し, 実際 %d回", mc.GetCallCount("ListIssues"))
+	}
+}
+
+// PG4: 10,000件で打ち切りテスト（Limit=100 で100回呼び出し後、100件返してもループが打ち切られる）
+func TestFetchAllIssues_maxLimit(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		// 常に100件を返し続ける
+		issues := make([]domain.Issue, 100)
+		for i := range issues {
+			issues[i] = domain.Issue{ID: opt.Offset + i + 1}
+		}
+		return issues, nil
+	}
+
+	opt := backlog.ListIssuesOptions{Limit: 100, Offset: 0}
+	all, err := fetchAllIssues(context.Background(), mc, opt)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if len(all) != 10000 {
+		t.Fatalf("期待 10000件, 実際 %d件", len(all))
+	}
+	// 10000 / 100 = 100回呼び出し
+	if mc.GetCallCount("ListIssues") != 100 {
+		t.Fatalf("期待 100回呼び出し, 実際 %d回", mc.GetCallCount("ListIssues"))
+	}
+}
+
+// E2: 2ページ目でエラー → エラー伝播
+func TestFetchAllIssues_apiError(t *testing.T) {
+	mc := backlog.NewMockClient()
+	callCount := 0
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		callCount++
+		if callCount == 1 {
+			issues := make([]domain.Issue, 100)
+			for i := range issues {
+				issues[i] = domain.Issue{ID: i + 1}
+			}
+			return issues, nil
+		}
+		return nil, errors.New("API エラー")
+	}
+
+	opt := backlog.ListIssuesOptions{Limit: 100, Offset: 0}
+	_, err := fetchAllIssues(context.Background(), mc, opt)
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// ZL1: Limit=0 で呼び出し → 無限ループせずに正常に結果を返す（Limit が 100 に正規化される）
+func TestFetchAllIssues_zeroLimit(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		// Limit が 100 に正規化されているはずなので、3件返す（1ページで完了）
+		if opt.Limit != 100 {
+			t.Errorf("Limit が 100 に正規化されていない: %d", opt.Limit)
+		}
+		issues := make([]domain.Issue, 3)
+		for i := range issues {
+			issues[i] = domain.Issue{ID: i + 1}
+		}
+		return issues, nil
+	}
+
+	// Limit=0 で呼び出す
+	opt := backlog.ListIssuesOptions{Limit: 0, Offset: 0}
+	all, err := fetchAllIssues(context.Background(), mc, opt)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if len(all) != 3 {
+		t.Fatalf("期待 3件, 実際 %d件", len(all))
+	}
+	if mc.GetCallCount("ListIssues") != 1 {
+		t.Fatalf("期待 1回呼び出し, 実際 %d回", mc.GetCallCount("ListIssues"))
+	}
+}
+
 // ---- ヘルパー ----
 
 // intSliceEqual は順序付きで 2 つの int スライスを比較する。

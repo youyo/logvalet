@@ -76,10 +76,15 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 }
 
 // resolveStatuses は --status フラグの値を StatusIDs に変換する。
+// "not-closed" → Backlog 標準の未完了ステータス [1,2,3]（projectKeys 不要）
 // "open" → 完了以外のステータス（projectKeys 必須）
 // カンマ区切り → 各要素を数値または名前で解決
 // 単一数値 → そのまま ID（projectKeys 不要）
 func resolveStatuses(ctx context.Context, input string, projectKeys []string, client backlog.Client) ([]int, error) {
+	if input == "not-closed" {
+		// Backlog 標準ステータス: 1=未対応, 2=処理中, 3=処理済み（4=完了を除外）
+		return []int{1, 2, 3}, nil
+	}
 	if input == "open" {
 		if len(projectKeys) == 0 {
 			return nil, fmt.Errorf("--status open には --project-key (-k) が必須です")
@@ -146,7 +151,12 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 // "" → nil, nil, nil
 // "today" → Since=Until=今日
 // "overdue" → Since=nil, Until=昨日
+// "this-week" → Since=今週月曜, Until=今週日曜
+// "this-month" → Since=今月1日, Until=今月末日
 // "YYYY-MM-DD" → Since=Until=指定日
+// "YYYY-MM-DD:YYYY-MM-DD" → Since=左側, Until=右側
+// "YYYY-MM-DD:" → Since のみ
+// ":YYYY-MM-DD" → Until のみ
 func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 	if input == "" {
 		return nil, nil, nil
@@ -159,13 +169,75 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 	case "overdue":
 		yesterday := today.AddDate(0, 0, -1)
 		return nil, &yesterday, nil
+	case "this-week":
+		monday := weekStart(today)
+		sunday := monday.AddDate(0, 0, 6)
+		return &monday, &sunday, nil
+	case "this-month":
+		firstDay := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
+		return &firstDay, &lastDay, nil
 	default:
+		// コロン区切りの範囲指定を試みる
+		if strings.Contains(input, ":") {
+			since, until, err := parseDateRange(input)
+			if err != nil {
+				return nil, nil, fmt.Errorf("期限日は today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+			}
+			return since, until, nil
+		}
 		t, err := parseDate(input)
 		if err != nil {
-			return nil, nil, fmt.Errorf("期限日は today, overdue, YYYY-MM-DD で指定してください: %q", input)
+			return nil, nil, fmt.Errorf("期限日は today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
 		}
 		return t, t, nil
 	}
+}
+
+// weekStart は月曜始まりの週開始日（月曜日）を返す。
+// Go の time.Weekday(): Sunday=0, Monday=1, ..., Saturday=6
+func weekStart(t time.Time) time.Time {
+	weekday := t.Weekday()
+	var offset int
+	if weekday == time.Sunday {
+		offset = -6
+	} else {
+		offset = -int(weekday - time.Monday)
+	}
+	return t.AddDate(0, 0, offset)
+}
+
+// parseDateRange はコロン区切りの日付範囲文字列をパースする。
+// "A:B" → Since=A, Until=B
+// "A:" → Since=A, Until=nil
+// ":B" → Since=nil, Until=B
+// ":" → エラー（両側空）
+func parseDateRange(input string) (*time.Time, *time.Time, error) {
+	parts := strings.SplitN(input, ":", 2)
+	if len(parts) != 2 {
+		return nil, nil, fmt.Errorf("コロン区切りの範囲指定が不正です: %q", input)
+	}
+	left := strings.TrimSpace(parts[0])
+	right := strings.TrimSpace(parts[1])
+	if left == "" && right == "" {
+		return nil, nil, fmt.Errorf("範囲指定 ':' の両側が空です")
+	}
+	var since, until *time.Time
+	if left != "" {
+		t, err := parseDate(left)
+		if err != nil {
+			return nil, nil, err
+		}
+		since = t
+	}
+	if right != "" {
+		t, err := parseDate(right)
+		if err != nil {
+			return nil, nil, err
+		}
+		until = t
+	}
+	return since, until, nil
 }
 
 // resolveNameOrID は入力文字列を ID に変換する。
