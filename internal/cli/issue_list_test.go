@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestResolveAssignee_me(t *testing.T) {
 	mc.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {
 		return &domain.User{ID: 42, Name: "テストユーザー"}, nil
 	}
-	ids, err := resolveAssignee(context.Background(), "me", mc)
+	ids, err := resolveAssignee(context.Background(), "me", mc, 0)
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}
@@ -39,7 +40,7 @@ func TestResolveAssignee_me(t *testing.T) {
 // C2: 数値文字列 → [99]
 func TestResolveAssignee_numeric(t *testing.T) {
 	mc := backlog.NewMockClient()
-	ids, err := resolveAssignee(context.Background(), "99", mc)
+	ids, err := resolveAssignee(context.Background(), "99", mc, 0)
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}
@@ -57,7 +58,7 @@ func TestResolveAssignee_name(t *testing.T) {
 			{ID: 51, Name: "鈴木花子"},
 		}, nil
 	}
-	ids, err := resolveAssignee(context.Background(), "田中太郎", mc)
+	ids, err := resolveAssignee(context.Background(), "田中太郎", mc, 0)
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}
@@ -74,7 +75,7 @@ func TestResolveAssignee_name_not_found(t *testing.T) {
 			{ID: 50, Name: "田中太郎"},
 		}, nil
 	}
-	_, err := resolveAssignee(context.Background(), "存在しないユーザー", mc)
+	_, err := resolveAssignee(context.Background(), "存在しないユーザー", mc, 0)
 	if err == nil {
 		t.Fatal("エラーが期待されたが nil")
 	}
@@ -89,7 +90,7 @@ func TestResolveAssignee_name_multiple(t *testing.T) {
 			{ID: 51, Name: "田中"},
 		}, nil
 	}
-	_, err := resolveAssignee(context.Background(), "田中", mc)
+	_, err := resolveAssignee(context.Background(), "田中", mc, 0)
 	if err == nil {
 		t.Fatal("エラーが期待されたが nil")
 	}
@@ -101,7 +102,7 @@ func TestResolveAssignee_getMyself_error(t *testing.T) {
 	mc.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {
 		return nil, errors.New("API エラー")
 	}
-	_, err := resolveAssignee(context.Background(), "me", mc)
+	_, err := resolveAssignee(context.Background(), "me", mc, 0)
 	if err == nil {
 		t.Fatal("エラーが期待されたが nil")
 	}
@@ -348,7 +349,7 @@ func TestResolveAssignee_userID(t *testing.T) {
 			{ID: 51, UserID: "hanako.suzuki", Name: "鈴木花子"},
 		}, nil
 	}
-	ids, err := resolveAssignee(context.Background(), "taro.tanaka", mc)
+	ids, err := resolveAssignee(context.Background(), "taro.tanaka", mc, 0)
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}
@@ -759,6 +760,162 @@ func TestFetchAllIssues_zeroLimit(t *testing.T) {
 	}
 	if mc.GetCallCount("ListIssues") != 1 {
 		t.Fatalf("期待 1回呼び出し, 実際 %d回", mc.GetCallCount("ListIssues"))
+	}
+}
+
+// ---- resolveAssignee "team" テスト ----
+
+// B1: config.teamID=1, GetTeam → Members[{ID:10},{ID:20}] → [10,20]
+func TestResolveAssignee_team(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.GetTeamFunc = func(ctx context.Context, teamID int) (*domain.TeamWithMembers, error) {
+		if teamID != 1 {
+			t.Fatalf("期待 teamID=1, 実際 %d", teamID)
+		}
+		return &domain.TeamWithMembers{
+			ID:      1,
+			Name:    "テストチーム",
+			Members: []domain.User{{ID: 10}, {ID: 20}},
+		}, nil
+	}
+	ids, err := resolveAssignee(context.Background(), "team", mc, 1)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{10, 20}) {
+		t.Fatalf("期待 [10,20], 実際 %v", ids)
+	}
+}
+
+// B2: teamID=0 → エラー「team_id が config に設定されていません」
+func TestResolveAssignee_team_noConfig(t *testing.T) {
+	mc := backlog.NewMockClient()
+	_, err := resolveAssignee(context.Background(), "team", mc, 0)
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+	if !strings.Contains(err.Error(), "team_id") {
+		t.Fatalf("エラーメッセージに 'team_id' が含まれない: %v", err)
+	}
+}
+
+// B3: members=[] → エラー「チームにメンバーがいません」
+func TestResolveAssignee_team_emptyMembers(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.GetTeamFunc = func(ctx context.Context, teamID int) (*domain.TeamWithMembers, error) {
+		return &domain.TeamWithMembers{
+			ID:      1,
+			Name:    "空チーム",
+			Members: []domain.User{},
+		}, nil
+	}
+	_, err := resolveAssignee(context.Background(), "team", mc, 1)
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+	if !strings.Contains(err.Error(), "メンバー") {
+		t.Fatalf("エラーメッセージに 'メンバー' が含まれない: %v", err)
+	}
+}
+
+// ---- resolvePeriod テスト ----
+
+// B4: ("this-week", "") → since=今週月曜, until=nil
+func TestResolvePeriod_thisWeek(t *testing.T) {
+	since, until, err := resolvePeriod("this-week", "")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until != nil {
+		t.Fatalf("until は nil 期待, 実際 %v", *until)
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	expectedSince := weekStart(today)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+}
+
+// B5: ("this-month", "") → since=今月1日, until=nil
+func TestResolvePeriod_thisMonth(t *testing.T) {
+	since, until, err := resolvePeriod("this-month", "")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until != nil {
+		t.Fatalf("until は nil 期待, 実際 %v", *until)
+	}
+	now := time.Now()
+	expectedSince := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+}
+
+// B6: ("2026-03-01", "2026-03-31") → 指定通り
+func TestResolvePeriod_bothDates(t *testing.T) {
+	since, until, err := resolvePeriod("2026-03-01", "2026-03-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	expectedSince := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	expectedUntil := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// B7: ("this-week", "this-week") → since=今週月曜, until=今週日曜
+func TestResolvePeriod_sinceThisWeekUntilThisWeek(t *testing.T) {
+	since, until, err := resolvePeriod("this-week", "this-week")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	expectedSince := weekStart(today)
+	expectedUntil := expectedSince.AddDate(0, 0, 6)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// B8: ("", "") → nil, nil, nil
+func TestResolvePeriod_empty(t *testing.T) {
+	since, until, err := resolvePeriod("", "")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since != nil {
+		t.Fatalf("since は nil 期待, 実際 %v", *since)
+	}
+	if until != nil {
+		t.Fatalf("until は nil 期待, 実際 %v", *until)
 	}
 }
 

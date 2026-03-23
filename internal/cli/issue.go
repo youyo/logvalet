@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
-	"github.com/youyo/logvalet/internal/digest"
 	"github.com/youyo/logvalet/internal/domain"
 )
 
@@ -17,7 +16,6 @@ import (
 type IssueCmd struct {
 	Get     IssueGetCmd     `cmd:"" help:"課題を取得する"`
 	List    IssueListCmd    `cmd:"" help:"課題一覧を取得する"`
-	Digest  IssueDigestCmd  `cmd:"" help:"課題のダイジェストを生成する"`
 	Create  IssueCreateCmd  `cmd:"" help:"課題を作成する"`
 	Update  IssueUpdateCmd  `cmd:"" help:"課題を更新する"`
 	Comment IssueCommentCmd `cmd:"" help:"コメントを操作する"`
@@ -72,7 +70,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	}
 	// --assignee 解決
 	if c.Assignee != "" {
-		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client)
+		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client, rc.Config.TeamID)
 		if err != nil {
 			return fmt.Errorf("担当者の解決に失敗: %w", err)
 		}
@@ -108,30 +106,6 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 	return rc.Renderer.Render(os.Stdout, issues)
-}
-
-// IssueDigestCmd は issue digest コマンド（spec §14.3）。
-type IssueDigestCmd struct {
-	IssueKey   string `arg:"" required:"" help:"課題キー (例: PROJ-123)"`
-	Comments   int    `help:"取得するコメント数" default:"5" env:"LOGVALET_COMMENTS"`
-	NoActivity bool   `help:"アクティビティを含めない" env:"LOGVALET_NO_ACTIVITY"`
-}
-
-func (c *IssueDigestCmd) Run(g *GlobalFlags) error {
-	ctx := context.Background()
-	rc, err := buildRunContext(g)
-	if err != nil {
-		return err
-	}
-	builder := digest.NewDefaultIssueDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
-	envelope, err := builder.Build(ctx, c.IssueKey, digest.IssueDigestOptions{
-		MaxComments:     c.Comments,
-		IncludeActivity: !c.NoActivity,
-	})
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, envelope)
 }
 
 // IssueCreateCmd は issue create コマンド（spec §14.4）。

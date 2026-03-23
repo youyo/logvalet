@@ -38,14 +38,32 @@ func uniqueInts(ids []int) []int {
 }
 
 // resolveAssignee は --assignee フラグの値を AssigneeIDs に変換する。
-// "me" → GetMyself、数値文字列 → そのまま ID、それ以外 → ListUsers で名前検索。
-func resolveAssignee(ctx context.Context, input string, client backlog.Client) ([]int, error) {
+// "me" → GetMyself、"team" → GetTeam でメンバー展開、数値文字列 → そのまま ID、それ以外 → ListUsers で名前検索。
+// teamID は "team" ケースでのみ使用される（config.toml の team_id）。0 の場合は未設定とみなす。
+func resolveAssignee(ctx context.Context, input string, client backlog.Client, teamID int) ([]int, error) {
 	if input == "me" {
 		user, err := client.GetMyself(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return []int{user.ID}, nil
+	}
+	if input == "team" {
+		if teamID == 0 {
+			return nil, fmt.Errorf("team_id が config に設定されていません。config.toml の [profiles.xxx] に team_id を追加してください")
+		}
+		team, err := client.GetTeam(ctx, teamID)
+		if err != nil {
+			return nil, fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", teamID, err)
+		}
+		if len(team.Members) == 0 {
+			return nil, fmt.Errorf("チーム (ID=%d) にメンバーがいません", teamID)
+		}
+		ids := make([]int, len(team.Members))
+		for i, m := range team.Members {
+			ids[i] = m.ID
+		}
+		return ids, nil
 	}
 	if id, err := strconv.Atoi(input); err == nil {
 		return []int{id}, nil
@@ -192,6 +210,60 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 		}
 		return t, t, nil
 	}
+}
+
+// resolvePeriod は --since / --until フラグの値をそれぞれ *time.Time に変換する。
+// "" → nil
+// "today" → 今日
+// "this-week" → since の場合は今週月曜、until の場合は今週日曜
+// "this-month" → since の場合は今月1日、until の場合は今月末日
+// "YYYY-MM-DD" → その日付
+func resolvePeriod(since, until string) (*time.Time, *time.Time, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+
+	var sinceTime *time.Time
+	if since != "" {
+		switch since {
+		case "today":
+			sinceTime = &today
+		case "this-week":
+			monday := weekStart(today)
+			sinceTime = &monday
+		case "this-month":
+			firstDay := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+			sinceTime = &firstDay
+		default:
+			t, err := parseDate(since)
+			if err != nil {
+				return nil, nil, fmt.Errorf("since の日付形式が不正です: %w", err)
+			}
+			sinceTime = t
+		}
+	}
+
+	var untilTime *time.Time
+	if until != "" {
+		switch until {
+		case "today":
+			untilTime = &today
+		case "this-week":
+			monday := weekStart(today)
+			sunday := monday.AddDate(0, 0, 6)
+			untilTime = &sunday
+		case "this-month":
+			lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
+			untilTime = &lastDay
+		default:
+			t, err := parseDate(until)
+			if err != nil {
+				return nil, nil, fmt.Errorf("until の日付形式が不正です: %w", err)
+			}
+			untilTime = t
+		}
+	}
+
+	return sinceTime, untilTime, nil
 }
 
 // weekStart は月曜始まりの週開始日（月曜日）を返す。
