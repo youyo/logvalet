@@ -195,6 +195,127 @@ func TestHTTPClientListIssues(t *testing.T) {
 			t.Errorf("projectId[] query = %v, want [42 99]", gotProjectIDs)
 		}
 	})
+
+	t.Run("assigneeId[] single value", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			AssigneeIDs: []int{42},
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if ids := gotQuery["assigneeId[]"]; len(ids) != 1 || ids[0] != "42" {
+			t.Errorf("assigneeId[] = %v, want [42]", ids)
+		}
+	})
+
+	t.Run("assigneeId[] multiple values", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			AssigneeIDs: []int{1, 2},
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if ids := gotQuery["assigneeId[]"]; len(ids) != 2 {
+			t.Errorf("assigneeId[] = %v, want 2 items", ids)
+		}
+	})
+
+	t.Run("statusId[] multiple values", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			StatusIDs: []int{1, 2, 3},
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		ids := gotQuery["statusId[]"]
+		if len(ids) != 3 {
+			t.Fatalf("statusId[] = %v, want 3 items", ids)
+		}
+		for i, want := range []string{"1", "2", "3"} {
+			if ids[i] != want {
+				t.Errorf("statusId[][%d] = %q, want %q", i, ids[i], want)
+			}
+		}
+	})
+
+	t.Run("dueDateSince and dueDateUntil", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		since := time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC)
+		until := time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC)
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			DueDateSince: &since,
+			DueDateUntil: &until,
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if gotQuery.Get("dueDateSince") != "2026-03-23" {
+			t.Errorf("dueDateSince = %q, want %q", gotQuery.Get("dueDateSince"), "2026-03-23")
+		}
+		if gotQuery.Get("dueDateUntil") != "2026-03-23" {
+			t.Errorf("dueDateUntil = %q, want %q", gotQuery.Get("dueDateUntil"), "2026-03-23")
+		}
+	})
+
+	t.Run("nil AssigneeIDs and StatusIDs are excluded", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			AssigneeIDs: nil,
+			StatusIDs:   nil,
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if _, ok := gotQuery["assigneeId[]"]; ok {
+			t.Error("assigneeId[] should not be present when AssigneeIDs is nil")
+		}
+		if _, ok := gotQuery["statusId[]"]; ok {
+			t.Error("statusId[] should not be present when StatusIDs is nil")
+		}
+	})
 }
 
 func TestHTTPClientContextCancellation(t *testing.T) {

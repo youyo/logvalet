@@ -5,11 +5,13 @@ import "time"
 // ListIssuesOptions は GetIssues リクエストのオプション。
 // spec §18.2 準拠。
 type ListIssuesOptions struct {
-	ProjectIDs []int
-	Assignee   string
-	Status     string
-	Limit      int
-	Offset     int
+	ProjectIDs   []int
+	AssigneeIDs  []int
+	StatusIDs    []int
+	DueDateSince *time.Time
+	DueDateUntil *time.Time
+	Limit        int
+	Offset       int
 }
 
 // ListCommentsOptions は ListIssueComments リクエストのオプション。

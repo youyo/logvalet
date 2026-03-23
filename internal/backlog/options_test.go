@@ -16,15 +16,28 @@ func TestListIssuesOptions(t *testing.T) {
 	})
 
 	t.Run("all fields settable", func(t *testing.T) {
+		since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+		until := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
 		opt := backlog.ListIssuesOptions{
-			ProjectIDs: []int{1, 2},
-			Assignee:   "user1",
-			Status:     "処理中",
-			Limit:      20,
-			Offset:     10,
+			ProjectIDs:   []int{1, 2},
+			AssigneeIDs:  []int{10, 11},
+			StatusIDs:    []int{1, 2},
+			DueDateSince: &since,
+			DueDateUntil: &until,
+			Limit:        20,
+			Offset:       10,
 		}
 		if len(opt.ProjectIDs) != 2 || opt.ProjectIDs[0] != 1 {
 			t.Errorf("ProjectIDs = %v, want [1 2]", opt.ProjectIDs)
+		}
+		if len(opt.AssigneeIDs) != 2 || opt.AssigneeIDs[0] != 10 {
+			t.Errorf("AssigneeIDs = %v, want [10 11]", opt.AssigneeIDs)
+		}
+		if len(opt.StatusIDs) != 2 {
+			t.Errorf("StatusIDs = %v, want [1 2]", opt.StatusIDs)
+		}
+		if opt.DueDateSince == nil || !opt.DueDateSince.Equal(since) {
+			t.Errorf("DueDateSince = %v, want %v", opt.DueDateSince, since)
 		}
 		if opt.Limit != 20 {
 			t.Errorf("Limit = %d, want 20", opt.Limit)

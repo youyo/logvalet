@@ -263,11 +263,17 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	for _, id := range opt.ProjectIDs {
 		q.Add("projectId[]", strconv.Itoa(id))
 	}
-	if opt.Assignee != "" {
-		q.Set("assigneeUserId[]", opt.Assignee)
+	for _, id := range opt.AssigneeIDs {
+		q.Add("assigneeId[]", strconv.Itoa(id))
 	}
-	if opt.Status != "" {
-		q.Set("statusId[]", opt.Status)
+	for _, id := range opt.StatusIDs {
+		q.Add("statusId[]", strconv.Itoa(id))
+	}
+	if opt.DueDateSince != nil {
+		q.Set("dueDateSince", opt.DueDateSince.Format("2006-01-02"))
+	}
+	if opt.DueDateUntil != nil {
+		q.Set("dueDateUntil", opt.DueDateUntil.Format("2006-01-02"))
 	}
 	if opt.Limit > 0 {
 		q.Set("count", strconv.Itoa(opt.Limit))
