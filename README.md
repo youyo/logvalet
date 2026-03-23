@@ -164,13 +164,38 @@ logvalet issue list --status "未対応,処理中" -k PROJECT_KEY
 
 # Filter by status ID
 logvalet issue list --status 1
+
+# List all non-closed issues (no project key required)
+logvalet issue list --status not-closed
+
+# List issues due this month
+logvalet issue list --due-date this-month
+
+# List issues due this week, sorted by due date (ascending)
+logvalet issue list --due-date this-week --sort dueDate --order asc
+
+# List issues in a specific date range
+logvalet issue list --due-date 2026-03-01:2026-03-31
+
+# List issues due on or after a specific date
+logvalet issue list --due-date 2026-03-20:
+
+# List issues due on or before a specific date
+logvalet issue list --due-date :2026-03-31
+
+# Combine filters: my non-closed issues, sorted by due date
+logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 ```
 
 | Flag | Values | Description |
 |------|--------|-------------|
 | `--assignee` | `me`, user ID, or user name | Filter by assignee |
-| `--status` | `open`, status name(s), or status ID | Filter by status. `open` excludes completed. Names/`open` require `-k` |
-| `--due-date` | `today`, `overdue`, or `YYYY-MM-DD` | Filter by due date |
+| `--status` | `open`, `not-closed`, status name(s), or status ID | Filter by status. `open` excludes completed. `not-closed` excludes completed (no project key required). Names/`open` require `-k` |
+| `--due-date` | `today`, `overdue`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by due date. Date ranges support open-ended queries (`:YYYY-MM-DD` or `YYYY-MM-DD:`) |
+| `--sort` | `dueDate`, `created`, `updated`, `priority`, `status`, `assignee` | Sort results by field |
+| `--order` | `asc`, `desc` | Sort direction. Default: `desc` |
+
+Note: When using `--due-date`, results are automatically paginated to retrieve all matching issues (up to 10,000 total).
 
 ## Output
 

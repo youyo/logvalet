@@ -163,13 +163,38 @@ logvalet issue list --status "未対応,処理中" -k PROJECT_KEY
 
 # ステータスIDで絞り込み
 logvalet issue list --status 1
+
+# 全体の完了以外の課題を一覧（プロジェクトキー不要）
+logvalet issue list --status not-closed
+
+# 今月が期限の課題を一覧
+logvalet issue list --due-date this-month
+
+# 今週が期限の課題を期限順に表示
+logvalet issue list --due-date this-week --sort dueDate --order asc
+
+# 特定期間の課題を一覧
+logvalet issue list --due-date 2026-03-01:2026-03-31
+
+# 指定日以降が期限の課題を一覧
+logvalet issue list --due-date 2026-03-20:
+
+# 指定日までが期限の課題を一覧
+logvalet issue list --due-date :2026-03-31
+
+# 複合条件：自分の完了以外の課題を期限順に表示
+logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 ```
 
 | フラグ | 指定値 | 説明 |
 |--------|--------|------|
 | `--assignee` | `me`、ユーザーID、またはユーザー名 | 担当者で絞り込み |
-| `--status` | `open`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。名前/`open` は `-k` 必須 |
-| `--due-date` | `today`、`overdue`、`YYYY-MM-DD` | 期限日で絞り込み |
+| `--status` | `open`、`not-closed`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。`not-closed` も完了以外（プロジェクトキー不要）。名前/`open` は `-k` 必須 |
+| `--due-date` | `today`、`overdue`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 期限日で絞り込み。日付範囲は開端記法に対応（`:YYYY-MM-DD` または `YYYY-MM-DD:`） |
+| `--sort` | `dueDate`、`created`、`updated`、`priority`、`status`、`assignee` | 結果のソート対象フィールド |
+| `--order` | `asc`、`desc` | ソート順序。デフォルト: `desc` |
+
+注: `--due-date` 指定時は自動ページング機能で全件取得されます（上限10,000件）。
 
 ## 出力
 
