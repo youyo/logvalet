@@ -11,6 +11,36 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// DigestProject は digest 内のプロジェクト情報（spec §13.1 digest.project）。
+type DigestProject struct {
+	ID   int    `json:"id"`
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+// DigestMeta は digest 内のメタ情報（spec §13.1 digest.meta）。
+type DigestMeta struct {
+	Statuses     []domain.Status               `json:"statuses"`
+	Categories   []domain.Category             `json:"categories"`
+	Versions     []domain.Version              `json:"versions"`
+	CustomFields []domain.CustomFieldDefinition `json:"custom_fields"`
+}
+
+// DigestComment は digest 内のコメント情報（spec §13.1 digest.comments）。
+type DigestComment struct {
+	ID      int64           `json:"id"`
+	Content string          `json:"content"`
+	Author  *domain.UserRef `json:"author,omitempty"`
+	Created *time.Time      `json:"created,omitempty"`
+}
+
+// DigestLLMHints は LLM 向けヒント情報（spec §13.1 digest.llm_hints）。
+type DigestLLMHints struct {
+	PrimaryEntities      []string `json:"primary_entities"`
+	OpenQuestions        []string `json:"open_questions"`
+	SuggestedNextActions []string `json:"suggested_next_actions"`
+}
+
 // BaseDigestBuilder は全 DigestBuilder に共通するフィールドと helper を提供する
 type BaseDigestBuilder struct {
 	client  backlog.Client
