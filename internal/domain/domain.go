@@ -194,6 +194,18 @@ type Team struct {
 	Name string `json:"name"`
 }
 
+// TeamWithMembers はメンバー一覧を含むチーム情報。
+// Backlog API: GET /api/v2/teams/{teamId} のレスポンスに対応する。
+// 既存の Team 型（ID と Name のみ）はリスト取得等で引き続き使用する。
+type TeamWithMembers struct {
+	ID           int        `json:"id"`
+	Name         string     `json:"name"`
+	Members      []User     `json:"members"`
+	DisplayOrder int        `json:"displayOrder,omitempty"`
+	Created      *time.Time `json:"created,omitempty"`
+	Updated      *time.Time `json:"updated,omitempty"`
+}
+
 // Space は Backlog スペース情報。
 type Space struct {
 	SpaceKey           string `json:"spaceKey"`
