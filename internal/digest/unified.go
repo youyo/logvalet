@@ -478,16 +478,22 @@ func fetchAllIssuesPaged(ctx context.Context, client backlog.Client, opt backlog
 
 // activitiesToInterface は []domain.Activity を []interface{} に変換する。
 // FetchActivitiesWithDateFilter は interface{} スライスを期待するため変換が必要。
-// ただし domain.Activity は struct なので、created フィールドをマップ経由で扱うために
-// map[string]interface{} 形式に変換する。
+// domain.Activity の全フィールド（id, type, content, createdUser, created）を保持する。
 func activitiesToInterface(activities []domain.Activity) []interface{} {
 	result := make([]interface{}, 0, len(activities))
 	for _, a := range activities {
 		m := map[string]interface{}{
-			"id": int(a.ID),
+			"id":   int(a.ID),
+			"type": a.Type,
 		}
 		if a.Created != nil {
 			m["created"] = a.Created
+		}
+		if a.Content != nil {
+			m["content"] = a.Content
+		}
+		if a.CreatedUser != nil {
+			m["createdUser"] = a.CreatedUser
 		}
 		result = append(result, m)
 	}

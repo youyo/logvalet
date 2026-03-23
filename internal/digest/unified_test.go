@@ -309,6 +309,92 @@ func TestBuild_mixed(t *testing.T) {
 	}
 }
 
+// ---- D5b: activities フルデータ保持確認 ----
+
+// TestBuild_activityFullData は activities に type, content, createdUser が含まれることを確認する。
+// activitiesToInterface が id と created しか含めない場合にこのテストが失敗する（Red）。
+func TestBuild_activityFullData(t *testing.T) {
+	mc := backlog.NewMockClient()
+	actTime := time.Date(2026, 3, 23, 7, 24, 56, 0, time.UTC)
+
+	mc.ListSpaceActivitiesFunc = func(_ context.Context, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{
+			{
+				ID:   914382588,
+				Type: 3,
+				Content: map[string]interface{}{
+					"id":      float64(141884975),
+					"key_id":  float64(1158),
+					"summary": "生成AI利用制度 再設計",
+					"comment": map[string]interface{}{
+						"id":      float64(706275735),
+						"content": "team契約進める...",
+					},
+				},
+				CreatedUser: &domain.User{ID: 1537084, Name: "Naoto Ishizawa"},
+				Created:     &actTime,
+			},
+		}, nil
+	}
+	mc.ListIssuesFunc = func(_ context.Context, _ backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	b := digest.NewUnifiedDigestBuilder(mc, "work", "heptagon", "https://heptagon.backlog.com")
+	since := time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 23, 23, 59, 59, 0, time.UTC)
+	scope := digest.UnifiedDigestScope{
+		Since: &since,
+		Until: &until,
+	}
+
+	env, err := b.Build(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	ud, ok := env.Digest.(*digest.UnifiedDigest)
+	if !ok {
+		t.Fatalf("env.Digest is not *digest.UnifiedDigest")
+	}
+
+	if len(ud.Activities) != 1 {
+		t.Fatalf("Activities count = %d, want 1", len(ud.Activities))
+	}
+
+	m, ok := ud.Activities[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("activity is not map[string]interface{}, got %T", ud.Activities[0])
+	}
+
+	// type フィールドが存在することを確認
+	if _, exists := m["type"]; !exists {
+		t.Error("activity missing 'type' field")
+	}
+	if typeVal, ok := m["type"]; ok {
+		if typeVal != 3 && typeVal != float64(3) {
+			t.Errorf("activity 'type' = %v, want 3", typeVal)
+		}
+	}
+
+	// content フィールドが存在することを確認
+	if _, exists := m["content"]; !exists {
+		t.Error("activity missing 'content' field")
+	}
+	if content, ok := m["content"].(map[string]interface{}); ok {
+		if summary, ok := content["summary"].(string); !ok || summary != "生成AI利用制度 再設計" {
+			t.Errorf("activity content.summary = %v, want '生成AI利用制度 再設計'", content["summary"])
+		}
+	} else {
+		t.Errorf("activity 'content' is not map[string]interface{}, got %T", m["content"])
+	}
+
+	// createdUser フィールドが存在することを確認
+	if _, exists := m["createdUser"]; !exists {
+		t.Error("activity missing 'createdUser' field")
+	}
+}
+
 // ---- D6: partial success (issues OK, activities NG) ----
 
 func TestBuild_partialSuccess(t *testing.T) {
