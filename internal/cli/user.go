@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
-	"github.com/youyo/logvalet/internal/digest"
 )
 
 // UserCmd は user コマンド群のルート。
@@ -14,7 +13,6 @@ type UserCmd struct {
 	List     UserListCmd     `cmd:"" help:"ユーザー一覧を取得する"`
 	Get      UserGetCmd      `cmd:"" help:"ユーザーを取得する"`
 	Activity UserActivityCmd `cmd:"" help:"ユーザーのアクティビティを取得する"`
-	Digest   UserDigestCmd   `cmd:"" help:"ユーザーのダイジェストを生成する"`
 }
 
 // UserListCmd は user list コマンド（spec §14.14）。
@@ -95,42 +93,3 @@ func (c *UserActivityCmd) Run(g *GlobalFlags) error {
 	return rc.Renderer.Render(os.Stdout, activities)
 }
 
-// UserDigestCmd は user digest コマンド（spec §14.17）。
-// Since/Until/Limit は DigestFlags から継承する。
-type UserDigestCmd struct {
-	DigestFlags
-	// UserID はユーザーID（数値）またはユーザーキー（文字列）。
-	UserID string `arg:"" required:"" help:"ユーザーID（数値）またはユーザーキー（文字列）"`
-	// Project はプロジェクトキーでフィルタ。
-	Project string `help:"プロジェクトキーでフィルタ" env:"LOGVALET_PROJECT"`
-}
-
-func (c *UserDigestCmd) Run(g *GlobalFlags) error {
-	ctx := context.Background()
-	rc, err := buildRunContext(g)
-	if err != nil {
-		return err
-	}
-	builder := digest.NewDefaultUserDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
-	opt := digest.UserDigestOptions{
-		Limit:   c.Limit,
-		Project: c.Project,
-	}
-	if c.Since != "" {
-		t, parseErr := time.Parse(time.RFC3339, c.Since)
-		if parseErr == nil {
-			opt.Since = &t
-		}
-	}
-	if c.Until != "" {
-		t, parseErr := time.Parse(time.RFC3339, c.Until)
-		if parseErr == nil {
-			opt.Until = &t
-		}
-	}
-	envelope, err := builder.Build(ctx, c.UserID, opt)
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, envelope)
-}

@@ -3,15 +3,12 @@ package cli
 import (
 	"context"
 	"os"
-
-	"github.com/youyo/logvalet/internal/digest"
 )
 
 // TeamCmd は team コマンド群のルート。
 type TeamCmd struct {
 	List    TeamListCmd    `cmd:"" help:"チーム一覧を取得する"`
 	Project TeamProjectCmd `cmd:"" help:"プロジェクトのチーム一覧を取得する"`
-	Digest  TeamDigestCmd  `cmd:"" help:"チームのダイジェストを生成する"`
 }
 
 // TeamListCmd は team list コマンド。
@@ -50,22 +47,3 @@ func (c *TeamProjectCmd) Run(g *GlobalFlags) error {
 	return rc.Renderer.Render(os.Stdout, teams)
 }
 
-// TeamDigestCmd は team digest コマンド。
-type TeamDigestCmd struct {
-	DigestFlags
-	TeamID int `arg:"" required:"" help:"チームID"`
-}
-
-func (c *TeamDigestCmd) Run(g *GlobalFlags) error {
-	ctx := context.Background()
-	rc, err := buildRunContext(g)
-	if err != nil {
-		return err
-	}
-	builder := digest.NewDefaultTeamDigestBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
-	envelope, err := builder.Build(ctx, c.TeamID, digest.TeamDigestOptions{})
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, envelope)
-}

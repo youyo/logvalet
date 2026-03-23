@@ -9,6 +9,7 @@ type CLI struct {
 	Config      ConfigCmd     `cmd:"" help:"設定の管理"`
 	Configure   ConfigureCmd  `cmd:"" help:"対話型で設定を初期化する（config init のエイリアス）"`
 	Completion  CompletionCmd `cmd:"" help:"シェル補完スクリプトを出力する"`
+	Digest      DigestCmd     `cmd:"" help:"統合ダイジェストを生成する"`
 	Issue       IssueCmd      `cmd:"" help:"課題の操作"`
 	Project     ProjectCmd    `cmd:"" help:"プロジェクトの操作"`
 	Activity    ActivityCmd   `cmd:"" help:"アクティビティの操作"`
@@ -17,5 +18,5 @@ type CLI struct {
 	Meta        MetaCmd       `cmd:"" help:"メタデータ（ステータス・カテゴリー等）の取得"`
 	Team        TeamCmd       `cmd:"" help:"チームの操作"`
 	Space       SpaceCmd      `cmd:"" help:"スペースの操作"`
-	VersionInfo VersionCmd `cmd:"" name:"version" help:"バージョン情報を表示する"`
+	VersionInfo VersionCmd    `cmd:"" name:"version" help:"バージョン情報を表示する"`
 }
