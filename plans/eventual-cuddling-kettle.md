@@ -287,10 +287,48 @@ sequenceDiagram
 
 ---
 
-## Next Action
+## バグ修正: --assignee me が空配列を返す (2026-03-23 追加)
 
-> **このプランが承認されました。以下を順番に実行してください:**
->
-> 1. `Skill(devflow:implement)` — このプランに基づいて実装を開始
->
-> ユーザーの追加指示は不要です。即座に実行してください。
+### 症状
+```bash
+./logvalet issue list --project-key HEP_ISSUES          # → 結果あり
+./logvalet issue list --assignee me --project-key HEP_ISSUES  # → []
+```
+
+### 調査方針
+1. `./logvalet issue list --assignee 1537084 --project-key HEP_ISSUES` で数値ID直接指定がそもそも動くか確認
+2. `./logvalet auth whoami` で GetMyself が返す user.ID を確認
+3. `--verbose` で実際の HTTP リクエスト URL を確認し、`assigneeId[]` パラメータの値とエンコーディングを検証
+4. 全フィルタオプション（`--status open`, `--due-date today` 等）を実 API で動作確認
+5. 発見したバグを修正 + テスト追加
+
+### 考えられる原因
+- `assigneeId[]` パラメータ名が Backlog GET /api/v2/issues で正しくない可能性
+- URL エンコーディングの問題（`%5B%5D` vs リテラル `[]`）
+- `GetMyself` が返す `user.ID` と課題の `assignee.id` が一致しない可能性
+
+### 検証コマンド一覧
+```bash
+# 基本動作確認
+./logvalet auth whoami
+./logvalet issue list --project-key HEP_ISSUES --count 3
+
+# --assignee テスト
+./logvalet issue list --assignee me --project-key HEP_ISSUES
+./logvalet issue list --assignee 1537084 --project-key HEP_ISSUES
+./logvalet issue list --assignee "Naoto Ishizawa" --project-key HEP_ISSUES
+
+# --status テスト
+./logvalet issue list --status open --project-key HEP_ISSUES
+./logvalet issue list --status 1 --project-key HEP_ISSUES
+./logvalet issue list --status "未対応" --project-key HEP_ISSUES
+
+# --due-date テスト
+./logvalet issue list --due-date today --project-key HEP_ISSUES
+./logvalet issue list --due-date overdue --project-key HEP_ISSUES
+./logvalet issue list --due-date 2026-03-24 --project-key HEP_ISSUES
+
+# 組み合わせテスト
+./logvalet issue list --assignee me --status open --project-key HEP_ISSUES
+./logvalet issue list --assignee me --due-date today --project-key HEP_ISSUES
+```
