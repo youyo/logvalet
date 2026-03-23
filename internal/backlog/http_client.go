@@ -275,6 +275,12 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	if opt.DueDateUntil != nil {
 		q.Set("dueDateUntil", opt.DueDateUntil.Format("2006-01-02"))
 	}
+	if opt.UpdatedSince != nil {
+		q.Set("updatedSince", opt.UpdatedSince.Format("2006-01-02"))
+	}
+	if opt.UpdatedUntil != nil {
+		q.Set("updatedUntil", opt.UpdatedUntil.Format("2006-01-02"))
+	}
 	if opt.Sort != "" {
 		q.Set("sort", opt.Sort)
 	}
@@ -741,6 +747,21 @@ func (c *HTTPClient) ListProjectTeams(ctx context.Context, projectKey string) ([
 		return nil, err
 	}
 	return teams, nil
+}
+
+// GetTeam は指定チーム ID のチーム情報（メンバー一覧含む）を返す。
+// GET /api/v2/teams/{teamId}
+func (c *HTTPClient) GetTeam(ctx context.Context, teamID int) (*domain.TeamWithMembers, error) {
+	path := fmt.Sprintf("/api/v2/teams/%d", teamID)
+	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var team domain.TeamWithMembers
+	if err := c.do(req, &team); err != nil {
+		return nil, err
+	}
+	return &team, nil
 }
 
 // GetSpace はスペース情報を返す。

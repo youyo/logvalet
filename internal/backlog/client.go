@@ -140,6 +140,10 @@ type Client interface {
 	// Backlog API: GET /api/v2/projects/{projectKey}/teams
 	ListProjectTeams(ctx context.Context, projectKey string) ([]domain.Team, error)
 
+	// GetTeam は指定チーム ID のチーム情報（メンバー一覧含む）を返す。
+	// Backlog API: GET /api/v2/teams/{teamId}
+	GetTeam(ctx context.Context, teamID int) (*domain.TeamWithMembers, error)
+
 	// Space
 
 	// GetSpace はスペース情報を返す。

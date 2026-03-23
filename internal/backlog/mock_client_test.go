@@ -106,6 +106,46 @@ func TestMockClientCallCountThreadSafe(t *testing.T) {
 	}
 }
 
+func TestMockClientGetTeam(t *testing.T) {
+	t.Run("returns TeamWithMembers from func", func(t *testing.T) {
+		want := &domain.TeamWithMembers{
+			ID:   173843,
+			Name: "Test Team",
+			Members: []domain.User{
+				{ID: 10, Name: "User Ten"},
+			},
+		}
+		mock := backlog.NewMockClient()
+		mock.GetTeamFunc = func(ctx context.Context, teamID int) (*domain.TeamWithMembers, error) {
+			if teamID != 173843 {
+				return nil, backlog.ErrNotFound
+			}
+			return want, nil
+		}
+		got, err := mock.GetTeam(context.Background(), 173843)
+		if err != nil {
+			t.Fatalf("GetTeam() error = %v", err)
+		}
+		if got.ID != 173843 {
+			t.Errorf("ID = %d, want 173843", got.ID)
+		}
+		if len(got.Members) != 1 {
+			t.Fatalf("len(Members) = %d, want 1", len(got.Members))
+		}
+		if mock.GetCallCount("GetTeam") != 1 {
+			t.Errorf("GetCallCount(GetTeam) = %d, want 1", mock.GetCallCount("GetTeam"))
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.GetTeam(context.Background(), 173843)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("GetTeam() error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
 func TestMockClientAllMethodsDefaultToErrNotFound(t *testing.T) {
 	mock := backlog.NewMockClient()
 	ctx := context.Background()

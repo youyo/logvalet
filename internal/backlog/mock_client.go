@@ -55,6 +55,7 @@ type MockClient struct {
 	// Teams
 	ListTeamsFunc        func(ctx context.Context) ([]domain.Team, error)
 	ListProjectTeamsFunc func(ctx context.Context, projectKey string) ([]domain.Team, error)
+	GetTeamFunc          func(ctx context.Context, teamID int) (*domain.TeamWithMembers, error)
 
 	// Space
 	GetSpaceFunc          func(ctx context.Context) (*domain.Space, error)
@@ -307,6 +308,14 @@ func (m *MockClient) ListProjectTeams(ctx context.Context, projectKey string) ([
 	m.increment("ListProjectTeams")
 	if m.ListProjectTeamsFunc != nil {
 		return m.ListProjectTeamsFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) GetTeam(ctx context.Context, teamID int) (*domain.TeamWithMembers, error) {
+	m.increment("GetTeam")
+	if m.GetTeamFunc != nil {
+		return m.GetTeamFunc(ctx, teamID)
 	}
 	return nil, ErrNotFound
 }

@@ -744,6 +744,125 @@ func TestHTTPClientListIssues_sort_empty(t *testing.T) {
 	}
 }
 
+// TestHTTPClientGetTeam は GetTeam の正常系テスト。
+func TestHTTPClientGetTeam(t *testing.T) {
+	t.Run("returns TeamWithMembers", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/teams/173843" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			team := map[string]interface{}{
+				"id":           173843,
+				"name":         "Test Team",
+				"displayOrder": 1,
+				"members": []map[string]interface{}{
+					{"id": 10, "userId": "user10", "name": "User Ten"},
+					{"id": 20, "userId": "user20", "name": "User Twenty"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(team)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.GetTeam(context.Background(), 173843)
+		if err != nil {
+			t.Fatalf("GetTeam() error = %v", err)
+		}
+		if got.ID != 173843 {
+			t.Errorf("ID = %d, want 173843", got.ID)
+		}
+		if got.Name != "Test Team" {
+			t.Errorf("Name = %q, want %q", got.Name, "Test Team")
+		}
+		if len(got.Members) != 2 {
+			t.Fatalf("len(Members) = %d, want 2", len(got.Members))
+		}
+		if got.Members[0].ID != 10 || got.Members[0].Name != "User Ten" {
+			t.Errorf("Members[0] = %+v, want {ID:10, Name:User Ten}", got.Members[0])
+		}
+		if got.Members[1].ID != 20 || got.Members[1].Name != "User Twenty" {
+			t.Errorf("Members[1] = %+v, want {ID:20, Name:User Twenty}", got.Members[1])
+		}
+	})
+}
+
+// TestHTTPClientGetTeam_notFound は GetTeam の 404 → ErrNotFound テスト。
+func TestHTTPClientGetTeam_notFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		body := map[string]interface{}{
+			"errors": []map[string]interface{}{
+				{"message": "No team found.", "code": 404},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.GetTeam(context.Background(), 999)
+	if !errors.Is(err, backlog.ErrNotFound) {
+		t.Errorf("GetTeam() error = %v, want ErrNotFound", err)
+	}
+}
+
+// TestListIssues_updatedSinceUntil は updatedSince/Until がクエリに含まれることを確認。
+func TestListIssues_updatedSinceUntil(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer srv.Close()
+
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+		UpdatedSince: &since,
+		UpdatedUntil: &until,
+	})
+	if err != nil {
+		t.Fatalf("ListIssues() error = %v", err)
+	}
+	if gotQuery.Get("updatedSince") != "2026-03-01" {
+		t.Errorf("updatedSince = %q, want %q", gotQuery.Get("updatedSince"), "2026-03-01")
+	}
+	if gotQuery.Get("updatedUntil") != "2026-03-31" {
+		t.Errorf("updatedUntil = %q, want %q", gotQuery.Get("updatedUntil"), "2026-03-31")
+	}
+}
+
+// TestListIssues_updatedEmpty は UpdatedSince/Until が nil のとき updatedSince/Until が含まれないことを確認。
+func TestListIssues_updatedEmpty(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+		UpdatedSince: nil,
+		UpdatedUntil: nil,
+	})
+	if err != nil {
+		t.Fatalf("ListIssues() error = %v", err)
+	}
+	if _, ok := gotQuery["updatedSince"]; ok {
+		t.Error("updatedSince should not be present when UpdatedSince is nil")
+	}
+	if _, ok := gotQuery["updatedUntil"]; ok {
+		t.Error("updatedUntil should not be present when UpdatedUntil is nil")
+	}
+}
+
 // TestHTTPClientGetMyselfParsesUserFields は GetMyself のレスポンスが正しく domain.User にマップされるかテスト。
 func TestHTTPClientGetMyselfParsesUserFields(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
