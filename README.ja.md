@@ -32,16 +32,23 @@ alias lv=logvalet
 logvalet auth login --profile work
 ```
 
-### Issue ダイジェストの取得
+### ダイジェストの取得
 
 ```bash
-logvalet issue digest PROJ-123
+# 単一課題
+logvalet digest --issue PROJ-123
+
+# プロジェクト + ユーザーの今月の活動
+logvalet digest --project PROJ --user me --since this-month
+
+# チームの今週の活動
+logvalet digest --team 173843 --since this-week
 ```
 
 ### ショートエイリアス
 
 ```bash
-lv issue digest PROJ-123
+lv digest --issue PROJ-123
 ```
 
 ## 設定
@@ -93,27 +100,23 @@ end
 | `auth whoami` | 現在のアイデンティティを表示 |
 | `auth list` | 設定済みプロファイル一覧 |
 | `completion bash/zsh/fish` | シェル補完スクリプト生成 |
-| `issue get <KEY>` | Issue の取得 |
-| `issue list` | Issue 一覧（フィルタ付き） |
-| `issue digest <KEY>` | コンテキスト付き Issue ダイジェスト |
-| `issue create` | Issue の作成 |
-| `issue update <KEY>` | Issue の更新 |
+| `digest` | 課題・プロジェクト・ユーザー・チーム・スペースのダイジェスト生成 |
+| `issue get <KEY>` | 課題の取得 |
+| `issue list` | 課題一覧（フィルタ付き） |
+| `issue create` | 課題の作成 |
+| `issue update <KEY>` | 課題の更新 |
 | `issue comment list <KEY>` | コメント一覧 |
 | `issue comment add <KEY>` | コメントの追加 |
 | `issue comment update <KEY> <ID>` | コメントの更新 |
 | `project get <KEY>` | プロジェクトの取得 |
 | `project list` | プロジェクト一覧 |
-| `project digest <KEY>` | コンテキスト付きプロジェクトダイジェスト |
 | `activity list` | アクティビティ一覧 |
-| `activity digest` | 期間指定のアクティビティダイジェスト |
 | `user list` | スペースユーザー一覧 |
 | `user get <ID>` | ユーザーの取得 |
 | `user activity <ID>` | ユーザーアクティビティ |
-| `user digest <ID>` | ユーザーアクティビティダイジェスト |
 | `document get <ID>` | ドキュメントの取得 |
 | `document list` | プロジェクト内ドキュメント一覧 |
 | `document tree` | ドキュメントツリー |
-| `document digest <ID>` | コンテキスト付きドキュメントダイジェスト |
 | `document create` | ドキュメントの作成 |
 | `meta status <KEY>` | プロジェクトステータス一覧 |
 | `meta category <KEY>` | プロジェクトカテゴリ一覧 |
@@ -121,10 +124,8 @@ end
 | `meta custom-field <KEY>` | カスタムフィールド一覧 |
 | `team list` | チーム一覧 |
 | `team project <KEY>` | プロジェクトのチーム一覧 |
-| `team digest <ID>` | コンテキスト付きチームダイジェスト |
 | `space info` | スペース情報の表示 |
 | `space disk-usage` | ディスク使用量の表示 |
-| `space digest` | スペース概要ダイジェスト |
 
 ## グローバルフラグ
 
@@ -151,6 +152,9 @@ logvalet issue list --assignee me --status open -k PROJECT_KEY
 
 # 特定ユーザーの課題を一覧
 logvalet issue list --assignee "田中太郎" -k PROJECT_KEY
+
+# チームメンバーの課題を一覧
+logvalet issue list --assignee team --status not-closed --due-date this-week
 
 # 期限超過の課題を確認
 logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
@@ -188,13 +192,75 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 
 | フラグ | 指定値 | 説明 |
 |--------|--------|------|
-| `--assignee` | `me`、ユーザーID、またはユーザー名 | 担当者で絞り込み |
+| `--assignee` | `me`、`team`、ユーザーID、またはユーザー名 | 担当者で絞り込み。`team` を指定するとチームメンバーに割り当てられた課題を表示（config.toml に `team_id` を設定が必須）|
 | `--status` | `open`、`not-closed`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。`not-closed` も完了以外（プロジェクトキー不要）。名前/`open` は `-k` 必須 |
 | `--due-date` | `today`、`overdue`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 期限日で絞り込み。日付範囲は開端記法に対応（`:YYYY-MM-DD` または `YYYY-MM-DD:`） |
 | `--sort` | `dueDate`、`created`、`updated`、`priority`、`status`、`assignee` | 結果のソート対象フィールド |
 | `--order` | `asc`、`desc` | ソート順序。デフォルト: `desc` |
 
 注: `--due-date` 指定時は自動ページング機能で全件取得されます（上限10,000件）。
+
+## ダイジェストコマンド
+
+`digest` コマンドは、期間指定で Backlog データの安定した構造化サマリーを生成します。プロジェクト・ユーザー・チーム・課題でフィルタ可能で、LLM エージェント向けに最適化されたコンパクト機械可読形式で出力されます。
+
+### 利用例
+
+```bash
+# 単一課題のコンテキスト付きダイジェスト
+logvalet digest --issue PROJ-123
+
+# プロジェクト + ユーザーの今月の実績
+logvalet digest --project HEP_ISSUES --user "石澤直人" --since this-month
+
+# 複数プロジェクト + 複数ユーザー（AND 条件）
+logvalet digest --project HEP_ISSUES --project TAISEI --user "石澤" --user "須合" --since this-month
+
+# チームの今週の実績
+logvalet digest --team 173843 --since this-week
+
+# スペース全体の今月ダイジェスト
+logvalet digest --since this-month
+
+# カスタム期間
+logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
+```
+
+### フラグ
+
+| フラグ | 指定値 | 説明 |
+|--------|--------|------|
+| `--issue` | 課題キー（例: `PROJ-123`） | 単一課題のダイジェスト。複数指定可。 |
+| `--project` | プロジェクトキー（例: `HEP_ISSUES`） | プロジェクトで絞り込み。複数指定可。 |
+| `--user` | `me`、ユーザーID、またはユーザー名 | ユーザーの活動で絞り込み。複数指定可。 |
+| `--team` | チームID | チームメンバーの活動で絞り込み。複数指定可。 |
+| `--since` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 期間開始（必須）。課題は `updatedSince` でフィルタ。 |
+| `--until` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 期間終了（オプション）。課題は `updatedUntil` でフィルタ。 |
+
+### 補足
+
+- フィルタを指定しない場合、スペース全体の期間別サマリーを生成します
+- 複数の `--project`・`--user`・`--team`・`--issue` フラグは AND 条件で結合されます
+- 課題は更新日時（`updatedSince`/`updatedUntil`）で絞り込まれ、作成日時では絞り込まれません
+- ダイジェスト出力には概要統計・主要課題・アクティビティパターンが含まれます
+
+## 設定: チーム ID
+
+`issue list` で `--assignee team` を使用するには、`config.toml` にチーム ID を設定してください:
+
+```toml
+[profiles.work]
+space = "heptagon"
+base_url = "https://heptagon.backlog.com"
+auth_ref = "heptagon"
+team_id = 173843
+```
+
+設定後、チーム割り当ての課題でフィルタできます:
+
+```bash
+logvalet issue list --assignee team --status not-closed --due-date this-week
+```
 
 ## 出力
 

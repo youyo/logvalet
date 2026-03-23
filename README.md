@@ -44,10 +44,17 @@ logvalet config init
 logvalet auth whoami
 ```
 
-### 3. Get an issue digest
+### 3. Get a digest
 
 ```bash
-logvalet issue digest PROJ-123
+# Single issue
+logvalet digest --issue PROJ-123
+
+# Project + user for this month
+logvalet digest --project PROJ --user me --since this-month
+
+# Team for this week
+logvalet digest --team 173843 --since this-week
 ```
 
 ## Configuration
@@ -91,9 +98,9 @@ This enables completion for both `logvalet` and `lv`.
 | `auth whoami` | Show current identity |
 | `auth list` | List configured profiles |
 | `completion bash/zsh/fish` | Generate shell completion scripts |
+| `digest` | Generate digest for issues, projects, users, teams, or space |
 | `issue get <KEY>` | Get a single issue |
 | `issue list` | List issues with filters |
-| `issue digest <KEY>` | Get issue with context digest |
 | `issue create` | Create a new issue |
 | `issue update <KEY>` | Update an existing issue |
 | `issue comment list <KEY>` | List issue comments |
@@ -101,17 +108,13 @@ This enables completion for both `logvalet` and `lv`.
 | `issue comment update <KEY> <ID>` | Update a comment |
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
-| `project digest <KEY>` | Get project with context digest |
 | `activity list` | List activity events |
-| `activity digest` | Get activity digest for a time window |
 | `user list` | List space users |
 | `user get <ID>` | Get a single user |
 | `user activity <ID>` | Get user activity |
-| `user digest <ID>` | Get user activity digest |
 | `document get <ID>` | Get a single document |
 | `document list` | List documents in a project |
 | `document tree` | Get document tree |
-| `document digest <ID>` | Get document with context digest |
 | `document create` | Create a new document |
 | `meta status <KEY>` | List project statuses |
 | `meta category <KEY>` | List project categories |
@@ -119,10 +122,8 @@ This enables completion for both `logvalet` and `lv`.
 | `meta custom-field <KEY>` | List project custom fields |
 | `team list` | List all teams |
 | `team project <KEY>` | List teams for a project |
-| `team digest <ID>` | Get team with context digest |
 | `space info` | Show space information |
 | `space disk-usage` | Show disk usage |
-| `space digest` | Get space overview digest |
 | `config init` | Interactive configuration setup |
 | `configure` | Alias for config init |
 | `version` | Show version information |
@@ -152,6 +153,9 @@ logvalet issue list --assignee me --status open -k PROJECT_KEY
 
 # List issues assigned to a specific user
 logvalet issue list --assignee "Taro Tanaka" -k PROJECT_KEY
+
+# List issues assigned to team members
+logvalet issue list --assignee team --status not-closed --due-date this-week
 
 # List overdue issues
 logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
@@ -189,13 +193,75 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 
 | Flag | Values | Description |
 |------|--------|-------------|
-| `--assignee` | `me`, user ID, or user name | Filter by assignee |
+| `--assignee` | `me`, `team`, user ID, or user name | Filter by assignee. `team` filters by configured team members (requires `team_id` in config). |
 | `--status` | `open`, `not-closed`, status name(s), or status ID | Filter by status. `open` excludes completed. `not-closed` excludes completed (no project key required). Names/`open` require `-k` |
 | `--due-date` | `today`, `overdue`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by due date. Date ranges support open-ended queries (`:YYYY-MM-DD` or `YYYY-MM-DD:`) |
 | `--sort` | `dueDate`, `created`, `updated`, `priority`, `status`, `assignee` | Sort results by field |
 | `--order` | `asc`, `desc` | Sort direction. Default: `desc` |
 
 Note: When using `--due-date`, results are automatically paginated to retrieve all matching issues (up to 10,000 total).
+
+## Digest Command
+
+The `digest` command generates stable, structured summaries of Backlog data for a time window. It supports filtering by project, user, team, or issue, and returns a compact machine-readable format optimized for LLM agents.
+
+### Examples
+
+```bash
+# Single issue with context
+logvalet digest --issue PROJ-123
+
+# Project + user activity for this month
+logvalet digest --project HEP_ISSUES --user "Naoto Ishizawa" --since this-month
+
+# Multiple projects and users (AND condition)
+logvalet digest --project HEP_ISSUES --project TAISEI --user "Ishizawa" --user "Sugo" --since this-month
+
+# Team digest for this week
+logvalet digest --team 173843 --since this-week
+
+# Space-wide digest for this month
+logvalet digest --since this-month
+
+# Custom date range
+logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
+```
+
+### Flags
+
+| Flag | Values | Description |
+|------|--------|-------------|
+| `--issue` | Issue key (e.g., `PROJ-123`) | Single issue digest. Can be specified multiple times. |
+| `--project` | Project key (e.g., `HEP_ISSUES`) | Filter by project. Can be specified multiple times. |
+| `--user` | `me`, user ID, or user name | Filter by user activity. Can be specified multiple times. |
+| `--team` | Team ID | Filter by team members. Can be specified multiple times. |
+| `--since` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Period start (required). Issues are filtered by `updatedSince`. |
+| `--until` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Period end (optional). Issues are filtered by `updatedUntil`. |
+
+### Notes
+
+- When no filters are specified, digest returns a space-wide summary for the time window.
+- Multiple `--project`, `--user`, `--team`, or `--issue` flags combine with AND logic.
+- Issues are filtered by update date (`updatedSince`/`updatedUntil`), not creation date.
+- The digest output includes summary statistics, key issues, and activity patterns.
+
+## Configuration: Team ID
+
+To use `--assignee team` in `issue list`, configure your team ID in `config.toml`:
+
+```toml
+[profiles.work]
+space = "heptagon"
+base_url = "https://heptagon.backlog.com"
+auth_ref = "heptagon"
+team_id = 173843
+```
+
+Once configured, you can filter issues by team:
+
+```bash
+logvalet issue list --assignee team --status not-closed --due-date this-week
+```
 
 ## Output
 
