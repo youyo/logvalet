@@ -723,12 +723,13 @@ func (c *HTTPClient) ListPriorities(ctx context.Context) ([]domain.IDName, error
 
 // ListTeams はスペースのチーム一覧を返す。
 // GET /api/v2/teams
-func (c *HTTPClient) ListTeams(ctx context.Context) ([]domain.Team, error) {
+// Backlog API は members[] を含むレスポンスを返すため TeamWithMembers にデシリアライズする。
+func (c *HTTPClient) ListTeams(ctx context.Context) ([]domain.TeamWithMembers, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/teams", nil)
 	if err != nil {
 		return nil, err
 	}
-	var teams []domain.Team
+	var teams []domain.TeamWithMembers
 	if err := c.do(req, &teams); err != nil {
 		return nil, err
 	}
