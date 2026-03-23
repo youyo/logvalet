@@ -71,7 +71,7 @@ type ListFlags struct {
 	// Offset は取得オフセット。
 	Offset int `help:"取得オフセット" default:"0"`
 	// Count は1ページの件数。
-	Count int `help:"1ページの件数" default:"20"`
+	Count int `help:"1ページの件数" default:"100"`
 }
 
 // WriteFlags は write (create/update) コマンドで共通するフラグ。
