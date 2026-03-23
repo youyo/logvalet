@@ -142,6 +142,36 @@ This enables completion for both `logvalet` and `lv`.
 --no-color               Disable color output
 ```
 
+## Issue Filtering
+
+Filter issues by assignee, status, and due date:
+
+```bash
+# List my open issues
+logvalet issue list --assignee me --status open -k PROJECT_KEY
+
+# List issues assigned to a specific user
+logvalet issue list --assignee "Taro Tanaka" -k PROJECT_KEY
+
+# List overdue issues
+logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
+
+# List issues due today
+logvalet issue list --assignee me --due-date today -k PROJECT_KEY
+
+# Filter by specific status names
+logvalet issue list --status "未対応,処理中" -k PROJECT_KEY
+
+# Filter by status ID
+logvalet issue list --status 1
+```
+
+| Flag | Values | Description |
+|------|--------|-------------|
+| `--assignee` | `me`, user ID, or user name | Filter by assignee |
+| `--status` | `open`, status name(s), or status ID | Filter by status. `open` excludes completed. Names/`open` require `-k` |
+| `--due-date` | `today`, `overdue`, or `YYYY-MM-DD` | Filter by due date |
+
 ## Output
 
 Default output is JSON. Use `--format` to change the format:

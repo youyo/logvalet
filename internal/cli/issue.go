@@ -44,6 +44,9 @@ func (c *IssueGetCmd) Run(g *GlobalFlags) error {
 type IssueListCmd struct {
 	ListFlags
 	ProjectKey []string `short:"k" help:"プロジェクトキー"`
+	Assignee   string   `help:"担当者 (me, 数値ID, またはユーザー名)"`
+	Status     string   `help:"ステータス (open, 名前, カンマ区切り, 数値ID)。名前/open は --project-key 必須"`
+	DueDate    string   `help:"期限日フィルタ (today, overdue, YYYY-MM-DD)"`
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
@@ -63,6 +66,31 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 			return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", key, err)
 		}
 		opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
+	}
+	// --assignee 解決
+	if c.Assignee != "" {
+		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client)
+		if err != nil {
+			return fmt.Errorf("担当者の解決に失敗: %w", err)
+		}
+		opt.AssigneeIDs = assigneeIDs
+	}
+	// --status 解決
+	if c.Status != "" {
+		statusIDs, err := resolveStatuses(ctx, c.Status, c.ProjectKey, rc.Client)
+		if err != nil {
+			return fmt.Errorf("ステータスの解決に失敗: %w", err)
+		}
+		opt.StatusIDs = statusIDs
+	}
+	// --due-date 解決
+	if c.DueDate != "" {
+		since, until, err := resolveDueDate(c.DueDate)
+		if err != nil {
+			return fmt.Errorf("期限日の解決に失敗: %w", err)
+		}
+		opt.DueDateSince = since
+		opt.DueDateUntil = until
 	}
 	issues, err := rc.Client.ListIssues(ctx, opt)
 	if err != nil {

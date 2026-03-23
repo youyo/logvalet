@@ -141,6 +141,36 @@ end
 --no-color               カラー出力を無効化
 ```
 
+## 課題のフィルタリング
+
+担当者・ステータス・期限日で課題を絞り込みます:
+
+```bash
+# 自分の未完了課題を一覧
+logvalet issue list --assignee me --status open -k PROJECT_KEY
+
+# 特定ユーザーの課題を一覧
+logvalet issue list --assignee "田中太郎" -k PROJECT_KEY
+
+# 期限超過の課題を確認
+logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
+
+# 今日が期限の課題を確認
+logvalet issue list --assignee me --due-date today -k PROJECT_KEY
+
+# ステータス名で絞り込み
+logvalet issue list --status "未対応,処理中" -k PROJECT_KEY
+
+# ステータスIDで絞り込み
+logvalet issue list --status 1
+```
+
+| フラグ | 指定値 | 説明 |
+|--------|--------|------|
+| `--assignee` | `me`、ユーザーID、またはユーザー名 | 担当者で絞り込み |
+| `--status` | `open`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。名前/`open` は `-k` 必須 |
+| `--due-date` | `today`、`overdue`、`YYYY-MM-DD` | 期限日で絞り込み |
+
 ## 出力
 
 デフォルト出力は JSON です。`--format` で変更できます:
