@@ -400,6 +400,88 @@ func toIDNamesFromStatuses(items []domain.Status) []domain.IDName {
 	return result
 }
 
+// resolveTeamIDs は --team フラグの値（[]string）を TeamID の []int に変換する。
+// 数値文字列 → そのまま ID
+// 文字列 → ListTeams() で全チーム取得、名前で case-insensitive 部分一致
+// 一致なし → エラー（利用可能なチーム名一覧を表示）
+// 複数一致 → エラー
+func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client) ([]int, error) {
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+
+	// 全て数値かチェック、非数値があれば ListTeams で名前解決が必要
+	ids := make([]int, 0, len(inputs))
+	var nameInputs []string
+	nameInputIdx := make(map[string]int) // 名前 → inputs スライス中のインデックス
+
+	for _, input := range inputs {
+		if id, err := strconv.Atoi(input); err == nil {
+			ids = append(ids, id)
+		} else {
+			nameInputs = append(nameInputs, input)
+			nameInputIdx[input] = len(ids) // 後でマージするため位置を記録
+		}
+	}
+
+	if len(nameInputs) == 0 {
+		return ids, nil
+	}
+
+	// 名前解決が必要: ListTeams を呼び出す
+	teams, err := client.ListTeams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("チーム一覧の取得に失敗: %w", err)
+	}
+
+	// チーム名の一覧を作成（エラーメッセージ用）
+	teamNames := make([]string, len(teams))
+	for i, t := range teams {
+		teamNames[i] = t.Name
+	}
+
+	// 各名前入力を解決し、元の入力順序を維持するため一時マップに格納
+	resolvedNames := make(map[string]int)
+	for _, name := range nameInputs {
+		var matched []domain.TeamWithMembers
+		for _, t := range teams {
+			if strings.Contains(strings.ToLower(t.Name), strings.ToLower(name)) {
+				matched = append(matched, t)
+			}
+		}
+		switch len(matched) {
+		case 0:
+			return nil, fmt.Errorf("チーム %q が見つかりません。利用可能: [%s]", name, strings.Join(teamNames, ", "))
+		case 1:
+			resolvedNames[name] = matched[0].ID
+		default:
+			// 完全一致を試みる
+			var exactMatched []domain.TeamWithMembers
+			for _, t := range matched {
+				if strings.EqualFold(t.Name, name) {
+					exactMatched = append(exactMatched, t)
+				}
+			}
+			if len(exactMatched) == 1 {
+				resolvedNames[name] = exactMatched[0].ID
+			} else {
+				return nil, fmt.Errorf("チーム %q に複数一致しました", name)
+			}
+		}
+	}
+
+	// 元の入力順序で結果を組み立てる
+	result := make([]int, 0, len(inputs))
+	for _, input := range inputs {
+		if id, err := strconv.Atoi(input); err == nil {
+			result = append(result, id)
+		} else {
+			result = append(result, resolvedNames[input])
+		}
+	}
+	return result, nil
+}
+
 // extractProjectKey は issueKey（例: "HEP_ISSUES-123"）からプロジェクトキーを抽出する。
 func extractProjectKey(issueKey string) string {
 	idx := strings.LastIndex(issueKey, "-")

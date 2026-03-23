@@ -919,6 +919,88 @@ func TestResolvePeriod_empty(t *testing.T) {
 	}
 }
 
+// ---- resolveTeamIDs テスト ----
+
+// T1: 数値文字列 "173843" → [173843]
+func TestResolveTeamIDs_numeric(t *testing.T) {
+	mc := backlog.NewMockClient()
+	ids, err := resolveTeamIDs(context.Background(), []string{"173843"}, mc)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{173843}) {
+		t.Fatalf("期待 [173843], 実際 %v", ids)
+	}
+}
+
+// T2: チーム名 "ヘプタゴン" → 名前一致の ID
+func TestResolveTeamIDs_name(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+		return []domain.TeamWithMembers{
+			{ID: 173843, Name: "ヘプタゴン"},
+			{ID: 221464, Name: "他チーム"},
+		}, nil
+	}
+	ids, err := resolveTeamIDs(context.Background(), []string{"ヘプタゴン"}, mc)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{173843}) {
+		t.Fatalf("期待 [173843], 実際 %v", ids)
+	}
+}
+
+// T3: 存在しない名前 → エラー（利用可能なチーム名一覧を含む）
+func TestResolveTeamIDs_notFound(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+		return []domain.TeamWithMembers{
+			{ID: 173843, Name: "ヘプタゴン"},
+		}, nil
+	}
+	_, err := resolveTeamIDs(context.Background(), []string{"存在しない"}, mc)
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+	if !strings.Contains(err.Error(), "ヘプタゴン") {
+		t.Fatalf("エラーメッセージに利用可能なチーム名が含まれない: %v", err)
+	}
+}
+
+// T4: 複数指定 ["173843", "221464"] → [173843, 221464]
+func TestResolveTeamIDs_multiple(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+		return []domain.TeamWithMembers{
+			{ID: 173843, Name: "ヘプタゴン"},
+			{ID: 221464, Name: "別チーム"},
+		}, nil
+	}
+	ids, err := resolveTeamIDs(context.Background(), []string{"173843", "221464"}, mc)
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if !intSliceEqual(ids, []int{173843, 221464}) {
+		t.Fatalf("期待 [173843, 221464], 実際 %v", ids)
+	}
+}
+
+// T5: 名前で複数一致 → エラー
+func TestResolveTeamIDs_multipleMatch(t *testing.T) {
+	mc := backlog.NewMockClient()
+	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+		return []domain.TeamWithMembers{
+			{ID: 1, Name: "チームA"},
+			{ID: 2, Name: "チームA"},
+		}, nil
+	}
+	_, err := resolveTeamIDs(context.Background(), []string{"チームA"}, mc)
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
 // ---- ヘルパー ----
 
 // intSliceEqual は順序付きで 2 つの int スライスを比較する。

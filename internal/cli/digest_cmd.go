@@ -15,8 +15,8 @@ type DigestCmd struct {
 	Project []string `short:"k" help:"プロジェクトキー (複数指定可)"`
 	// User はユーザー指定（me, 数値ID, ユーザー名。複数指定可）。
 	User []string `help:"ユーザー (me, 数値ID, ユーザー名。複数指定可)"`
-	// Team はチームID（複数指定可）。メンバー全員の課題・アクティビティを取得する。
-	Team []int `help:"チームID (複数指定可)"`
+	// Team はチームID またはチーム名（複数指定可）。メンバー全員の課題・アクティビティを取得する。
+	Team []string `help:"チームID またはチーム名 (複数指定可)"`
 	// Issue は課題キー（複数指定可）。
 	Issue []string `help:"課題キー (複数指定可)"`
 	// Since は期間開始（today, this-week, this-month, YYYY-MM-DD）。必須。
@@ -67,12 +67,15 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 		scope.UserIDs = uniqueInts(scope.UserIDs)
 	}
 
-	// 4. Team → TeamIDs 設定
-	// UnifiedDigestBuilder 内部で GetTeam を呼びメンバー展開する
-	scope.TeamIDs = c.Team
+	// 4. Team → TeamIDs 解決（名前 or 数値ID → int ID）
+	teamIDs, err := resolveTeamIDs(ctx, c.Team, rc.Client)
+	if err != nil {
+		return fmt.Errorf("チームの解決に失敗: %w", err)
+	}
+	scope.TeamIDs = teamIDs
 
 	// 5. Team のメンバーを UserIDs にも追加（issue list の assigneeId に使用するため）
-	for _, teamID := range c.Team {
+	for _, teamID := range teamIDs {
 		team, err := rc.Client.GetTeam(ctx, teamID)
 		if err != nil {
 			return fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", teamID, err)
