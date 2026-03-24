@@ -1,7 +1,7 @@
 #
 .claude/handover/
 /lv
-logvalet
+/logvalet
 /dist/
 *.o
 *.a

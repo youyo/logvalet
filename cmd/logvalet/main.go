@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/youyo/logvalet/internal/app"
@@ -61,9 +62,9 @@ func run() int {
 	return app.ExitSuccess
 }
 
-// handleCompletionBash は --completion-bash フラグを処理する。
-// 補完スクリプトから呼ばれ、利用可能なサブコマンドを stdout に出力する。
-func handleCompletionBash(k *kong.Kong, args []string) bool {
+// collectCompletions は --completion-bash 以降の部分入力を解析し、
+// 補完候補のスライスを返す。--completion-bash がない場合は nil, false を返す。
+func collectCompletions(k *kong.Kong, args []string) ([]string, bool) {
 	idx := -1
 	for i, a := range args {
 		if a == "--completion-bash" {
@@ -72,36 +73,100 @@ func handleCompletionBash(k *kong.Kong, args []string) bool {
 		}
 	}
 	if idx < 0 {
-		return false
+		return nil, false
 	}
 
 	// --completion-bash の後の引数がユーザーが入力中のコマンド列
 	partial := args[idx+1:]
 
-	// Kong モデルのコマンドツリーを歩く
+	// Kong モデルのコマンドツリーを歩きながら使用済みフラグを収集する
 	node := k.Model.Node
-	for _, word := range partial {
-		if word == "" {
-			continue
-		}
-		found := false
-		for _, child := range node.Children {
-			if child.Name == word {
-				node = child
-				found = true
-				break
-			}
-		}
-		if !found {
-			break
+	usedFlags := make(map[string]bool)
+	prefix := ""
+	endsWithFlag := false
+
+	// 最後の word が "--" で始まる場合は入力中のプレフィクスとして扱い、
+	// それ以前の word のみをループ処理対象とする
+	loopPartial := partial
+	if len(partial) > 0 {
+		last := partial[len(partial)-1]
+		if last != "" && strings.HasPrefix(last, "--") {
+			prefix = last
+			loopPartial = partial[:len(partial)-1]
 		}
 	}
 
-	// 子コマンド名を出力
-	for _, child := range node.Children {
-		if !child.Hidden {
-			fmt.Println(child.Name)
+	for _, word := range loopPartial {
+		if word == "" {
+			continue
 		}
+		if strings.HasPrefix(word, "--") {
+			// フラグとして記録（値が確定しているとみなす）
+			usedFlags[word] = true
+			endsWithFlag = true
+		} else {
+			endsWithFlag = false
+			// サブコマンドにマッチするか試みる
+			found := false
+			for _, child := range node.Children {
+				if child.Name == word {
+					node = child
+					found = true
+					break
+				}
+			}
+			if !found {
+				// マッチしなければプレフィクスとして保存
+				prefix = word
+			}
+		}
+	}
+
+	var completions []string
+
+	// フラグ候補を収集（AllFlags は親フラグも含む）
+	flagGroups := node.AllFlags(true)
+	for _, group := range flagGroups {
+		for _, flag := range group {
+			if flag.Hidden {
+				continue
+			}
+			candidate := "--" + flag.Name
+			if usedFlags[candidate] {
+				continue
+			}
+			if prefix != "" && !strings.HasPrefix(candidate, prefix) {
+				continue
+			}
+			completions = append(completions, candidate)
+		}
+	}
+
+	// サブコマンド候補を収集（フラグのプレフィクス入力中でなければ）
+	if !endsWithFlag && !strings.HasPrefix(prefix, "--") {
+		for _, child := range node.Children {
+			if child.Hidden {
+				continue
+			}
+			if prefix != "" && !strings.HasPrefix(child.Name, prefix) {
+				continue
+			}
+			completions = append(completions, child.Name)
+		}
+	}
+
+	return completions, true
+}
+
+// handleCompletionBash は --completion-bash フラグを処理する。
+// 補完スクリプトから呼ばれ、利用可能なサブコマンドとフラグを stdout に出力する。
+func handleCompletionBash(k *kong.Kong, args []string) bool {
+	completions, ok := collectCompletions(k, args)
+	if !ok {
+		return false
+	}
+	for _, c := range completions {
+		fmt.Println(c)
 	}
 	return true
 }
