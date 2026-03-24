@@ -48,7 +48,7 @@ Use `logvalet` when you need to:
 - summarize project activity for a time window
 - inspect documents stored in Backlog
 - retrieve project metadata such as statuses, categories, versions, and custom fields
-- inspect a specific user’s activity over a period, including comments
+- inspect a specific user's activity over a period, including comments
 - create or update issues
 - add or update issue comments
 - create Backlog documents safely
@@ -167,7 +167,7 @@ Digest-oriented flags:
 List-oriented flags:
 
 ```text
---limit <n>
+--count <n>
 --offset <n>
 ```
 
@@ -177,6 +177,11 @@ Write-oriented flags:
 --content <string>
 --content-file <path>
 --dry-run
+--parent-issue-id <id>
+--notified-user-id <id> (repeatable)
+--emoji <emoji>
+--add-last
+--comment <string>
 ```
 
 Rules:
@@ -247,11 +252,11 @@ Use `digest` first for reasoning tasks.
 Examples:
 
 ```bash
-logvalet issue digest PROJ-123
-logvalet project digest PROJ
+logvalet digest --issue PROJ-123 --since 30d
+logvalet digest --project PROJ --since 30d
 logvalet activity digest --project PROJ --since 30d
 logvalet document digest 019b0240-4a9a-7c90-xxxx
-logvalet user digest 12345 --since 30d
+logvalet digest --user 12345 --since 30d
 ```
 
 ---
@@ -369,6 +374,61 @@ fi
 
 ---
 
+## digest
+
+The unified digest command combines issue, activity, and user data into a single time-scoped summary.
+
+### Basic usage
+
+```bash
+logvalet digest --project PROJ --since 30d
+```
+
+### By user
+
+```bash
+logvalet digest --user me --since this-week
+logvalet digest --user 12345 --since 30d
+```
+
+### By team
+
+```bash
+logvalet digest --team "TeamName" --since this-month
+```
+
+### By issue
+
+```bash
+logvalet digest --issue PROJ-123 --since 30d
+```
+
+### Combined filters
+
+```bash
+logvalet digest --project PROJ --user me --since this-week
+```
+
+Flags:
+
+```text
+--project, -k <key> (repeatable)
+--user <id-or-name> (repeatable)
+--team <id-or-name> (repeatable)
+--issue <key> (repeatable)
+--since <period> (required: today, this-week, this-month, YYYY-MM-DD)
+--until <period> (optional: today, this-week, this-month, YYYY-MM-DD)
+```
+
+Use this for:
+
+- project timeline summaries
+- user activity reviews
+- team workload overviews
+- issue-focused context gathering
+
+---
+
 ## issue
 
 ### Get one issue
@@ -390,50 +450,57 @@ Common filters:
 ```bash
 logvalet issue list --project-key PROJ --assignee me
 logvalet issue list --project-key PROJ --status 3
+logvalet issue list --project-key PROJ --due-date today
+logvalet issue list --project-key PROJ --sort dueDate --order asc
 ```
 
-### Issue digest
-
-```bash
-logvalet issue digest PROJ-123
-```
-
-Recommended defaults:
-
-- include recent comments
-- include project metadata
-- include recent activity unless `--no-activity` is set
-
-Useful variants:
-
-```bash
-logvalet issue digest PROJ-123 --comments 10
-logvalet issue digest PROJ-123 --no-activity
-logvalet issue digest PROJ-123 -f md
-```
-
-Use this when you need:
-
-- issue summary with context
-- comment-aware reasoning
-- metadata such as statuses, categories, versions, and custom fields
+`--assignee` accepts: `me`, numeric user ID, user name, or team name.
 
 ### Create an issue
 
+Minimum (issue type and priority use project defaults):
+
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
+  --summary "Fix login bug"
+```
+
+With issue type and priority by name:
+
+```bash
+logvalet issue create \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug"
+  --issue-type "バグ" \
+  --priority "高"
+```
+
+Full options:
+
+```bash
+logvalet issue create \
+  --project-key PROJ \
+  --summary "Fix login bug" \
+  --issue-type "バグ" \
+  --priority "高" \
+  --assignee 12345 \
+  --category "UI" \
+  --versions "v1.0" \
+  --milestone "Sprint 3" \
+  --start-date 2026-03-01 \
+  --due-date 2026-04-01 \
+  --parent-issue-id 999 \
+  --notified-user-id 111 \
+  --notified-user-id 222
 ```
 
 With description file:
 
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug" \
   --description-file ./description.md
 ```
 
@@ -441,16 +508,41 @@ Review request payload first:
 
 ```bash
 logvalet issue create \
-  --project PROJ \
+  --project-key PROJ \
   --summary "Fix login bug" \
-  --issue-type "Bug" \
   --dry-run
 ```
 
 ### Update an issue
 
+By name:
+
 ```bash
-logvalet issue update PROJ-123 --status 3 --assignee 12345
+logvalet issue update PROJ-123 --status "処理中" --priority "高"
+```
+
+Change assignee and issue type:
+
+```bash
+logvalet issue update PROJ-123 --assignee 12345 --issue-type "バグ"
+```
+
+Update status with inline comment:
+
+```bash
+logvalet issue update PROJ-123 --status "完了" --comment "対応完了しました"
+```
+
+Update start date:
+
+```bash
+logvalet issue update PROJ-123 --start-date 2026-03-01
+```
+
+Notify specific users:
+
+```bash
+logvalet issue update PROJ-123 --status "処理中" --notified-user-id 111
 ```
 
 With description file:
@@ -473,6 +565,8 @@ logvalet issue comment list PROJ-123
 
 ### Add a comment
 
+Simple comment:
+
 ```bash
 logvalet issue comment add PROJ-123 --content "I confirmed this issue."
 ```
@@ -481,6 +575,12 @@ From file:
 
 ```bash
 logvalet issue comment add PROJ-123 --content-file ./comment.md
+```
+
+With notification:
+
+```bash
+logvalet issue comment add PROJ-123 --content "確認しました" --notified-user-id 111
 ```
 
 Dry run:
@@ -510,19 +610,6 @@ logvalet project get PROJ
 ```bash
 logvalet project list
 ```
-
-### Project digest
-
-```bash
-logvalet project digest PROJ
-```
-
-Use when you need:
-
-- project metadata
-- associated teams
-- recent activity
-- a compact LLM-oriented project context
 
 ---
 
@@ -574,27 +661,8 @@ logvalet user get 12345
 
 ```bash
 logvalet user activity 12345 --since 30d
-```
-
-### User digest
-
-```bash
-logvalet user digest 12345 --since 30d
-```
-
-This is especially useful for monthly summaries of a specific user's work.
-
-Important behavior:
-
-- include comment-related activity
-- group by project when possible
-- summarize activity types and related issue keys
-
-Recommended usage for monthly reporting:
-
-```bash
-logvalet user digest 12345 --since 30d -f json
-logvalet user digest 12345 --since 30d -f md
+logvalet user activity 12345 --since 30d --project PROJ
+logvalet user activity 12345 --since 30d --type issue_created
 ```
 
 ---
@@ -629,11 +697,33 @@ logvalet document digest 019b0240-4a9a-7c90-xxxx
 
 ### Create a document
 
+Basic:
+
 ```bash
 logvalet document create \
-  --project PROJ \
+  --project-key PROJ \
   --title "Runbook" \
   --content-file ./runbook.md
+```
+
+With emoji:
+
+```bash
+logvalet document create \
+  --project-key PROJ \
+  --title "Runbook" \
+  --content-file ./runbook.md \
+  --emoji "📖"
+```
+
+Append to end of document list:
+
+```bash
+logvalet document create \
+  --project-key PROJ \
+  --title "New Doc" \
+  --content "Content goes here" \
+  --add-last
 ```
 
 Use `--dry-run` first when having an agent prepare content.
@@ -691,6 +781,7 @@ Use these commands to resolve names, IDs, and valid metadata choices before crea
 
 ```bash
 logvalet team list
+logvalet team list --no-members
 ```
 
 ### Teams for a project
@@ -698,14 +789,6 @@ logvalet team list
 ```bash
 logvalet team project PROJ
 ```
-
-### Team digest
-
-```bash
-logvalet team digest 1
-```
-
-Use when you need team-to-project context or want to summarize ownership.
 
 ---
 
@@ -756,7 +839,7 @@ logvalet --version
 Good:
 
 ```bash
-logvalet issue digest PROJ-123
+logvalet digest --issue PROJ-123 --since 30d
 ```
 
 Less useful for reasoning alone:
@@ -770,32 +853,40 @@ logvalet issue get PROJ-123
 Good:
 
 ```bash
-logvalet user digest 12345 --since 30d -f json
+logvalet digest --user 12345 --since 30d -f json
 ```
 
 Use Markdown for sharing:
 
 ```bash
-logvalet user digest 12345 --since 30d -f md
+logvalet digest --user 12345 --since 30d -f md
 ```
 
-### 3. Resolve metadata before mutating issues
+### 3. Name-or-ID resolution is automatic
 
-Typical flow:
+`issue create` and `issue update` accept both names and IDs for issue types, priorities, statuses, categories, versions, and milestones.
+
+The CLI resolves names to IDs automatically. You no longer need to call `meta` commands before creating or updating issues.
+
+Good:
+
+```bash
+logvalet issue create --project-key PROJ --summary "Fix bug" --issue-type "バグ" --priority "高"
+```
+
+Still useful for exploring available values:
 
 ```bash
 logvalet meta status PROJ
 logvalet meta category PROJ
-logvalet meta version PROJ
-logvalet issue create --project PROJ ...
 ```
 
-### 4. Use `user digest` for reporting workflows
+### 4. Use `digest --user` for reporting workflows
 
 For monthly activity review:
 
 ```bash
-logvalet user digest 12345 --since 30d
+logvalet digest --user 12345 --since 30d
 ```
 
 ### 5. Use `--dry-run` for write commands prepared by an agent
@@ -825,14 +916,13 @@ Avoid these:
 If you only remember a few commands, remember these:
 
 ```bash
-logvalet issue digest PROJ-123
+logvalet digest --issue PROJ-123 --since 30d
 logvalet issue list --project-key PROJ
-logvalet issue create --project PROJ --summary "..." --issue-type "Bug"
+logvalet issue create --project-key PROJ --summary "..."
 logvalet issue comment add PROJ-123 --content "..."
-logvalet project digest PROJ
+logvalet digest --project PROJ --since 30d
 logvalet activity digest --project PROJ --since 30d
-logvalet user digest 12345 --since 30d
+logvalet digest --user 12345 --since 30d
 logvalet document digest 019b0240-4a9a-7c90-xxxx
-logvalet document create --project PROJ --title "..." --content-file ./doc.md
+logvalet document create --project-key PROJ --title "..." --content-file ./doc.md
 ```
-
