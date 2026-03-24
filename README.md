@@ -154,8 +154,8 @@ logvalet issue list --assignee me --status open -k PROJECT_KEY
 # List issues assigned to a specific user
 logvalet issue list --assignee "Taro Tanaka" -k PROJECT_KEY
 
-# List issues assigned to team members
-logvalet issue list --assignee team --status not-closed --due-date this-week
+# List issues assigned to team members (by team name or partial team name)
+logvalet issue list --assignee "ヘプタゴン" --status not-closed --due-date this-week
 
 # List overdue issues
 logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
@@ -193,7 +193,7 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 
 | Flag | Values | Description |
 |------|--------|-------------|
-| `--assignee` | `me`, `team`, user ID, or user name | Filter by assignee. `team` filters by configured team members (requires `team_id` in config). |
+| `--assignee` | `me`, user ID, user name, or team name | Filter by assignee. Specify a team name (partial match supported) to filter by all team members. |
 | `--status` | `open`, `not-closed`, status name(s), or status ID | Filter by status. `open` excludes completed. `not-closed` excludes completed (no project key required). Names/`open` require `-k` |
 | `--due-date` | `today`, `overdue`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by due date. Date ranges support open-ended queries (`:YYYY-MM-DD` or `YYYY-MM-DD:`) |
 | `--sort` | `dueDate`, `created`, `updated`, `priority`, `status`, `assignee` | Sort results by field |
@@ -244,24 +244,6 @@ logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
 - Multiple `--project`, `--user`, `--team`, or `--issue` flags combine with AND logic.
 - Issues are filtered by update date (`updatedSince`/`updatedUntil`), not creation date.
 - The digest output includes summary statistics, key issues, and activity patterns.
-
-## Configuration: Team ID
-
-To use `--assignee team` in `issue list`, configure your team ID in `config.toml`:
-
-```toml
-[profiles.work]
-space = "heptagon"
-base_url = "https://heptagon.backlog.com"
-auth_ref = "heptagon"
-team_id = 173843
-```
-
-Once configured, you can filter issues by team:
-
-```bash
-logvalet issue list --assignee team --status not-closed --due-date this-week
-```
 
 ## Output
 

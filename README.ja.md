@@ -153,8 +153,8 @@ logvalet issue list --assignee me --status open -k PROJECT_KEY
 # 特定ユーザーの課題を一覧
 logvalet issue list --assignee "田中太郎" -k PROJECT_KEY
 
-# チームメンバーの課題を一覧
-logvalet issue list --assignee team --status not-closed --due-date this-week
+# チームメンバーの課題を一覧（チーム名または部分一致で指定）
+logvalet issue list --assignee "ヘプタゴン" --status not-closed --due-date this-week
 
 # 期限超過の課題を確認
 logvalet issue list --assignee me --due-date overdue -k PROJECT_KEY
@@ -192,7 +192,7 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 
 | フラグ | 指定値 | 説明 |
 |--------|--------|------|
-| `--assignee` | `me`、`team`、ユーザーID、またはユーザー名 | 担当者で絞り込み。`team` を指定するとチームメンバーに割り当てられた課題を表示（config.toml に `team_id` を設定が必須）|
+| `--assignee` | `me`、ユーザーID、ユーザー名、またはチーム名 | 担当者で絞り込み。チーム名（部分一致可）を指定するとチームメンバー全員の課題を表示 |
 | `--status` | `open`、`not-closed`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。`not-closed` も完了以外（プロジェクトキー不要）。名前/`open` は `-k` 必須 |
 | `--due-date` | `today`、`overdue`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 期限日で絞り込み。日付範囲は開端記法に対応（`:YYYY-MM-DD` または `YYYY-MM-DD:`） |
 | `--sort` | `dueDate`、`created`、`updated`、`priority`、`status`、`assignee` | 結果のソート対象フィールド |
@@ -243,24 +243,6 @@ logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
 - 複数の `--project`・`--user`・`--team`・`--issue` フラグは AND 条件で結合されます
 - 課題は更新日時（`updatedSince`/`updatedUntil`）で絞り込まれ、作成日時では絞り込まれません
 - ダイジェスト出力には概要統計・主要課題・アクティビティパターンが含まれます
-
-## 設定: チーム ID
-
-`issue list` で `--assignee team` を使用するには、`config.toml` にチーム ID を設定してください:
-
-```toml
-[profiles.work]
-space = "heptagon"
-base_url = "https://heptagon.backlog.com"
-auth_ref = "heptagon"
-team_id = 173843
-```
-
-設定後、チーム割り当ての課題でフィルタできます:
-
-```bash
-logvalet issue list --assignee team --status not-closed --due-date this-week
-```
 
 ## 出力
 

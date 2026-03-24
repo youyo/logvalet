@@ -1,82 +1,86 @@
 ---
-title: team 名前解決 + team list メンバー表示
+title: completion バグ修正 + assignee チーム名解決 + config.team_id 削除
 project: logvalet
 author: planning-agent
 created: 2026-03-24
 status: Draft
 ---
 
-# team 名前解決 + team list メンバー表示
+# completion バグ修正 + assignee チーム名解決 + config.team_id 削除
 
 ## コンテキスト
 
-`lv digest --team 173843` は動作するが、チーム名での指定ができない。
-`lv team list` がメンバー情報を含まない。
-
-`this-week` の月曜始まりは `weekStart()` で正しく実装済み（3/23 は月曜日）。バグなし。
-
-## スコープ
-
-### 実装範囲
-1. `--team` フラグを `[]int` → `[]string` に変更し、チーム名解決を追加
-2. `ListTeams` の戻り値を `[]TeamWithMembers` に変更（メンバー含む）
-
-### スコープ外
-- `this-week` の修正（正常動作確認済み）
+3つの改善:
+1. zsh completion でフラグのタブ補完が効かない（`"${words[@]:1}"` が Kong に1文字列として渡されている）
+2. `--assignee "チーム名"` でチームメンバー全員の課題を取得したい
+3. `config.team_id` は不要（チーム名で直接解決できるようになったため）
 
 ---
 
-## 修正1: `--team` チーム名解決
+## 修正1: zsh completion のフラグ補完バグ
+
+### 原因
+`internal/cli/completion.go:20` の zsh スクリプト:
+```bash
+completions=($(${words[1]} --completion-bash "${words[@]:1}"))
+```
+`"${words[@]:1}"` が1つの文字列として展開される → Kong が `"issue list --"` をパースできない。
+
+### 修正
+引用符を外して個別引数として展開:
+```bash
+completions=($(${words[1]} --completion-bash ${words[@]:1}))
+```
+
+### テスト
+- `TestCompletionScript_noQuotes` — 生成スクリプトに `"${words[@]:1}"` が含まれないことを確認
+
+---
+
+## 修正2: `--assignee "チーム名"` サポート
+
+### 設計
+`resolveAssignee` のフォールバックチェーンにチーム名解決を追加:
+
+```
+"me" → GetMyself
+数値 → 直接ID
+文字列 → ユーザー名検索 → 一致なし → チーム名検索 → メンバーID展開
+```
 
 ### 変更箇所
+`internal/cli/resolve.go` の `resolveAssignee`:
+- ユーザー名検索で `matched == 0` の場合、`ListTeams()` でチーム名を部分一致検索
+- チーム一致 → `GetTeam(teamID)` でメンバー取得 → メンバーID展開
+- チームも一致なし → 従来通りエラー（ユーザー名+チーム名の両方を利用可能一覧に表示）
 
-**`internal/cli/digest_cmd.go`**:
-- `Team []int` → `Team []string` に変更
-- Run() のチーム解決ロジックで名前 → ID 変換を追加
-
-**`internal/cli/resolve.go`**:
-- `resolveTeamIDs(ctx, inputs []string, client) ([]int, error)` 関数を新規追加
-- ロジック:
-  1. 数値文字列 → そのまま ID
-  2. 文字列 → `ListTeams()` で全チーム取得、名前で部分一致検索
-  3. 一致なし → エラー（利用可能なチーム名一覧を表示）
-  4. 複数一致 → エラー
+### 既存の `"team"` ケース削除
+- `input == "team"` の固定ケース（config.team_id 依存）を削除
+- `teamID int` 引数を削除 → シグネチャを元に戻す: `resolveAssignee(ctx, input, client)`
+- 呼び出し元（`issue.go`, `digest_cmd.go`）も `teamID` 引数を削除
 
 ### テスト
 
 | ID | テスト | 入力 | 期待結果 |
 |----|--------|------|---------|
-| T1 | 数値文字列 | "173843" | [173843] |
-| T2 | チーム名 | "ヘプタゴン" | 名前一致のチームID |
-| T3 | 一致なし | "存在しない" | エラー + 利用可能一覧 |
-| T4 | 複数指定 | ["173843", "221464"] | [173843, 221464] |
+| A1 | ユーザー名一致 | "Naoto Ishizawa" | ユーザーID |
+| A2 | チーム名一致 | "株式会社ヘプタゴン全体" | メンバー全員のID |
+| A3 | どちらも不一致 | "存在しない" | エラー（ユーザー名+チーム名の利用可能一覧） |
+| A4 | チーム名部分一致 | "ヘプタゴン" | 部分一致で1件 → メンバーID |
+| A5 | 既存テストが通る | "me", 数値, ユーザー名 | 変更なし |
 
 ---
 
-## 修正2: `ListTeams` にメンバーを含める
+## 修正3: `config.team_id` 削除
 
 ### 変更箇所
-
-**`internal/backlog/http_client.go`**:
-- `ListTeams` の戻り値を `[]domain.Team` → `[]domain.TeamWithMembers` に変更
-- Backlog API `GET /api/v2/teams` は実際に `members[]` を返すので、デシリアライズ先を変えるだけ
-
-**`internal/backlog/client.go`**:
-- `ListTeams(ctx) ([]domain.Team, error)` → `ListTeams(ctx) ([]domain.TeamWithMembers, error)` に変更
-
-**`internal/backlog/mock_client.go`**:
-- `ListTeamsFunc` の戻り値型を更新
-
-**`internal/cli/team.go`**:
-- `TeamListCmd.Run` は変更不要（Render に渡すだけ）
-- `TeamProjectCmd` は `ListProjectTeams` を使っているので影響なし
-
-### テスト
-
-| ID | テスト | 内容 |
-|----|--------|------|
-| M1 | `TestListTeams_withMembers` | ListTeams が TeamWithMembers（Members 含む）を返す |
-| M2 | 既存テストの型修正 | MockClient の ListTeamsFunc 戻り値型を更新 |
+- `internal/config/config.go` — `ProfileConfig.TeamID` フィールド削除、`ResolvedConfig.TeamID` 削除
+- `internal/config/config_test.go` — team_id 関連テスト削除
+- `internal/config/testdata/valid_with_team_id.toml` — ファイル削除
+- `internal/cli/issue.go` — `resolveAssignee` 呼び出しから `teamID` 引数削除
+- `internal/cli/digest_cmd.go` — 同上
+- `internal/cli/issue_list_test.go` — `teamID` 引数を使ったテスト修正
+- `README.md` / `README.ja.md` — "Configuration: Team ID" セクション削除
 
 ---
 
@@ -84,13 +88,16 @@ status: Draft
 
 | ファイル | 変更内容 |
 |---------|----------|
-| `internal/cli/digest_cmd.go` | Team フラグ型変更 + resolveTeamIDs 呼び出し |
-| `internal/cli/resolve.go` | resolveTeamIDs 関数追加 |
-| `internal/cli/issue_list_test.go` | resolveTeamIDs テスト追加 |
-| `internal/backlog/client.go` | ListTeams 戻り値型変更 |
-| `internal/backlog/http_client.go` | ListTeams 戻り値型変更 |
-| `internal/backlog/mock_client.go` | ListTeamsFunc 型更新 |
-| `internal/backlog/http_client_test.go` | ListTeams テスト更新 |
+| `internal/cli/completion.go` | zsh スクリプトの引用符修正 |
+| `internal/cli/completion_test.go` | 引用符なしのアサーション追加 |
+| `internal/cli/resolve.go` | resolveAssignee からチーム名フォールバック追加、"team" ケース + teamID 引数削除 |
+| `internal/cli/issue.go` | resolveAssignee 呼び出しの teamID 引数削除 |
+| `internal/cli/digest_cmd.go` | 同上 |
+| `internal/cli/issue_list_test.go` | テスト修正 + チーム名解決テスト追加 |
+| `internal/config/config.go` | TeamID フィールド削除 |
+| `internal/config/config_test.go` | team_id テスト削除 |
+| `internal/config/testdata/valid_with_team_id.toml` | ファイル削除 |
+| `README.md` / `README.ja.md` | Team ID セクション削除、`--assignee "チーム名"` 例追加 |
 
 ---
 
@@ -98,8 +105,9 @@ status: Draft
 
 | # | メッセージ | 内容 |
 |---|-----------|------|
-| 1 | `refactor(backlog): ListTeams の戻り値を TeamWithMembers に変更` | client.go, http_client.go, mock + テスト |
-| 2 | `feat(cli): digest --team にチーム名解決を追加` | resolve.go, digest_cmd.go + テスト |
+| 1 | `fix(cli): zsh completion のフラグ補完を修正` | completion.go + テスト |
+| 2 | `refactor(cli): resolveAssignee にチーム名フォールバックを追加し config.team_id を削除` | resolve.go, config.go, issue.go, digest_cmd.go + テスト |
+| 3 | `docs: --assignee チーム名の利用例を追加し Team ID セクションを削除` | README |
 
 ---
 
@@ -108,14 +116,15 @@ status: Draft
 ```bash
 go test ./...
 
-# チーム名で digest
-lv digest --team "ヘプタゴン" --since this-week
+# completion 確認（zsh で再読み込み後）
+eval "$(lv completion zsh --short)"
+lv issue list --<TAB>
 
-# team list でメンバー表示
-lv team list --pretty | jq '.[0].members'
+# チーム名で assignee
+lv issue list --assignee "ヘプタゴン" --status not-closed --due-date this-week
 
-# 数値ID も引き続き動作
-lv digest --team 173843 --since this-week
+# 従来のユーザー名も動作
+lv issue list --assignee "Naoto Ishizawa" --status not-closed
 ```
 
 ---
