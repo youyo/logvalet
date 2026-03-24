@@ -17,7 +17,7 @@ func completionScript(shell, name string, short bool) string {
 # To enable: eval "$(%s completion zsh)"
 _%s() {
   local -a completions
-  completions=($(${words[1]} --completion-bash "${words[@]:1}"))
+  completions=($(${words[1]} --completion-bash ${words[@]:1}))
   compadd -- $completions
 }
 compdef _%s %s

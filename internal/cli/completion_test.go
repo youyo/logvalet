@@ -55,4 +55,16 @@ func TestCompletionCommands(t *testing.T) {
 		cmd := &cli.ZshCompletionCmd{}
 		_ = cmd // Run の直接呼び出しは os.Stdout に書くので省略
 	})
+
+	t.Run("zsh completion の words 展開に引用符が付いていない", func(t *testing.T) {
+		output := cli.GenerateCompletion("zsh", "logvalet", false)
+		// "${words[@]:1}" (引用符あり) は1文字列として展開されてしまうため含まれてはいけない
+		if strings.Contains(output, `"${words[@]:1}"`) {
+			t.Errorf("zsh completion に引用符付き ${words[@]:1} が含まれている（フラグ補完が効かなくなる）: %s", output)
+		}
+		// ${words[@]:1} (引用符なし) が含まれていることを確認
+		if !strings.Contains(output, "${words[@]:1}") {
+			t.Errorf("zsh completion に ${words[@]:1} が含まれていない: %s", output)
+		}
+	})
 }
