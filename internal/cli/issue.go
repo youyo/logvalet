@@ -70,7 +70,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	}
 	// --assignee 解決
 	if c.Assignee != "" {
-		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client, rc.Config.TeamID)
+		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client)
 		if err != nil {
 			return fmt.Errorf("担当者の解決に失敗: %w", err)
 		}

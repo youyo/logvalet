@@ -57,7 +57,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 
 	// 3. User → UserIDs 解決
 	for _, u := range c.User {
-		ids, err := resolveAssignee(ctx, u, rc.Client, rc.Config.TeamID)
+		ids, err := resolveAssignee(ctx, u, rc.Client)
 		if err != nil {
 			return fmt.Errorf("ユーザー %q の解決に失敗: %w", u, err)
 		}

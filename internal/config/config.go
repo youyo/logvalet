@@ -29,7 +29,6 @@ type ProfileConfig struct {
 	Space   string `toml:"space"`
 	BaseURL string `toml:"base_url"`
 	AuthRef string `toml:"auth_ref"`
-	TeamID  int    `toml:"team_id"`
 }
 
 // ResolvedConfig は優先順位解決後の最終設定値。
@@ -41,7 +40,6 @@ type ResolvedConfig struct {
 	Space      string
 	BaseURL    string
 	AuthRef    string
-	TeamID     int
 	Verbose    bool
 	NoColor    bool
 	ConfigPath string
@@ -209,10 +207,6 @@ func Resolve(cfg *Config, flags OverrideFlags, getenv func(string) string) (*Res
 	// --- AuthRef ---
 	// profileCfg からのみ（CLI/env での上書きは M03 で対応）
 	resolved.AuthRef = profileCfg.AuthRef
-
-	// --- TeamID ---
-	// profileCfg からのみ
-	resolved.TeamID = profileCfg.TeamID
 
 	return resolved, nil
 }

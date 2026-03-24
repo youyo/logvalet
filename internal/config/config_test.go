@@ -393,42 +393,6 @@ func TestResolve_EnvSpace(t *testing.T) {
 	}
 }
 
-// ---- ProfileConfig.TeamID ----
-
-func TestProfileConfig_TeamID(t *testing.T) {
-	t.Parallel()
-	path := filepath.Join("testdata", "valid_with_team_id.toml")
-	cfg, err := config.Load(path)
-	if err != nil {
-		t.Fatalf("Load(%q) error: %v", path, err)
-	}
-	work, ok := cfg.Profiles["work"]
-	if !ok {
-		t.Fatal("cfg.Profiles[work] not found")
-	}
-	if work.TeamID != 173843 {
-		t.Errorf("work.TeamID = %d, want 173843", work.TeamID)
-	}
-}
-
-func TestProfileConfig_TeamID_Unspecified(t *testing.T) {
-	t.Parallel()
-	// valid.toml には team_id が指定されていない
-	path := filepath.Join("testdata", "valid.toml")
-	cfg, err := config.Load(path)
-	if err != nil {
-		t.Fatalf("Load(%q) error: %v", path, err)
-	}
-	work, ok := cfg.Profiles["work"]
-	if !ok {
-		t.Fatal("cfg.Profiles[work] not found")
-	}
-	// TeamID が未指定の場合はゼロ値（0）になる
-	if work.TeamID != 0 {
-		t.Errorf("work.TeamID = %d, want 0 (zero value)", work.TeamID)
-	}
-}
-
 // ---- DefaultLoader ----
 
 func TestDefaultLoader_LoadAndResolve(t *testing.T) {

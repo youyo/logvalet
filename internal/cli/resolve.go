@@ -38,9 +38,9 @@ func uniqueInts(ids []int) []int {
 }
 
 // resolveAssignee は --assignee フラグの値を AssigneeIDs に変換する。
-// "me" → GetMyself、"team" → GetTeam でメンバー展開、数値文字列 → そのまま ID、それ以外 → ListUsers で名前検索。
-// teamID は "team" ケースでのみ使用される（config.toml の team_id）。0 の場合は未設定とみなす。
-func resolveAssignee(ctx context.Context, input string, client backlog.Client, teamID int) ([]int, error) {
+// "me" → GetMyself、数値文字列 → そのまま ID、それ以外 → ListUsers で名前検索 →
+// 一致なしの場合は ListTeams でチーム名（部分一致）検索 → GetTeam でメンバー展開。
+func resolveAssignee(ctx context.Context, input string, client backlog.Client) ([]int, error) {
 	if input == "me" {
 		user, err := client.GetMyself(ctx)
 		if err != nil {
@@ -48,48 +48,65 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client, t
 		}
 		return []int{user.ID}, nil
 	}
-	if input == "team" {
-		if teamID == 0 {
-			return nil, fmt.Errorf("team_id が config に設定されていません。config.toml の [profiles.xxx] に team_id を追加してください")
+	if id, err := strconv.Atoi(input); err == nil {
+		return []int{id}, nil
+	}
+	// ユーザー名検索
+	users, err := client.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var matchedUsers []domain.User
+	for _, u := range users {
+		if strings.EqualFold(u.Name, input) || strings.EqualFold(u.UserID, input) {
+			matchedUsers = append(matchedUsers, u)
 		}
-		team, err := client.GetTeam(ctx, teamID)
+	}
+	switch len(matchedUsers) {
+	case 1:
+		return []int{matchedUsers[0].ID}, nil
+	default:
+		if len(matchedUsers) > 1 {
+			return nil, fmt.Errorf("担当者 %q に複数一致しました", input)
+		}
+	}
+
+	// ユーザー名一致なし → チーム名フォールバック
+	teams, err := client.ListTeams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("チーム一覧の取得に失敗: %w", err)
+	}
+	var matchedTeams []domain.TeamWithMembers
+	for _, t := range teams {
+		if strings.Contains(strings.ToLower(t.Name), strings.ToLower(input)) {
+			matchedTeams = append(matchedTeams, t)
+		}
+	}
+	switch len(matchedTeams) {
+	case 0:
+		// どちらも一致なし → エラー（ユーザー名+チーム名の一覧）
+		userNames := make([]string, len(users))
+		for i, u := range users {
+			userNames[i] = u.Name
+		}
+		teamNames := make([]string, len(teams))
+		for i, t := range teams {
+			teamNames[i] = t.Name
+		}
+		return nil, fmt.Errorf("担当者 %q が見つかりません。利用可能ユーザー: [%s]、利用可能チーム: [%s]",
+			input, strings.Join(userNames, ", "), strings.Join(teamNames, ", "))
+	case 1:
+		team, err := client.GetTeam(ctx, matchedTeams[0].ID)
 		if err != nil {
-			return nil, fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", teamID, err)
-		}
-		if len(team.Members) == 0 {
-			return nil, fmt.Errorf("チーム (ID=%d) にメンバーがいません", teamID)
+			return nil, fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", matchedTeams[0].ID, err)
 		}
 		ids := make([]int, len(team.Members))
 		for i, m := range team.Members {
 			ids[i] = m.ID
 		}
 		return ids, nil
-	}
-	if id, err := strconv.Atoi(input); err == nil {
-		return []int{id}, nil
-	}
-	// 名前検索
-	users, err := client.ListUsers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var matched []domain.User
-	for _, u := range users {
-		if strings.EqualFold(u.Name, input) || strings.EqualFold(u.UserID, input) {
-			matched = append(matched, u)
-		}
-	}
-	switch len(matched) {
-	case 0:
-		names := make([]string, len(users))
-		for i, u := range users {
-			names[i] = u.Name
-		}
-		return nil, fmt.Errorf("担当者 %q が見つかりません。利用可能: [%s]", input, strings.Join(names, ", "))
-	case 1:
-		return []int{matched[0].ID}, nil
 	default:
-		return nil, fmt.Errorf("担当者 %q に複数一致しました", input)
+		return nil, fmt.Errorf("チーム名 %q に複数一致しました", input)
 	}
 }
 
