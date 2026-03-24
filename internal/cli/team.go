@@ -14,6 +14,7 @@ type TeamCmd struct {
 // TeamListCmd は team list コマンド。
 type TeamListCmd struct {
 	ListFlags
+	NoMembers bool `help:"メンバー情報を除外する" name:"no-members"`
 }
 
 func (c *TeamListCmd) Run(g *GlobalFlags) error {
@@ -25,6 +26,11 @@ func (c *TeamListCmd) Run(g *GlobalFlags) error {
 	teams, err := rc.Client.ListTeams(ctx)
 	if err != nil {
 		return err
+	}
+	if c.NoMembers {
+		for i := range teams {
+			teams[i].Members = nil
+		}
 	}
 	return rc.Renderer.Render(os.Stdout, teams)
 }
