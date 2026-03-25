@@ -39,9 +39,16 @@ func (r *MermaidGanttRenderer) Render(w io.Writer, data any) error {
 	skipped := 0
 
 	for _, issue := range issues {
-		if issue.StartDate == nil || issue.DueDate == nil {
+		if issue.StartDate == nil && issue.DueDate == nil {
 			skipped++
 			continue
+		}
+		// 片方 nil の場合はもう一方で代用（1日タスクとして描画）
+		if issue.StartDate == nil {
+			issue.StartDate = issue.DueDate
+		}
+		if issue.DueDate == nil {
+			issue.DueDate = issue.StartDate
 		}
 		prefix := extractProjectKey(issue.IssueKey)
 		if _, exists := sections[prefix]; !exists {

@@ -58,9 +58,12 @@ func TestMermaidGantt_nilStartDate(t *testing.T) {
 	_ = r.Render(&buf, issues)
 
 	out := buf.String()
-	// startDate nil の課題はスキップされるべき
-	if strings.Contains(out, "CND-7") {
-		t.Error("startDate nil の課題がスキップされていない")
+	// startDate nil → dueDate を代用して1日タスクとして描画
+	if !strings.Contains(out, "CND-7") {
+		t.Error("startDate nil の課題が描画されていない（dueDate で代用すべき）")
+	}
+	if !strings.Contains(out, "2026-03-28, 2026-03-28") {
+		t.Error("startDate nil 時は dueDate と同日で1日タスクになるべき")
 	}
 }
 
@@ -75,9 +78,12 @@ func TestMermaidGantt_nilDueDate(t *testing.T) {
 	_ = r.Render(&buf, issues)
 
 	out := buf.String()
-	// dueDate nil の課題はスキップされるべき
-	if strings.Contains(out, "CND-7") {
-		t.Error("dueDate nil の課題がスキップされていない")
+	// dueDate nil → startDate を代用して1日タスクとして描画
+	if !strings.Contains(out, "CND-7") {
+		t.Error("dueDate nil の課題が描画されていない（startDate で代用すべき）")
+	}
+	if !strings.Contains(out, "2026-03-20, 2026-03-20") {
+		t.Error("dueDate nil 時は startDate と同日で1日タスクになるべき")
 	}
 }
 
@@ -98,7 +104,7 @@ func TestMermaidGantt_mixedNil(t *testing.T) {
 		t.Error("有効な課題が出力されていない")
 	}
 	if strings.Contains(out, "CND-8") {
-		t.Error("nil 課題がスキップされていない")
+		t.Error("両方 nil の課題がスキップされていない")
 	}
 }
 
