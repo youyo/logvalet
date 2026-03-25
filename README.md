@@ -189,6 +189,15 @@ logvalet issue list --due-date :2026-03-31
 
 # Combine filters: my non-closed issues, sorted by due date
 logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
+
+# Filter by start date (issues starting this month)
+logvalet issue list --start-date this-month
+
+# Filter by start date range
+logvalet issue list --start-date 2026-03-01:2026-03-31
+
+# Combine --start-date and --due-date (AND condition)
+logvalet issue list --start-date this-month --due-date this-month
 ```
 
 | Flag | Values | Description |
@@ -196,10 +205,11 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 | `--assignee` | `me`, user ID, user name, or team name | Filter by assignee. Specify a team name (partial match supported) to filter by all team members. |
 | `--status` | `open`, `not-closed`, status name(s), or status ID | Filter by status. `open` excludes completed. `not-closed` excludes completed (no project key required). Names/`open` require `-k` |
 | `--due-date` | `today`, `overdue`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by due date. Date ranges support open-ended queries (`:YYYY-MM-DD` or `YYYY-MM-DD:`) |
+| `--start-date` | `today`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by start date. Date ranges support open-ended queries. Can be combined with `--due-date` (AND). |
 | `--sort` | `dueDate`, `created`, `updated`, `priority`, `status`, `assignee` | Sort results by field |
 | `--order` | `asc`, `desc` | Sort direction. Default: `desc` |
 
-Note: When using `--due-date`, results are automatically paginated to retrieve all matching issues (up to 10,000 total).
+Note: When using `--due-date` or `--start-date`, results are automatically paginated to retrieve all matching issues (up to 10,000 total).
 
 ## Digest Command
 
@@ -237,13 +247,29 @@ logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
 | `--team` | Team ID | Filter by team members. Can be specified multiple times. |
 | `--since` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Period start (required). Issues are filtered by `updatedSince`. |
 | `--until` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Period end (optional). Issues are filtered by `updatedUntil`. |
+| `--start-date` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Filter by issue start date (schedule). Independent of `--since`/`--until`. |
+| `--due-date` | `today`, `this-week`, `this-month`, or `YYYY-MM-DD` | Filter by issue due date (schedule). Independent of `--since`/`--until`. |
 
 ### Notes
 
 - When no filters are specified, digest returns a space-wide summary for the time window.
 - Multiple `--project`, `--user`, `--team`, or `--issue` flags combine with AND logic.
-- Issues are filtered by update date (`updatedSince`/`updatedUntil`), not creation date.
+- `--since`/`--until` filter issues by update date (`updatedSince`/`updatedUntil`), not creation date.
+- `--start-date`/`--due-date` filter issues by schedule dates and are independent of the update-date window.
 - The digest output includes summary statistics, key issues, and activity patterns.
+
+### Digest with schedule date filters
+
+```bash
+# Issues with start date this month
+logvalet digest --project PROJ --since this-month --start-date this-month
+
+# Issues due this week
+logvalet digest --project PROJ --since this-month --due-date this-week
+
+# Schedule-only filter (no update-date window required)
+logvalet digest --project PROJ --start-date 2026-03-01 --due-date 2026-03-31
+```
 
 ## Output
 
@@ -253,6 +279,29 @@ Default output is JSON. Use `--format` to change the format:
 lv issue digest PROJ-123 --format md
 lv issue digest PROJ-123 --format yaml
 lv issue digest PROJ-123 --format text
+```
+
+### Mermaid Gantt format
+
+Use `--format mermaid` to generate a Mermaid gantt diagram from issue lists. Issues are grouped into sections by project key. Issues without start date or due date are skipped (a warning is printed to stderr).
+
+```bash
+# Gantt chart of issues due this month
+logvalet issue list --due-date this-month --format mermaid
+
+# Gantt chart filtered by project
+logvalet issue list -k PROJ --start-date this-month --format mermaid
+```
+
+Example output:
+
+```mermaid
+gantt
+    title Backlog Issues
+    dateFormat YYYY-MM-DD
+    section PROJ
+    Fix login bug :2026-03-01, 2026-03-15
+    Improve dashboard :2026-03-10, 2026-03-31
 ```
 
 ## Safety

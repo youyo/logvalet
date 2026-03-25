@@ -34,6 +34,7 @@ json
 md
 text
 yaml
+mermaid
 ```
 
 Use `digest` commands whenever you need context for reasoning. Use `get` or `list` when you need raw-ish structured data.
@@ -212,8 +213,18 @@ This is intentional.
 - verbose logs
 - warnings and operational details
 - token refresh details
+- mermaid format: issues skipped due to missing dates
 
 Do not rely on stderr for primary data.
+
+### Mermaid output
+
+Use `--format mermaid` with `issue list` to generate a Mermaid gantt diagram. Issues are grouped into sections by project key. Issues without both start date and due date are skipped with a stderr warning.
+
+```bash
+logvalet issue list --due-date this-month --format mermaid
+logvalet issue list -k PROJ --start-date this-month --format mermaid
+```
 
 ### Error contract
 
@@ -418,6 +429,8 @@ Flags:
 --issue <key> (repeatable)
 --since <period> (required: today, this-week, this-month, YYYY-MM-DD)
 --until <period> (optional: today, this-week, this-month, YYYY-MM-DD)
+--start-date <period> (optional: today, this-week, this-month, YYYY-MM-DD) — schedule start date filter, independent of --since/--until
+--due-date <period> (optional: today, this-week, this-month, YYYY-MM-DD) — schedule due date filter, independent of --since/--until
 ```
 
 Use this for:
@@ -452,9 +465,14 @@ logvalet issue list --project-key PROJ --assignee me
 logvalet issue list --project-key PROJ --status 3
 logvalet issue list --project-key PROJ --due-date today
 logvalet issue list --project-key PROJ --sort dueDate --order asc
+logvalet issue list --start-date this-month
+logvalet issue list --start-date 2026-03-01:2026-03-31
+logvalet issue list --start-date this-month --due-date this-month
 ```
 
 `--assignee` accepts: `me`, numeric user ID, user name, or team name.
+
+`--start-date` accepts: `today`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD`. When specified, results are automatically paginated to retrieve all matching issues. Can be combined with `--due-date` (AND condition).
 
 ### Create an issue
 

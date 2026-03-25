@@ -188,6 +188,15 @@ logvalet issue list --due-date :2026-03-31
 
 # 複合条件：自分の完了以外の課題を期限順に表示
 logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
+
+# 開始日で絞り込み（今月開始の課題）
+logvalet issue list --start-date this-month
+
+# 開始日の範囲で絞り込み
+logvalet issue list --start-date 2026-03-01:2026-03-31
+
+# --start-date と --due-date を同時指定（AND 条件）
+logvalet issue list --start-date this-month --due-date this-month
 ```
 
 | フラグ | 指定値 | 説明 |
@@ -195,10 +204,11 @@ logvalet issue list --assignee me --status not-closed --sort dueDate --order asc
 | `--assignee` | `me`、ユーザーID、ユーザー名、またはチーム名 | 担当者で絞り込み。チーム名（部分一致可）を指定するとチームメンバー全員の課題を表示 |
 | `--status` | `open`、`not-closed`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。`not-closed` も完了以外（プロジェクトキー不要）。名前/`open` は `-k` 必須 |
 | `--due-date` | `today`、`overdue`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 期限日で絞り込み。日付範囲は開端記法に対応（`:YYYY-MM-DD` または `YYYY-MM-DD:`） |
+| `--start-date` | `today`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 開始日で絞り込み。日付範囲は開端記法に対応。`--due-date` との同時指定可（AND 結合）。 |
 | `--sort` | `dueDate`、`created`、`updated`、`priority`、`status`、`assignee` | 結果のソート対象フィールド |
 | `--order` | `asc`、`desc` | ソート順序。デフォルト: `desc` |
 
-注: `--due-date` 指定時は自動ページング機能で全件取得されます（上限10,000件）。
+注: `--due-date` または `--start-date` 指定時は自動ページング機能で全件取得されます（上限10,000件）。
 
 ## ダイジェストコマンド
 
@@ -236,13 +246,29 @@ logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
 | `--team` | チームID | チームメンバーの活動で絞り込み。複数指定可。 |
 | `--since` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 期間開始（必須）。課題は `updatedSince` でフィルタ。 |
 | `--until` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 期間終了（オプション）。課題は `updatedUntil` でフィルタ。 |
+| `--start-date` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 課題の開始日（スケジュール）で絞り込み。`--since`/`--until` とは独立。 |
+| `--due-date` | `today`、`this-week`、`this-month`、`YYYY-MM-DD` | 課題の期限日（スケジュール）で絞り込み。`--since`/`--until` とは独立。 |
 
 ### 補足
 
 - フィルタを指定しない場合、スペース全体の期間別サマリーを生成します
 - 複数の `--project`・`--user`・`--team`・`--issue` フラグは AND 条件で結合されます
-- 課題は更新日時（`updatedSince`/`updatedUntil`）で絞り込まれ、作成日時では絞り込まれません
+- `--since`/`--until` は更新日時（`updatedSince`/`updatedUntil`）で絞り込みます
+- `--start-date`/`--due-date` はスケジュール日付で絞り込み、更新日ウィンドウとは独立して動作します
 - ダイジェスト出力には概要統計・主要課題・アクティビティパターンが含まれます
+
+### スケジュール日付フィルタを使ったダイジェスト
+
+```bash
+# 今月開始の課題のダイジェスト
+logvalet digest --project PROJ --since this-month --start-date this-month
+
+# 今週が期限の課題のダイジェスト
+logvalet digest --project PROJ --since this-month --due-date this-week
+
+# スケジュール日付のみで絞り込み（更新日ウィンドウ不要）
+logvalet digest --project PROJ --start-date 2026-03-01 --due-date 2026-03-31
+```
 
 ## 出力
 
@@ -252,6 +278,29 @@ logvalet digest --project PROJ --user me --since 2026-03-01 --until 2026-03-31
 lv issue digest PROJ-123 --format md
 lv issue digest PROJ-123 --format yaml
 lv issue digest PROJ-123 --format text
+```
+
+### Mermaid Gantt フォーマット
+
+`--format mermaid` を指定すると、課題一覧から Mermaid gantt ダイアグラムを生成します。課題はプロジェクトキーごとに section に分けられます。開始日または期限日が設定されていない課題はスキップされ、stderr に警告が出力されます。
+
+```bash
+# 今月が期限の課題をガントチャートで表示
+logvalet issue list --due-date this-month --format mermaid
+
+# プロジェクトで絞り込んだガントチャート
+logvalet issue list -k PROJ --start-date this-month --format mermaid
+```
+
+出力例:
+
+```mermaid
+gantt
+    title Backlog Issues
+    dateFormat YYYY-MM-DD
+    section PROJ
+    ログインバグを修正 :2026-03-01, 2026-03-15
+    ダッシュボード改善 :2026-03-10, 2026-03-31
 ```
 
 ## 安全性
