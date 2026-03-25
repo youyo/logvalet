@@ -275,6 +275,12 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	if opt.DueDateUntil != nil {
 		q.Set("dueDateUntil", opt.DueDateUntil.Format("2006-01-02"))
 	}
+	if opt.StartDateSince != nil {
+		q.Set("startDateSince", opt.StartDateSince.Format("2006-01-02"))
+	}
+	if opt.StartDateUntil != nil {
+		q.Set("startDateUntil", opt.StartDateUntil.Format("2006-01-02"))
+	}
 	if opt.UpdatedSince != nil {
 		q.Set("updatedSince", opt.UpdatedSince.Format("2006-01-02"))
 	}

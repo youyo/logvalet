@@ -807,6 +807,177 @@ func TestFetchAllIssues_maxLimit(t *testing.T) {
 	}
 }
 
+// ---- resolveStartDate テスト ----
+
+// SD1: "today" → Since=Until=今日
+func TestResolveStartDate_today(t *testing.T) {
+	since, until, err := resolveStartDate("today")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil || until == nil {
+		t.Fatal("since/until が nil")
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	if !since.Equal(today) {
+		t.Fatalf("since 期待 %v, 実際 %v", today, *since)
+	}
+	if !until.Equal(today) {
+		t.Fatalf("until 期待 %v, 実際 %v", today, *until)
+	}
+}
+
+// SD2: "this-week" → Since=今週月曜, Until=今週日曜
+func TestResolveStartDate_thisWeek(t *testing.T) {
+	since, until, err := resolveStartDate("this-week")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	expectedSince := weekStart(today)
+	expectedUntil := expectedSince.AddDate(0, 0, 6)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// SD3: "this-month" → Since=今月1日, Until=今月末日
+func TestResolveStartDate_thisMonth(t *testing.T) {
+	since, until, err := resolveStartDate("this-month")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	now := time.Now()
+	expectedSince := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	expectedUntil := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// SD4: "2026-12-31" → Since=Until=2026-12-31
+func TestResolveStartDate_date(t *testing.T) {
+	since, until, err := resolveStartDate("2026-12-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil || until == nil {
+		t.Fatal("since/until が nil")
+	}
+	expected := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expected) {
+		t.Fatalf("since 期待 %v, 実際 %v", expected, *since)
+	}
+	if !until.Equal(expected) {
+		t.Fatalf("until 期待 %v, 実際 %v", expected, *until)
+	}
+}
+
+// SD5: "2026-03-01:2026-03-31" → Since=03-01, Until=03-31
+func TestResolveStartDate_range(t *testing.T) {
+	since, until, err := resolveStartDate("2026-03-01:2026-03-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	expectedSince := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	expectedUntil := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// SD6: "2026-03-01:" → Since=03-01, Until=nil
+func TestResolveStartDate_sinceOnly(t *testing.T) {
+	since, until, err := resolveStartDate("2026-03-01:")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since == nil {
+		t.Fatal("since が nil")
+	}
+	if until != nil {
+		t.Fatalf("until は nil 期待, 実際 %v", *until)
+	}
+	expectedSince := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if !since.Equal(expectedSince) {
+		t.Fatalf("since 期待 %v, 実際 %v", expectedSince, *since)
+	}
+}
+
+// SD7: ":2026-03-31" → Since=nil, Until=03-31
+func TestResolveStartDate_untilOnly(t *testing.T) {
+	since, until, err := resolveStartDate(":2026-03-31")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since != nil {
+		t.Fatalf("since は nil 期待, 実際 %v", *since)
+	}
+	if until == nil {
+		t.Fatal("until が nil")
+	}
+	expectedUntil := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !until.Equal(expectedUntil) {
+		t.Fatalf("until 期待 %v, 実際 %v", expectedUntil, *until)
+	}
+}
+
+// SD8: "" → nil, nil, nil
+func TestResolveStartDate_empty(t *testing.T) {
+	since, until, err := resolveStartDate("")
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if since != nil || until != nil {
+		t.Fatalf("nil 期待: since=%v, until=%v", since, until)
+	}
+}
+
+// SD9: "abc" → エラー
+func TestResolveStartDate_invalid(t *testing.T) {
+	_, _, err := resolveStartDate("abc")
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// SD10: "overdue" → エラー（startDate では非対応）
+func TestResolveStartDate_overdue(t *testing.T) {
+	_, _, err := resolveStartDate("overdue")
+	if err == nil {
+		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
 // E2: 2ページ目でエラー → エラー伝播
 func TestFetchAllIssues_apiError(t *testing.T) {
 	mc := backlog.NewMockClient()

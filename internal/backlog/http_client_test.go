@@ -292,6 +292,33 @@ func TestHTTPClientListIssues(t *testing.T) {
 		}
 	})
 
+	t.Run("startDateSince and startDateUntil", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+		until := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			StartDateSince: &since,
+			StartDateUntil: &until,
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if gotQuery.Get("startDateSince") != "2026-03-01" {
+			t.Errorf("startDateSince = %q, want %q", gotQuery.Get("startDateSince"), "2026-03-01")
+		}
+		if gotQuery.Get("startDateUntil") != "2026-03-31" {
+			t.Errorf("startDateUntil = %q, want %q", gotQuery.Get("startDateUntil"), "2026-03-31")
+		}
+	})
+
 	t.Run("nil AssigneeIDs and StatusIDs are excluded", func(t *testing.T) {
 		var gotQuery url.Values
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

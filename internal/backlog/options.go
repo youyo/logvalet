@@ -8,8 +8,10 @@ type ListIssuesOptions struct {
 	ProjectIDs   []int
 	AssigneeIDs  []int
 	StatusIDs    []int
-	DueDateSince *time.Time
-	DueDateUntil *time.Time
+	DueDateSince   *time.Time
+	DueDateUntil   *time.Time
+	StartDateSince *time.Time
+	StartDateUntil *time.Time
 	UpdatedSince *time.Time
 	UpdatedUntil *time.Time
 	Sort         string

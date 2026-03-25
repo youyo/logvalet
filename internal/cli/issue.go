@@ -46,6 +46,7 @@ type IssueListCmd struct {
 	Assignee   string   `help:"担当者 (me, 数値ID, またはユーザー名)"`
 	Status     string   `help:"ステータス (not-closed, open, 名前, カンマ区切り, 数値ID)。open/名前指定は -k 必須"`
 	DueDate    string   `help:"期限日フィルタ (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)。指定時は自動ページングで全件取得"`
+	StartDate  string   `help:"開始日フィルタ (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)。指定時は自動ページングで全件取得"`
 	Sort       string   `help:"ソートキー (dueDate, created, updated, priority, status, assignee)"`
 	Order      string   `help:"ソート順 (asc, desc)" default:"desc" enum:"asc,desc,"`
 }
@@ -93,11 +94,20 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 		opt.DueDateSince = since
 		opt.DueDateUntil = until
 	}
+	// --start-date 解決
+	if c.StartDate != "" {
+		since, until, err := resolveStartDate(c.StartDate)
+		if err != nil {
+			return fmt.Errorf("開始日の解決に失敗: %w", err)
+		}
+		opt.StartDateSince = since
+		opt.StartDateUntil = until
+	}
 	// sort/order 設定
 	opt.Sort = c.Sort
 	opt.Order = c.Order
 	var issues []domain.Issue
-	if c.DueDate != "" {
+	if c.DueDate != "" || c.StartDate != "" {
 		issues, err = fetchAllIssues(ctx, rc.Client, opt)
 	} else {
 		issues, err = rc.Client.ListIssues(ctx, opt)

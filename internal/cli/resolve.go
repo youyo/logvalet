@@ -229,6 +229,52 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 	}
 }
 
+// resolveStartDate は --start-date フラグの値を StartDateSince / StartDateUntil に変換する。
+// "" → nil, nil, nil
+// "today" → Since=Until=今日
+// "this-week" → Since=今週月曜, Until=今週日曜
+// "this-month" → Since=今月1日, Until=今月末日
+// "YYYY-MM-DD" → Since=Until=指定日
+// "YYYY-MM-DD:YYYY-MM-DD" → Since=左側, Until=右側
+// "YYYY-MM-DD:" → Since のみ
+// ":YYYY-MM-DD" → Until のみ
+// "overdue" → エラー（startDate では非対応）
+func resolveStartDate(input string) (*time.Time, *time.Time, error) {
+	if input == "" {
+		return nil, nil, nil
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	switch input {
+	case "today":
+		return &today, &today, nil
+	case "overdue":
+		return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+	case "this-week":
+		monday := weekStart(today)
+		sunday := monday.AddDate(0, 0, 6)
+		return &monday, &sunday, nil
+	case "this-month":
+		firstDay := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
+		return &firstDay, &lastDay, nil
+	default:
+		// コロン区切りの範囲指定を試みる
+		if strings.Contains(input, ":") {
+			since, until, err := parseDateRange(input)
+			if err != nil {
+				return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+			}
+			return since, until, nil
+		}
+		t, err := parseDate(input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+		}
+		return t, t, nil
+	}
+}
+
 // resolvePeriod は --since / --until フラグの値をそれぞれ *time.Time に変換する。
 // "" → nil
 // "today" → 今日
