@@ -98,3 +98,13 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 		Renderer: renderer,
 	}, nil
 }
+
+// buildRenderer は GlobalFlags から Renderer のみを構築する。
+// 認証不要なコマンド（auth logout, auth list 等）で使用する。
+func buildRenderer(g *GlobalFlags) (render.Renderer, error) {
+	format := g.Format
+	if format == "" {
+		format = "json"
+	}
+	return render.NewRenderer(format, g.Pretty)
+}

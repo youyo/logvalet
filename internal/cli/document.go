@@ -146,12 +146,15 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 		if c.ParentID != nil {
 			params["parent_id"] = *c.ParentID
 		}
-		out, err := formatDryRun("document_create", params)
-		if err != nil {
-			return fmt.Errorf("dry-run 出力のフォーマットに失敗しました: %w", err)
+		renderer, rerr := buildRenderer(g)
+		if rerr != nil {
+			return rerr
 		}
-		fmt.Println(string(out))
-		return nil
+		return renderer.Render(os.Stdout, map[string]interface{}{
+			"dry_run":   true,
+			"operation": "document_create",
+			"params":    params,
+		})
 	}
 
 	ctx := context.Background()

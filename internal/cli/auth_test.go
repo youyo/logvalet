@@ -38,7 +38,7 @@ func TestAuthLogoutCmd_Run_Success(t *testing.T) {
 	// auth logout --profile work を実行
 	cmd := &cli.AuthLogoutCmd{}
 	g := &cli.GlobalFlags{Profile: "work"}
-	err := cmd.RunWithStore(g, store)
+	_, err := cmd.RunWithStore(g, store)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestAuthLogoutCmd_Run_ProfileNotFound(t *testing.T) {
 
 	cmd := &cli.AuthLogoutCmd{}
 	g := &cli.GlobalFlags{Profile: "nonexistent"}
-	err := cmd.RunWithStore(g, store)
+	_, err := cmd.RunWithStore(g, store)
 	if err == nil {
 		t.Fatal("Run() returned nil error for nonexistent profile, want error")
 	}
@@ -77,7 +77,7 @@ func TestAuthLogoutCmd_Run_NoProfile(t *testing.T) {
 
 	cmd := &cli.AuthLogoutCmd{}
 	g := &cli.GlobalFlags{Profile: "", Config: filepath.Join(dir, "nonexistent-config.toml")}
-	err := cmd.RunWithStore(g, store)
+	_, err := cmd.RunWithStore(g, store)
 	if err == nil {
 		t.Fatal("Run() returned nil error when profile not specified, want error")
 	}
@@ -105,12 +105,16 @@ func TestAuthListCmd_Run_WithEntries(t *testing.T) {
 	cmd := &cli.AuthListCmd{}
 	g := &cli.GlobalFlags{}
 
-	output, err := cmd.RunWithStoreCapture(g, store)
+	resp, err := cmd.RunWithStoreCapture(g, store)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
 
-	// JSON をパースして検証
+	// struct を JSON 経由で検証
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		SchemaVersion string `json:"schema_version"`
 		Profiles      []struct {
@@ -119,7 +123,7 @@ func TestAuthListCmd_Run_WithEntries(t *testing.T) {
 			Authenticated bool   `json:"authenticated"`
 		} `json:"profiles"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v\noutput: %s", err, output)
 	}
 	if result.SchemaVersion != "1" {
@@ -143,16 +147,20 @@ func TestAuthListCmd_Run_Empty(t *testing.T) {
 
 	cmd := &cli.AuthListCmd{}
 	g := &cli.GlobalFlags{}
-	output, err := cmd.RunWithStoreCapture(g, store)
+	resp, err := cmd.RunWithStoreCapture(g, store)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
 
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		SchemaVersion string        `json:"schema_version"`
 		Profiles      []interface{} `json:"profiles"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v\noutput: %s", err, output)
 	}
 	if len(result.Profiles) != 0 {
@@ -186,11 +194,15 @@ func TestAuthWhoamiCmd_Run_OAuth(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Profile: "work"}
-	output, err := cmd.RunWithStoreCapture(g, store, "work", nil)
+	resp, err := cmd.RunWithStoreCapture(g, store, "work", nil)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
 
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		SchemaVersion string      `json:"schema_version"`
 		Profile       string      `json:"profile"`
@@ -199,7 +211,7 @@ func TestAuthWhoamiCmd_Run_OAuth(t *testing.T) {
 		Expired       bool        `json:"expired"`
 		User          interface{} `json:"user"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v\noutput: %s", err, output)
 	}
 	if result.SchemaVersion != "1" {
@@ -260,11 +272,15 @@ func TestAuthWhoami_WithUser(t *testing.T) {
 	user := &domain.User{ID: 42, UserID: "testuser", Name: "Test User"}
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Profile: "default"}
-	output, err := cmd.RunWithStoreCapture(g, store, "default", user)
+	resp, err := cmd.RunWithStoreCapture(g, store, "default", user)
 	if err != nil {
 		t.Fatalf("RunWithStoreCapture() error = %v", err)
 	}
-	if !strings.Contains(output, `"testuser"`) {
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(output), `"testuser"`) {
 		t.Errorf("output should contain user info, got: %s", output)
 	}
 }
@@ -287,12 +303,16 @@ func TestAuthLoginCmd_SaveAPIKey(t *testing.T) {
 		BaseURL:  "https://test-space.backlog.com",
 	}
 
-	output, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
+	resp, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
 	if err != nil {
 		t.Fatalf("Run() returned unexpected error: %v", err)
 	}
 
 	// JSON レスポンスの確認
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		SchemaVersion string `json:"schema_version"`
 		Result        string `json:"result"`
@@ -300,7 +320,7 @@ func TestAuthLoginCmd_SaveAPIKey(t *testing.T) {
 		AuthType      string `json:"auth_type"`
 		Saved         bool   `json:"saved"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v\noutput: %s", err, output)
 	}
 	if result.Result != "ok" {
@@ -378,16 +398,20 @@ func TestAuthWhoamiCmd_Run_DefaultProfile(t *testing.T) {
 
 	cmd := &cli.AuthWhoamiCmd{}
 	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
-	output, err := cmd.RunWithStoreCapture(g, store, "", nil)
+	resp, err := cmd.RunWithStoreCapture(g, store, "", nil)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		Profile  string `json:"profile"`
 		AuthType string `json:"auth_type"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v", err)
 	}
 	if result.Profile != "work" {
@@ -426,17 +450,21 @@ func TestAuthLoginCmd_DefaultProfile(t *testing.T) {
 		Space:    "example",
 		BaseURL:  "https://example.backlog.com",
 	}
-	output, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
+	resp, err := cmd.RunWithLoginRequestCapture(g, store, loginReq)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result struct {
 		Profile  string `json:"profile"`
 		Result   string `json:"result"`
 		AuthType string `json:"auth_type"`
 	}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v", err)
 	}
 	if result.Profile != "work" {
@@ -488,7 +516,7 @@ func TestAuthLogoutCmd_DefaultProfile(t *testing.T) {
 
 	cmd := &cli.AuthLogoutCmd{}
 	g := &cli.GlobalFlags{Config: configPath, Profile: ""} // Profile 空 → default_profile 使用
-	err := cmd.RunWithStore(g, store)
+	_, err := cmd.RunWithStore(g, store)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
@@ -514,16 +542,21 @@ func TestAuthOutput_HasSchemaVersion(t *testing.T) {
 	// auth list で schema_version が含まれることを確認
 	cmd := &cli.AuthListCmd{}
 	g := &cli.GlobalFlags{}
-	output, err := cmd.RunWithStoreCapture(g, store)
+	resp, err := cmd.RunWithStoreCapture(g, store)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
 	data, err := os.ReadFile(tokensPath)
 	// ファイルがなくても正常（空リスト）
 	_ = data
+	_ = err
 
+	output, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
 	var result map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
+	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v", err)
 	}
 	if _, ok := result["schema_version"]; !ok {

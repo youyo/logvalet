@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -65,12 +64,15 @@ func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
 	}
 
 	store := credentials.NewStore(credentials.DefaultTokensPath(os.Getenv))
-	output, err := c.RunWithLoginRequestCapture(g, store, req)
+	resp, err := c.RunWithLoginRequestCapture(g, store, req)
 	if err != nil {
 		return err
 	}
-	fmt.Println(output)
-	return nil
+	renderer, rerr := buildRenderer(g)
+	if rerr != nil {
+		return rerr
+	}
+	return renderer.Render(os.Stdout, resp)
 }
 
 // resolveAuthBaseURL は auth login の BaseURL と space 名を解決する。
@@ -119,8 +121,8 @@ func resolveAuthBaseURL(g *GlobalFlags) (baseURL, space string, err error) {
 
 // RunWithLoginRequestCapture は認証情報を受け取って tokens.json に保存する。
 // テストおよび内部実装から呼び出す。
-// 出力 JSON 文字列を返す。
-func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credentials.Store, req AuthLoginRequest) (string, error) {
+// レスポンス struct を返す（レンダリングは呼び出し元が行う）。
+func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credentials.Store, req AuthLoginRequest) (any, error) {
 	profile, err := resolveProfile(g)
 	if err != nil {
 		return "", fmt.Errorf("auth login: %w", err)
@@ -152,7 +154,7 @@ func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credenti
 		return "", fmt.Errorf("auth login: failed to save tokens: %w", err)
 	}
 
-	// レスポンス JSON 生成
+	// レスポンス struct を返す
 	resp := authLoginResponse{
 		SchemaVersion: "1",
 		Result:        "ok",
@@ -162,11 +164,7 @@ func (c *AuthLoginCmd) RunWithLoginRequestCapture(g *GlobalFlags, store credenti
 		AuthType:      req.AuthType,
 		Saved:         true,
 	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return "", fmt.Errorf("auth login: failed to marshal response: %w", err)
-	}
-	return string(data), nil
+	return resp, nil
 }
 
 type authLoginResponse struct {
@@ -189,33 +187,42 @@ func (c *AuthLogoutCmd) Run(g *GlobalFlags) error {
 	store := credentials.NewStore(credentials.DefaultTokensPath(func(key string) string {
 		return ""
 	}))
-	return c.RunWithStore(g, store)
+	resp, err := c.RunWithStore(g, store)
+	if err != nil {
+		return err
+	}
+	renderer, rerr := buildRenderer(g)
+	if rerr != nil {
+		return rerr
+	}
+	return renderer.Render(os.Stdout, resp)
 }
 
 // RunWithStore は tokens.json から指定プロファイルのエントリを削除する（テスト用DI）。
-func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) error {
+// レスポンス struct を返す（レンダリングは呼び出し元が行う）。
+func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) (any, error) {
 	profile, err := resolveProfile(g)
 	if err != nil {
-		return fmt.Errorf("auth logout: %w", err)
+		return nil, fmt.Errorf("auth logout: %w", err)
 	}
 
 	tokens, err := store.Load()
 	if err != nil {
-		return fmt.Errorf("auth logout: failed to load tokens: %w", err)
+		return nil, fmt.Errorf("auth logout: failed to load tokens: %w", err)
 	}
 
 	if tokens.Auth == nil || len(tokens.Auth) == 0 {
-		return fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
+		return nil, fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
 	}
 
 	if _, ok := tokens.Auth[profile]; !ok {
-		return fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
+		return nil, fmt.Errorf("auth logout: profile %q not found in tokens.json", profile)
 	}
 
 	delete(tokens.Auth, profile)
 
 	if err := store.Save(tokens); err != nil {
-		return fmt.Errorf("auth logout: failed to save tokens: %w", err)
+		return nil, fmt.Errorf("auth logout: failed to save tokens: %w", err)
 	}
 
 	resp := authLogoutResponse{
@@ -224,13 +231,7 @@ func (c *AuthLogoutCmd) RunWithStore(g *GlobalFlags, store credentials.Store) er
 		Profile:       profile,
 		Removed:       true,
 	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return fmt.Errorf("auth logout: failed to marshal response: %w", err)
-	}
-	// stdout に出力（spec §7 stdout は機械可読な結果のみ）
-	fmt.Println(string(data))
-	return nil
+	return resp, nil
 }
 
 type authLogoutResponse struct {
@@ -264,29 +265,32 @@ func (c *AuthWhoamiCmd) Run(g *GlobalFlags) error {
 		// API 呼び出し失敗時は user = nil でフォールバック（オフライン対応）
 	}
 
-	output, err := c.RunWithStoreCapture(g, store, authRef, user)
+	resp, err := c.RunWithStoreCapture(g, store, authRef, user)
 	if err != nil {
 		return err
 	}
-	fmt.Println(output)
-	return nil
+	renderer, rerr := buildRenderer(g)
+	if rerr != nil {
+		return rerr
+	}
+	return renderer.Render(os.Stdout, resp)
 }
 
-// RunWithStoreCapture は tokens.json から認証情報を取得して JSON 文字列を返す（テスト用DI）。
+// RunWithStoreCapture は tokens.json から認証情報を取得してレスポンス struct を返す（テスト用DI）。
 // user が非 nil の場合はレスポンスに含める（API 呼び出し成功時）。
-func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store, authRef string, user *domain.User) (string, error) {
+func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store, authRef string, user *domain.User) (any, error) {
 	profile, err := resolveProfile(g)
 	if err != nil {
-		return "", fmt.Errorf("auth whoami: %w", err)
+		return nil, fmt.Errorf("auth whoami: %w", err)
 	}
 
 	tokens, err := store.Load()
 	if err != nil {
-		return "", fmt.Errorf("auth whoami: failed to load tokens: %w", err)
+		return nil, fmt.Errorf("auth whoami: failed to load tokens: %w", err)
 	}
 
 	if tokens.Auth == nil {
-		return "", fmt.Errorf("auth whoami: no credentials found for profile %q", profile)
+		return nil, fmt.Errorf("auth whoami: no credentials found for profile %q", profile)
 	}
 
 	if authRef == "" {
@@ -295,7 +299,7 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 
 	entry, ok := tokens.Auth[authRef]
 	if !ok {
-		return "", fmt.Errorf("auth whoami: no credentials found for profile %q (auth_ref %q)", profile, authRef)
+		return nil, fmt.Errorf("auth whoami: no credentials found for profile %q (auth_ref %q)", profile, authRef)
 	}
 
 	// token_expiry から有効期限チェック
@@ -315,11 +319,7 @@ func (c *AuthWhoamiCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.St
 		Expired:       expired,
 		User:          user,
 	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return "", fmt.Errorf("auth whoami: failed to marshal response: %w", err)
-	}
-	return string(data), nil
+	return resp, nil
 }
 
 type authWhoamiResponse struct {
@@ -342,19 +342,23 @@ func (c *AuthListCmd) Run(g *GlobalFlags) error {
 	store := credentials.NewStore(credentials.DefaultTokensPath(func(key string) string {
 		return ""
 	}))
-	output, err := c.RunWithStoreCapture(g, store)
+	resp, err := c.RunWithStoreCapture(g, store)
 	if err != nil {
 		return err
 	}
-	fmt.Println(output)
-	return nil
+	renderer, rerr := buildRenderer(g)
+	if rerr != nil {
+		return rerr
+	}
+	return renderer.Render(os.Stdout, resp)
 }
 
-// RunWithStoreCapture は tokens.json の全エントリ一覧を JSON 文字列で返す（テスト用DI）。
-func (c *AuthListCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store) (string, error) {
+// RunWithStoreCapture は tokens.json の全エントリ一覧をレスポンス struct で返す（テスト用DI）。
+// レンダリングは呼び出し元が行う。
+func (c *AuthListCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Store) (any, error) {
 	tokens, err := store.Load()
 	if err != nil {
-		return "", fmt.Errorf("auth list: failed to load tokens: %w", err)
+		return nil, fmt.Errorf("auth list: failed to load tokens: %w", err)
 	}
 
 	profiles := make([]authListProfileEntry, 0, len(tokens.Auth))
@@ -378,11 +382,7 @@ func (c *AuthListCmd) RunWithStoreCapture(g *GlobalFlags, store credentials.Stor
 		SchemaVersion: "1",
 		Profiles:      profiles,
 	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return "", fmt.Errorf("auth list: failed to marshal response: %w", err)
-	}
-	return string(data), nil
+	return resp, nil
 }
 
 // authListProfileEntry は auth list レスポンスの各プロファイルエントリ。
