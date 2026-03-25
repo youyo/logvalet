@@ -76,7 +76,7 @@ func TestJSONRenderer_ImplementsRenderer(t *testing.T) {
 
 func TestNewRenderer(t *testing.T) {
 	t.Run("json フォーマットで JSONRenderer を返す", func(t *testing.T) {
-		r, err := render.NewRenderer("json", false)
+		r, err := render.NewRenderer("json", false, "")
 		if err != nil {
 			t.Fatalf("NewRenderer() エラー: %v", err)
 		}
@@ -86,7 +86,7 @@ func TestNewRenderer(t *testing.T) {
 	})
 
 	t.Run("不明なフォーマットはエラーを返す", func(t *testing.T) {
-		_, err := render.NewRenderer("unknown", false)
+		_, err := render.NewRenderer("unknown", false, "")
 		if err == nil {
 			t.Error("不明なフォーマットでエラーが返されなかった")
 		}

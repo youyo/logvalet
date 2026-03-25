@@ -24,7 +24,7 @@ func (c *VersionCmd) Run(g *GlobalFlags) error {
 		format = "json"
 	}
 
-	renderer, err := render.NewRenderer(format, g.Pretty)
+	renderer, err := render.NewRenderer(format, g.Pretty, "")
 	if err != nil {
 		return err
 	}

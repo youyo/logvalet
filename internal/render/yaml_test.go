@@ -62,7 +62,7 @@ func TestYAMLRenderer_ImplementsRenderer(t *testing.T) {
 }
 
 func TestNewRenderer_YAML(t *testing.T) {
-	r, err := render.NewRenderer("yaml", false)
+	r, err := render.NewRenderer("yaml", false, "")
 	if err != nil {
 		t.Fatalf("NewRenderer(yaml) エラー: %v", err)
 	}

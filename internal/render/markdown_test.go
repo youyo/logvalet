@@ -63,7 +63,7 @@ func TestMarkdownRenderer_ImplementsRenderer(t *testing.T) {
 
 func TestNewRenderer_Markdown(t *testing.T) {
 	t.Run("md フォーマットで MarkdownRenderer を返す", func(t *testing.T) {
-		r, err := render.NewRenderer("md", false)
+		r, err := render.NewRenderer("md", false, "")
 		if err != nil {
 			t.Fatalf("NewRenderer(md) エラー: %v", err)
 		}
@@ -73,7 +73,7 @@ func TestNewRenderer_Markdown(t *testing.T) {
 	})
 
 	t.Run("markdown フォーマットで MarkdownRenderer を返す", func(t *testing.T) {
-		r, err := render.NewRenderer("markdown", false)
+		r, err := render.NewRenderer("markdown", false, "")
 		if err != nil {
 			t.Fatalf("NewRenderer(markdown) エラー: %v", err)
 		}

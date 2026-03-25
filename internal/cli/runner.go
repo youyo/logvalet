@@ -87,7 +87,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	if format == "" {
 		format = "json"
 	}
-	renderer, err := render.NewRenderer(format, resolved.Pretty)
+	renderer, err := render.NewRenderer(format, resolved.Pretty, resolved.Space)
 	if err != nil {
 		return nil, fmt.Errorf("レンダラーの生成に失敗しました: %w", err)
 	}
@@ -106,5 +106,5 @@ func buildRenderer(g *GlobalFlags) (render.Renderer, error) {
 	if format == "" {
 		format = "json"
 	}
-	return render.NewRenderer(format, g.Pretty)
+	return render.NewRenderer(format, g.Pretty, g.Space)
 }
