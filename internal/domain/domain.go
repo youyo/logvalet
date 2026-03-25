@@ -42,8 +42,8 @@ type Issue struct {
 	Categories   []IDName      `json:"category"`
 	Versions     []IDName      `json:"versions"`
 	Milestones   []IDName      `json:"milestone"`
-	DueDate      *time.Time    `json:"dueDate,omitempty"`
-	StartDate    *time.Time    `json:"startDate,omitempty"`
+	DueDate      *time.Time    `json:"dueDate"`
+	StartDate    *time.Time    `json:"startDate"`
 	Created      *time.Time    `json:"created,omitempty"`
 	Updated      *time.Time    `json:"updated,omitempty"`
 	CustomFields []CustomField `json:"customFields,omitempty"`

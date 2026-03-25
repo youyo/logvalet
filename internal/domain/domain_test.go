@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -296,5 +297,48 @@ func TestDigestEnvelope_JSONShape(t *testing.T) {
 		if _, ok := m[key]; !ok {
 			t.Errorf("DigestEnvelope に %q フィールドが存在しない", key)
 		}
+	}
+}
+
+// TestIssueJSON_nullDueDate は Issue の null DueDate が JSON に明示出力されることを検証する。
+func TestIssueJSON_nullDueDate(t *testing.T) {
+	issue := domain.Issue{ID: 1, IssueKey: "TEST-1", Summary: "test"}
+	b, err := json.Marshal(issue)
+	if err != nil {
+		t.Fatalf("json.Marshal() エラー: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `"dueDate":null`) {
+		t.Errorf("null DueDate が出力されない: %s", s)
+	}
+}
+
+// TestIssueJSON_nullStartDate は Issue の null StartDate が JSON に明示出力されることを検証する。
+func TestIssueJSON_nullStartDate(t *testing.T) {
+	issue := domain.Issue{ID: 1, IssueKey: "TEST-1", Summary: "test"}
+	b, err := json.Marshal(issue)
+	if err != nil {
+		t.Fatalf("json.Marshal() エラー: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `"startDate":null`) {
+		t.Errorf("null StartDate が出力されない: %s", s)
+	}
+}
+
+// TestIssueJSON_withDates は Issue の null でない DueDate/StartDate が正しく出力されることを検証する。
+func TestIssueJSON_withDates(t *testing.T) {
+	now := time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC)
+	issue := domain.Issue{ID: 1, IssueKey: "TEST-1", Summary: "test", DueDate: &now, StartDate: &now}
+	b, err := json.Marshal(issue)
+	if err != nil {
+		t.Fatalf("json.Marshal() エラー: %v", err)
+	}
+	s := string(b)
+	if strings.Contains(s, `"dueDate":null`) {
+		t.Errorf("non-nil DueDate が null になっている: %s", s)
+	}
+	if strings.Contains(s, `"startDate":null`) {
+		t.Errorf("non-nil StartDate が null になっている: %s", s)
 	}
 }
