@@ -36,12 +36,12 @@ func GenerateCompletion(shell, name string, short bool) string {
 
 // CompletionCmd は completion コマンドのルート。
 type CompletionCmd struct {
-	Zsh ZshCompletionCmd `cmd:"" help:"zsh 用の補完スクリプトを出力する"`
+	Zsh ZshCompletionCmd `cmd:"" help:"output zsh completion script"`
 }
 
 // ZshCompletionCmd は zsh 用の補完スクリプトを出力する。
 type ZshCompletionCmd struct {
-	Short bool `help:"lv エイリアスの補完も出力する"`
+	Short bool `help:"also output completion for lv alias"`
 }
 
 // Run は Kong から呼ばれる実行メソッド。

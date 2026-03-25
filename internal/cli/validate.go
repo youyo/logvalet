@@ -10,7 +10,7 @@ import (
 // 両方指定されている場合は exit code 2 相当のエラーを返す。
 func validateDescriptionFlags(description, descriptionFile string) error {
 	if description != "" && descriptionFile != "" {
-		return fmt.Errorf("--description と --description-file は同時に指定できません (exit 2)")
+		return fmt.Errorf("--description and --description-file are mutually exclusive (exit 2)")
 	}
 	return nil
 }
@@ -19,10 +19,10 @@ func validateDescriptionFlags(description, descriptionFile string) error {
 // 両方指定またはどちらも未指定の場合はエラーを返す。
 func validateContentFlags(content, contentFile string) error {
 	if content != "" && contentFile != "" {
-		return fmt.Errorf("--content と --content-file は同時に指定できません (exit 2)")
+		return fmt.Errorf("--content and --content-file are mutually exclusive (exit 2)")
 	}
 	if content == "" && contentFile == "" {
-		return fmt.Errorf("--content または --content-file のどちらか一方を指定してください (exit 2)")
+		return fmt.Errorf("either --content or --content-file must be specified (exit 2)")
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func validateAtLeastOneUpdateFlag(
 			return nil
 		}
 	}
-	return fmt.Errorf("更新するフィールドを少なくとも1つ指定してください (exit 2)")
+	return fmt.Errorf("at least one field to update must be specified (exit 2)")
 }
 
 // readContentFromFile はファイルパスからテキスト内容を読み込む。
@@ -60,7 +60,7 @@ func validateAtLeastOneUpdateFlag(
 func readContentFromFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("ファイルの読み込みに失敗しました (%s): %w", path, err)
+		return "", fmt.Errorf("failed to read file (%s): %w", path, err)
 	}
 	return string(data), nil
 }
@@ -90,7 +90,7 @@ func formatDryRun(operation string, params map[string]interface{}) ([]byte, erro
 	}
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("dry-run 出力のフォーマットに失敗しました: %w", err)
+		return nil, fmt.Errorf("failed to format dry-run output: %w", err)
 	}
 	return data, nil
 }

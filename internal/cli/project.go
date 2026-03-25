@@ -7,13 +7,13 @@ import (
 
 // ProjectCmd は project コマンド群のルート。
 type ProjectCmd struct {
-	Get  ProjectGetCmd  `cmd:"" help:"プロジェクトを取得する"`
-	List ProjectListCmd `cmd:"" help:"プロジェクト一覧を取得する"`
+	Get  ProjectGetCmd  `cmd:"" help:"get project"`
+	List ProjectListCmd `cmd:"" help:"list projects"`
 }
 
 // ProjectGetCmd は project get コマンド。
 type ProjectGetCmd struct {
-	ProjectKeyOrID string `arg:"" required:"" help:"プロジェクトキー または ID"`
+	ProjectKeyOrID string `arg:"" required:"" help:"project key or ID"`
 }
 
 func (c *ProjectGetCmd) Run(g *GlobalFlags) error {

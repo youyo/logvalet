@@ -7,14 +7,14 @@ import (
 
 // TeamCmd は team コマンド群のルート。
 type TeamCmd struct {
-	List    TeamListCmd    `cmd:"" help:"チーム一覧を取得する"`
-	Project TeamProjectCmd `cmd:"" help:"プロジェクトのチーム一覧を取得する"`
+	List    TeamListCmd    `cmd:"" help:"list teams"`
+	Project TeamProjectCmd `cmd:"" help:"list project teams"`
 }
 
 // TeamListCmd は team list コマンド。
 type TeamListCmd struct {
 	ListFlags
-	NoMembers bool `help:"メンバー情報を除外する" name:"no-members"`
+	NoMembers bool `help:"exclude member information" name:"no-members"`
 }
 
 func (c *TeamListCmd) Run(g *GlobalFlags) error {
@@ -37,7 +37,7 @@ func (c *TeamListCmd) Run(g *GlobalFlags) error {
 
 // TeamProjectCmd は team project コマンド。
 type TeamProjectCmd struct {
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	ProjectKey string `arg:"" required:"" help:"project key"`
 }
 
 func (c *TeamProjectCmd) Run(g *GlobalFlags) error {

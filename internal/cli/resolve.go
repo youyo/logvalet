@@ -67,14 +67,14 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 		return []int{matchedUsers[0].ID}, nil
 	default:
 		if len(matchedUsers) > 1 {
-			return nil, fmt.Errorf("担当者 %q に複数一致しました", input)
+			return nil, fmt.Errorf("multiple matches for assignee %q", input)
 		}
 	}
 
 	// ユーザー名一致なし → チーム名フォールバック
 	teams, err := client.ListTeams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("チーム一覧の取得に失敗: %w", err)
+		return nil, fmt.Errorf("failed to get teams: %w", err)
 	}
 	var matchedTeams []domain.TeamWithMembers
 	for _, t := range teams {
@@ -93,12 +93,12 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 		for i, t := range teams {
 			teamNames[i] = t.Name
 		}
-		return nil, fmt.Errorf("担当者 %q が見つかりません。利用可能ユーザー: [%s]、利用可能チーム: [%s]",
+		return nil, fmt.Errorf("assignee %q not found. available users: [%s], available teams: [%s]",
 			input, strings.Join(userNames, ", "), strings.Join(teamNames, ", "))
 	case 1:
 		team, err := client.GetTeam(ctx, matchedTeams[0].ID)
 		if err != nil {
-			return nil, fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", matchedTeams[0].ID, err)
+			return nil, fmt.Errorf("failed to get team (ID=%d): %w", matchedTeams[0].ID, err)
 		}
 		ids := make([]int, len(team.Members))
 		for i, m := range team.Members {
@@ -106,7 +106,7 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 		}
 		return ids, nil
 	default:
-		return nil, fmt.Errorf("チーム名 %q に複数一致しました", input)
+		return nil, fmt.Errorf("multiple matches for team name %q", input)
 	}
 }
 
@@ -122,13 +122,13 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 	}
 	if input == "open" {
 		if len(projectKeys) == 0 {
-			return nil, fmt.Errorf("--status open には --project-key (-k) が必須です")
+			return nil, fmt.Errorf("--status open requires --project-key (-k)")
 		}
 		var ids []int
 		for _, key := range projectKeys {
 			statuses, err := client.ListProjectStatuses(ctx, key)
 			if err != nil {
-				return nil, fmt.Errorf("プロジェクト %q のステータス取得に失敗: %w", key, err)
+				return nil, fmt.Errorf("failed to get statuses for project %q: %w", key, err)
 			}
 			for _, s := range statuses {
 				if !isClosedStatus(s.Name) {
@@ -159,14 +159,14 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 		}
 		// 名前 → projectKeys 必須
 		if len(projectKeys) == 0 {
-			return nil, fmt.Errorf("ステータス名 %q の解決には --project-key (-k) が必須です", part)
+			return nil, fmt.Errorf("resolving status name %q requires --project-key (-k)", part)
 		}
 		// 各プロジェクトのステータスで名前解決
 		resolved := false
 		for _, key := range projectKeys {
 			statuses, err := client.ListProjectStatuses(ctx, key)
 			if err != nil {
-				return nil, fmt.Errorf("プロジェクト %q のステータス取得に失敗: %w", key, err)
+				return nil, fmt.Errorf("failed to get statuses for project %q: %w", key, err)
 			}
 			id, err := resolveNameOrID(part, toIDNamesFromStatuses(statuses))
 			if err != nil {
@@ -176,7 +176,7 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 			resolved = true
 		}
 		if !resolved {
-			return nil, fmt.Errorf("ステータス %q が見つかりません", part)
+			return nil, fmt.Errorf("status %q not found", part)
 		}
 	}
 	return uniqueInts(ids), nil
@@ -217,13 +217,13 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 		if strings.Contains(input, ":") {
 			since, until, err := parseDateRange(input)
 			if err != nil {
-				return nil, nil, fmt.Errorf("期限日は today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+				return nil, nil, fmt.Errorf("due date must be one of: today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
 			}
 			return since, until, nil
 		}
 		t, err := parseDate(input)
 		if err != nil {
-			return nil, nil, fmt.Errorf("期限日は today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+			return nil, nil, fmt.Errorf("due date must be one of: today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
 		}
 		return t, t, nil
 	}
@@ -249,7 +249,7 @@ func resolveStartDate(input string) (*time.Time, *time.Time, error) {
 	case "today":
 		return &today, &today, nil
 	case "overdue":
-		return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+		return nil, nil, fmt.Errorf("start date must be one of: today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
 	case "this-week":
 		monday := weekStart(today)
 		sunday := monday.AddDate(0, 0, 6)
@@ -263,13 +263,13 @@ func resolveStartDate(input string) (*time.Time, *time.Time, error) {
 		if strings.Contains(input, ":") {
 			since, until, err := parseDateRange(input)
 			if err != nil {
-				return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+				return nil, nil, fmt.Errorf("start date must be one of: today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
 			}
 			return since, until, nil
 		}
 		t, err := parseDate(input)
 		if err != nil {
-			return nil, nil, fmt.Errorf("開始日は today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD で指定してください: %q", input)
+			return nil, nil, fmt.Errorf("start date must be one of: today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
 		}
 		return t, t, nil
 	}
@@ -299,7 +299,7 @@ func resolvePeriod(since, until string) (*time.Time, *time.Time, error) {
 		default:
 			t, err := parseDate(since)
 			if err != nil {
-				return nil, nil, fmt.Errorf("since の日付形式が不正です: %w", err)
+				return nil, nil, fmt.Errorf("invalid date format for since: %w", err)
 			}
 			sinceTime = t
 		}
@@ -320,7 +320,7 @@ func resolvePeriod(since, until string) (*time.Time, *time.Time, error) {
 		default:
 			t, err := parseDate(until)
 			if err != nil {
-				return nil, nil, fmt.Errorf("until の日付形式が不正です: %w", err)
+				return nil, nil, fmt.Errorf("invalid date format for until: %w", err)
 			}
 			untilTime = t
 		}
@@ -350,12 +350,12 @@ func weekStart(t time.Time) time.Time {
 func parseDateRange(input string) (*time.Time, *time.Time, error) {
 	parts := strings.SplitN(input, ":", 2)
 	if len(parts) != 2 {
-		return nil, nil, fmt.Errorf("コロン区切りの範囲指定が不正です: %q", input)
+		return nil, nil, fmt.Errorf("invalid colon-separated range: %q", input)
 	}
 	left := strings.TrimSpace(parts[0])
 	right := strings.TrimSpace(parts[1])
 	if left == "" && right == "" {
-		return nil, nil, fmt.Errorf("範囲指定 ':' の両側が空です")
+		return nil, nil, fmt.Errorf("range ':' has both sides empty")
 	}
 	var since, until *time.Time
 	if left != "" {
@@ -381,7 +381,7 @@ func parseDateRange(input string) (*time.Time, *time.Time, error) {
 // 一致 2 件以上 → エラー
 func resolveNameOrID(input string, items []domain.IDName) (int, error) {
 	if input == "" {
-		return 0, fmt.Errorf("入力が空です")
+		return 0, fmt.Errorf("input is empty")
 	}
 
 	// 数値として解析できる場合はそのまま ID として返す
@@ -403,11 +403,11 @@ func resolveNameOrID(input string, items []domain.IDName) (int, error) {
 		for i, item := range items {
 			names[i] = item.Name
 		}
-		return 0, fmt.Errorf("%q が見つかりません。利用可能: [%s]", input, strings.Join(names, ", "))
+		return 0, fmt.Errorf("%q not found. available: [%s]", input, strings.Join(names, ", "))
 	case 1:
 		return matched[0].ID, nil
 	default:
-		return 0, fmt.Errorf("%q に複数一致しました", input)
+		return 0, fmt.Errorf("multiple matches for %q", input)
 	}
 }
 
@@ -431,7 +431,7 @@ func parseDate(s string) (*time.Time, error) {
 	}
 	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
-		return nil, fmt.Errorf("日付の形式が不正です（YYYY-MM-DD 形式で指定してください）: %q", s)
+		return nil, fmt.Errorf("invalid date format (must be YYYY-MM-DD): %q", s)
 	}
 	return &t, nil
 }
@@ -494,7 +494,7 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 	// 名前解決が必要: ListTeams を呼び出す
 	teams, err := client.ListTeams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("チーム一覧の取得に失敗: %w", err)
+		return nil, fmt.Errorf("failed to get teams: %w", err)
 	}
 
 	// チーム名の一覧を作成（エラーメッセージ用）
@@ -514,7 +514,7 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 		}
 		switch len(matched) {
 		case 0:
-			return nil, fmt.Errorf("チーム %q が見つかりません。利用可能: [%s]", name, strings.Join(teamNames, ", "))
+			return nil, fmt.Errorf("team %q not found. available: [%s]", name, strings.Join(teamNames, ", "))
 		case 1:
 			resolvedNames[name] = matched[0].ID
 		default:
@@ -528,7 +528,7 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 			if len(exactMatched) == 1 {
 				resolvedNames[name] = exactMatched[0].ID
 			} else {
-				return nil, fmt.Errorf("チーム %q に複数一致しました", name)
+				return nil, fmt.Errorf("multiple matches for team %q", name)
 			}
 		}
 	}

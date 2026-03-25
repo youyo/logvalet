@@ -627,7 +627,7 @@ func TestConfigInit_StderrComplete(t *testing.T) {
 	}
 
 	stderrStr := stderr.String()
-	if !bytes.Contains(stderr.Bytes(), []byte("セットアップ完了")) {
+	if !bytes.Contains(stderr.Bytes(), []byte("setup complete!")) {
 		t.Errorf("stderr should contain setup complete message, got: %s", stderrStr)
 	}
 	if bytes.Contains(stderr.Bytes(), []byte("auth login")) {

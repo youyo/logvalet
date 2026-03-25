@@ -14,16 +14,16 @@ import (
 
 // IssueCmd は issue コマンド群のルート。
 type IssueCmd struct {
-	Get     IssueGetCmd     `cmd:"" help:"課題を取得する"`
-	List    IssueListCmd    `cmd:"" help:"課題一覧を取得する"`
-	Create  IssueCreateCmd  `cmd:"" help:"課題を作成する"`
-	Update  IssueUpdateCmd  `cmd:"" help:"課題を更新する"`
-	Comment IssueCommentCmd `cmd:"" help:"コメントを操作する"`
+	Get     IssueGetCmd     `cmd:"" help:"get issue"`
+	List    IssueListCmd    `cmd:"" help:"list issues"`
+	Create  IssueCreateCmd  `cmd:"" help:"create issue"`
+	Update  IssueUpdateCmd  `cmd:"" help:"update issue"`
+	Comment IssueCommentCmd `cmd:"" help:"manage comments"`
 }
 
 // IssueGetCmd は issue get コマンド。
 type IssueGetCmd struct {
-	IssueIDOrKey string `arg:"" required:"" help:"課題ID または 課題キー (例: PROJ-123)"`
+	IssueIDOrKey string `arg:"" required:"" help:"issue ID or key (e.g., PROJ-123)"`
 }
 
 func (c *IssueGetCmd) Run(g *GlobalFlags) error {
@@ -42,13 +42,13 @@ func (c *IssueGetCmd) Run(g *GlobalFlags) error {
 // IssueListCmd は issue list コマンド。
 type IssueListCmd struct {
 	ListFlags
-	ProjectKey []string `short:"k" help:"プロジェクトキー (--status open/名前指定時に必須)"`
-	Assignee   string   `help:"担当者 (me, 数値ID, またはユーザー名)"`
-	Status     string   `help:"ステータス (not-closed, open, 名前, カンマ区切り, 数値ID)。open/名前指定は -k 必須"`
-	DueDate    string   `help:"期限日フィルタ (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)。指定時は自動ページングで全件取得"`
-	StartDate  string   `help:"開始日フィルタ (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)。指定時は自動ページングで全件取得"`
-	Sort       string   `help:"ソートキー (dueDate, created, updated, priority, status, assignee)"`
-	Order      string   `help:"ソート順 (asc, desc)" default:"desc" enum:"asc,desc,"`
+	ProjectKey []string `short:"k" help:"project key (required if --status is open/named)"`
+	Assignee   string   `help:"assignee (me, numeric ID, or user name)"`
+	Status     string   `help:"status (not-closed, open, name, comma-separated, numeric ID). open/named requires -k"`
+	DueDate    string   `help:"due date filter (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
+	StartDate  string   `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
+	Sort       string   `help:"sort key (dueDate, created, updated, priority, status, assignee)"`
+	Order      string   `help:"sort order (asc, desc)" default:"desc" enum:"asc,desc,"`
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
@@ -65,7 +65,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	for _, key := range c.ProjectKey {
 		proj, err := rc.Client.GetProject(ctx, key)
 		if err != nil {
-			return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", key, err)
+			return fmt.Errorf("failed to resolve project key %q: %w", key, err)
 		}
 		opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
 	}
@@ -73,7 +73,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.Assignee != "" {
 		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client)
 		if err != nil {
-			return fmt.Errorf("担当者の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve assignee: %w", err)
 		}
 		opt.AssigneeIDs = assigneeIDs
 	}
@@ -81,7 +81,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.Status != "" {
 		statusIDs, err := resolveStatuses(ctx, c.Status, c.ProjectKey, rc.Client)
 		if err != nil {
-			return fmt.Errorf("ステータスの解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve status: %w", err)
 		}
 		opt.StatusIDs = statusIDs
 	}
@@ -89,7 +89,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.DueDate != "" {
 		since, until, err := resolveDueDate(c.DueDate)
 		if err != nil {
-			return fmt.Errorf("期限日の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve due date: %w", err)
 		}
 		opt.DueDateSince = since
 		opt.DueDateUntil = until
@@ -98,7 +98,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.StartDate != "" {
 		since, until, err := resolveStartDate(c.StartDate)
 		if err != nil {
-			return fmt.Errorf("開始日の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve start date: %w", err)
 		}
 		opt.StartDateSince = since
 		opt.StartDateUntil = until
@@ -121,20 +121,20 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 // IssueCreateCmd は issue create コマンド（spec §14.4）。
 type IssueCreateCmd struct {
 	WriteFlags
-	ProjectKey      string   `required:"" help:"プロジェクトキー"`
-	Summary         string   `required:"" help:"課題のサマリー"`
-	IssueType       string   `help:"課題種別 (名前またはID)。未指定時はプロジェクトのデフォルト種別"`
-	Description     string   `help:"課題の説明"`
-	DescriptionFile string   `help:"課題の説明をファイルから読み込む"`
-	Priority        string   `help:"優先度 (名前またはID)。未指定時はデフォルト優先度"`
-	Assignee        string   `help:"担当者のユーザーID"`
-	Category        []string `help:"カテゴリ (名前またはID、複数指定可)"`
-	Version         []string `name:"versions" help:"バージョン (名前またはID、複数指定可)"`
-	Milestone       []string `help:"マイルストーン (名前またはID、複数指定可)"`
-	DueDate         string   `help:"期限日 (YYYY-MM-DD)"`
-	StartDate       string   `help:"開始日 (YYYY-MM-DD)"`
-	ParentIssueID   int      `help:"親課題のID"`
-	NotifiedUserID  []int    `help:"通知先ユーザーID (複数指定可)"`
+	ProjectKey      string   `required:"" help:"project key"`
+	Summary         string   `required:"" help:"issue summary"`
+	IssueType       string   `help:"issue type (name or ID). defaults to project's default type"`
+	Description     string   `help:"issue description"`
+	DescriptionFile string   `help:"read issue description from file"`
+	Priority        string   `help:"priority (name or ID). defaults to normal priority"`
+	Assignee        string   `help:"assignee user ID"`
+	Category        []string `help:"category (name or ID, multiple allowed)"`
+	Version         []string `name:"versions" help:"version (name or ID, multiple allowed)"`
+	Milestone       []string `help:"milestone (name or ID, multiple allowed)"`
+	DueDate         string   `help:"due date (YYYY-MM-DD)"`
+	StartDate       string   `help:"start date (YYYY-MM-DD)"`
+	ParentIssueID   int      `help:"parent issue ID"`
+	NotifiedUserID  []int    `help:"notify user IDs (multiple allowed)"`
 }
 
 // Run は issue create コマンドの実行（spec §14.4）。
@@ -183,36 +183,36 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	// 1. projectKey → projectId
 	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
 	if err != nil {
-		return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", c.ProjectKey, err)
+		return fmt.Errorf("failed to resolve project key %q: %w", c.ProjectKey, err)
 	}
 
 	// 2. issueType 解決（未指定時はデフォルト = 先頭要素）
 	issueTypes, err := rc.Client.ListProjectIssueTypes(ctx, c.ProjectKey)
 	if err != nil {
-		return fmt.Errorf("課題種別の取得に失敗: %w", err)
+		return fmt.Errorf("failed to get issue types: %w", err)
 	}
 	var issueTypeID int
 	if c.IssueType == "" {
 		if len(issueTypes) == 0 {
-			return fmt.Errorf("プロジェクト %q に課題種別が存在しません", c.ProjectKey)
+			return fmt.Errorf("project %q has no issue types", c.ProjectKey)
 		}
 		issueTypeID = issueTypes[0].ID
 	} else {
 		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypes)
 		if err != nil {
-			return fmt.Errorf("課題種別の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve issue type: %w", err)
 		}
 	}
 
 	// 3. priority 解決（未指定時はデフォルト = 「中」）
 	priorities, err := rc.Client.ListPriorities(ctx)
 	if err != nil {
-		return fmt.Errorf("優先度の取得に失敗: %w", err)
+		return fmt.Errorf("failed to get priorities: %w", err)
 	}
 	var priorityID int
 	if c.Priority == "" {
 		if len(priorities) == 0 {
-			return fmt.Errorf("優先度の一覧が空です")
+			return fmt.Errorf("priorities list is empty")
 		}
 		// 「中」(Normal) を名前で検索、なければ先頭要素にフォールバック
 		priorityID = priorities[0].ID
@@ -225,7 +225,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	} else {
 		priorityID, err = resolveNameOrID(c.Priority, priorities)
 		if err != nil {
-			return fmt.Errorf("優先度の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve priority: %w", err)
 		}
 	}
 
@@ -234,7 +234,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if c.Assignee != "" {
 		assigneeID, err = strconv.Atoi(c.Assignee)
 		if err != nil {
-			return fmt.Errorf("担当者IDは数値で指定してください: %q", c.Assignee)
+			return fmt.Errorf("assignee ID must be numeric: %q", c.Assignee)
 		}
 	}
 
@@ -243,11 +243,11 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if len(c.Category) > 0 {
 		cats, err := rc.Client.ListProjectCategories(ctx, c.ProjectKey)
 		if err != nil {
-			return fmt.Errorf("カテゴリの取得に失敗: %w", err)
+			return fmt.Errorf("failed to get categories: %w", err)
 		}
 		categoryIDs, err = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
 		if err != nil {
-			return fmt.Errorf("カテゴリの解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve categories: %w", err)
 		}
 	}
 
@@ -257,19 +257,19 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if len(c.Version) > 0 || len(c.Milestone) > 0 {
 		vers, err := rc.Client.ListProjectVersions(ctx, c.ProjectKey)
 		if err != nil {
-			return fmt.Errorf("バージョンの取得に失敗: %w", err)
+			return fmt.Errorf("failed to get versions: %w", err)
 		}
 		verIDNames := toIDNamesFromVersions(vers)
 		if len(c.Version) > 0 {
 			versionIDs, err = resolveNamesOrIDs(c.Version, verIDNames)
 			if err != nil {
-				return fmt.Errorf("バージョンの解決に失敗: %w", err)
+				return fmt.Errorf("failed to resolve versions: %w", err)
 			}
 		}
 		if len(c.Milestone) > 0 {
 			milestoneIDs, err = resolveNamesOrIDs(c.Milestone, verIDNames)
 			if err != nil {
-				return fmt.Errorf("マイルストーンの解決に失敗: %w", err)
+				return fmt.Errorf("failed to resolve milestones: %w", err)
 			}
 		}
 	}
@@ -277,11 +277,11 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	// 7. dates → parseDate
 	dueDate, err := parseDate(c.DueDate)
 	if err != nil {
-		return fmt.Errorf("期限日の解析に失敗: %w", err)
+		return fmt.Errorf("failed to parse due date: %w", err)
 	}
 	startDate, err := parseDate(c.StartDate)
 	if err != nil {
-		return fmt.Errorf("開始日の解析に失敗: %w", err)
+		return fmt.Errorf("failed to parse start date: %w", err)
 	}
 
 	// 8. API 呼び出し
@@ -309,21 +309,21 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 // IssueUpdateCmd は issue update コマンド（spec §14.5）。
 type IssueUpdateCmd struct {
 	WriteFlags
-	IssueIDOrKey    string   `arg:"" required:"" help:"課題ID または 課題キー"`
-	Summary         *string  `help:"課題のサマリー"`
-	Description     *string  `help:"課題の説明"`
-	DescriptionFile string   `help:"課題の説明をファイルから読み込む"`
-	Status          *string  `help:"ステータス (名前またはID)"`
-	Priority        *string  `help:"優先度 (名前またはID)"`
-	Assignee        *string  `help:"担当者のユーザーID"`
-	IssueType       *string  `help:"課題種別 (名前またはID)"`
-	Category        []string `help:"カテゴリ（複数指定可）"`
-	Version         []string `name:"versions" help:"バージョン（複数指定可）"`
-	Milestone       []string `help:"マイルストーン（複数指定可）"`
-	DueDate         *string  `help:"期限日 (YYYY-MM-DD)"`
-	StartDate       *string  `help:"開始日 (YYYY-MM-DD)"`
-	NotifiedUserID  []int    `help:"通知先ユーザーID (複数指定可)"`
-	Comment         *string  `help:"更新時のコメント"`
+	IssueIDOrKey    string   `arg:"" required:"" help:"issue ID or key"`
+	Summary         *string  `help:"issue summary"`
+	Description     *string  `help:"issue description"`
+	DescriptionFile string   `help:"read issue description from file"`
+	Status          *string  `help:"status (name or ID)"`
+	Priority        *string  `help:"priority (name or ID)"`
+	Assignee        *string  `help:"assignee user ID"`
+	IssueType       *string  `help:"issue type (name or ID)"`
+	Category        []string `help:"category (multiple allowed)"`
+	Version         []string `name:"versions" help:"version (multiple allowed)"`
+	Milestone       []string `help:"milestone (multiple allowed)"`
+	DueDate         *string  `help:"due date (YYYY-MM-DD)"`
+	StartDate       *string  `help:"start date (YYYY-MM-DD)"`
+	NotifiedUserID  []int    `help:"notify user IDs (multiple allowed)"`
+	Comment         *string  `help:"comment when updating"`
 }
 
 // Run は issue update コマンドの実行（spec §14.5）。
@@ -407,11 +407,11 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if c.Status != nil {
 		statuses, err := rc.Client.ListProjectStatuses(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("ステータスの取得に失敗: %w", err)
+			return fmt.Errorf("failed to get statuses: %w", err)
 		}
 		id, err := resolveNameOrID(*c.Status, toIDNamesFromStatuses(statuses))
 		if err != nil {
-			return fmt.Errorf("ステータスの解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve status: %w", err)
 		}
 		statusID = &id
 	}
@@ -421,11 +421,11 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if c.Priority != nil {
 		priorities, err := rc.Client.ListPriorities(ctx)
 		if err != nil {
-			return fmt.Errorf("優先度の取得に失敗: %w", err)
+			return fmt.Errorf("failed to get priorities: %w", err)
 		}
 		id, err := resolveNameOrID(*c.Priority, priorities)
 		if err != nil {
-			return fmt.Errorf("優先度の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve priority: %w", err)
 		}
 		priorityID = &id
 	}
@@ -435,11 +435,11 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if c.IssueType != nil {
 		issueTypes, err := rc.Client.ListProjectIssueTypes(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("課題種別の取得に失敗: %w", err)
+			return fmt.Errorf("failed to get issue types: %w", err)
 		}
 		id, err := resolveNameOrID(*c.IssueType, issueTypes)
 		if err != nil {
-			return fmt.Errorf("課題種別の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve issue type: %w", err)
 		}
 		issueTypeID = &id
 	}
@@ -449,7 +449,7 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if c.Assignee != nil {
 		id, err := strconv.Atoi(*c.Assignee)
 		if err != nil {
-			return fmt.Errorf("担当者IDは数値で指定してください: %q", *c.Assignee)
+			return fmt.Errorf("assignee ID must be numeric: %q", *c.Assignee)
 		}
 		assigneeID = &id
 	}
@@ -459,11 +459,11 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if len(c.Category) > 0 {
 		cats, err := rc.Client.ListProjectCategories(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("カテゴリの取得に失敗: %w", err)
+			return fmt.Errorf("failed to get categories: %w", err)
 		}
 		categoryIDs, err = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
 		if err != nil {
-			return fmt.Errorf("カテゴリの解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve categories: %w", err)
 		}
 	}
 
@@ -473,19 +473,19 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if len(c.Version) > 0 || len(c.Milestone) > 0 {
 		vers, err := rc.Client.ListProjectVersions(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("バージョンの取得に失敗: %w", err)
+			return fmt.Errorf("failed to get versions: %w", err)
 		}
 		verIDNames := toIDNamesFromVersions(vers)
 		if len(c.Version) > 0 {
 			versionIDs, err = resolveNamesOrIDs(c.Version, verIDNames)
 			if err != nil {
-				return fmt.Errorf("バージョンの解決に失敗: %w", err)
+				return fmt.Errorf("failed to resolve versions: %w", err)
 			}
 		}
 		if len(c.Milestone) > 0 {
 			milestoneIDs, err = resolveNamesOrIDs(c.Milestone, verIDNames)
 			if err != nil {
-				return fmt.Errorf("マイルストーンの解決に失敗: %w", err)
+				return fmt.Errorf("failed to resolve milestones: %w", err)
 			}
 		}
 	}
@@ -495,14 +495,14 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if c.DueDate != nil {
 		dueDate, err = parseDate(*c.DueDate)
 		if err != nil {
-			return fmt.Errorf("期限日の解析に失敗: %w", err)
+			return fmt.Errorf("failed to parse due date: %w", err)
 		}
 	}
 	var startDate *time.Time
 	if c.StartDate != nil {
 		startDate, err = parseDate(*c.StartDate)
 		if err != nil {
-			return fmt.Errorf("開始日の解析に失敗: %w", err)
+			return fmt.Errorf("failed to parse start date: %w", err)
 		}
 	}
 
@@ -529,15 +529,15 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 
 // IssueCommentCmd は issue comment コマンド群。
 type IssueCommentCmd struct {
-	List   IssueCommentListCmd   `cmd:"" help:"コメント一覧を取得する"`
-	Add    IssueCommentAddCmd    `cmd:"" help:"コメントを追加する"`
-	Update IssueCommentUpdateCmd `cmd:"" help:"コメントを更新する"`
+	List   IssueCommentListCmd   `cmd:"" help:"list comments"`
+	Add    IssueCommentAddCmd    `cmd:"" help:"add comment"`
+	Update IssueCommentUpdateCmd `cmd:"" help:"update comment"`
 }
 
 // IssueCommentListCmd は issue comment list コマンド（spec §14.6）。
 type IssueCommentListCmd struct {
 	ListFlags
-	IssueIDOrKey string `arg:"" required:"" help:"課題ID または 課題キー"`
+	IssueIDOrKey string `arg:"" required:"" help:"issue ID or key"`
 }
 
 func (c *IssueCommentListCmd) Run(g *GlobalFlags) error {
@@ -560,10 +560,10 @@ func (c *IssueCommentListCmd) Run(g *GlobalFlags) error {
 // IssueCommentAddCmd は issue comment add コマンド（spec §14.7）。
 type IssueCommentAddCmd struct {
 	WriteFlags
-	IssueIDOrKey   string `arg:"" required:"" help:"課題ID または 課題キー"`
-	Content        string `help:"コメント本文（--content-file と排他）"`
-	ContentFile    string `help:"コメント本文をファイルから読み込む（--content と排他）"`
-	NotifiedUserID []int  `help:"通知先ユーザーID (複数指定可)"`
+	IssueIDOrKey   string `arg:"" required:"" help:"issue ID or key"`
+	Content        string `help:"comment body (mutually exclusive with --content-file)"`
+	ContentFile    string `help:"read comment body from file (mutually exclusive with --content)"`
+	NotifiedUserID []int  `help:"notify user IDs (multiple allowed)"`
 }
 
 // Run は issue comment add コマンドの実行（spec §14.7）。
@@ -611,10 +611,10 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 // IssueCommentUpdateCmd は issue comment update コマンド（spec §14.8）。
 type IssueCommentUpdateCmd struct {
 	WriteFlags
-	IssueIDOrKey string `arg:"" required:"" help:"課題ID または 課題キー"`
-	CommentID    int    `arg:"" required:"" help:"コメントID"`
-	Content      string `help:"コメント本文（--content-file と排他）"`
-	ContentFile  string `help:"コメント本文をファイルから読み込む（--content と排他）"`
+	IssueIDOrKey string `arg:"" required:"" help:"issue ID or key"`
+	CommentID    int    `arg:"" required:"" help:"comment ID"`
+	Content      string `help:"comment body (mutually exclusive with --content-file)"`
+	ContentFile  string `help:"read comment body from file (mutually exclusive with --content)"`
 }
 
 // Run は issue comment update コマンドの実行（spec §14.8）。

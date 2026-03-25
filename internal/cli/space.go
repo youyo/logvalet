@@ -9,9 +9,9 @@ import (
 
 // SpaceCmd は space コマンド群のルート。
 type SpaceCmd struct {
-	Info      SpaceInfoCmd      `cmd:"" help:"スペース情報を取得する"`
-	DiskUsage SpaceDiskUsageCmd `cmd:"" help:"スペースのディスク使用量を取得する"`
-	Digest    SpaceDigestCmd    `cmd:"" help:"スペースのダイジェストを生成する"`
+	Info      SpaceInfoCmd      `cmd:"" help:"get space information"`
+	DiskUsage SpaceDiskUsageCmd `cmd:"" help:"get space disk usage"`
+	Digest    SpaceDigestCmd    `cmd:"" help:"generate space digest"`
 }
 
 // SpaceInfoCmd は space info コマンド。

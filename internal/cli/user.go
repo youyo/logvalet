@@ -10,9 +10,9 @@ import (
 
 // UserCmd は user コマンド群のルート。
 type UserCmd struct {
-	List     UserListCmd     `cmd:"" help:"ユーザー一覧を取得する"`
-	Get      UserGetCmd      `cmd:"" help:"ユーザーを取得する"`
-	Activity UserActivityCmd `cmd:"" help:"ユーザーのアクティビティを取得する"`
+	List     UserListCmd     `cmd:"" help:"list users"`
+	Get      UserGetCmd      `cmd:"" help:"get user"`
+	Activity UserActivityCmd `cmd:"" help:"get user activities"`
 }
 
 // UserListCmd は user list コマンド（spec §14.14）。
@@ -37,7 +37,7 @@ func (c *UserListCmd) Run(g *GlobalFlags) error {
 // UserID は数値 ID または userKey（文字列）を受け付ける。
 type UserGetCmd struct {
 	// UserID はユーザーID（数値）またはユーザーキー（文字列）。
-	UserID string `arg:"" required:"" help:"ユーザーID（数値）またはユーザーキー（文字列）"`
+	UserID string `arg:"" required:"" help:"user ID (numeric) or user key (string)"`
 }
 
 func (c *UserGetCmd) Run(g *GlobalFlags) error {
@@ -58,11 +58,11 @@ func (c *UserGetCmd) Run(g *GlobalFlags) error {
 type UserActivityCmd struct {
 	DigestFlags
 	// UserID はユーザーID（数値）またはユーザーキー（文字列）。
-	UserID string `arg:"" required:"" help:"ユーザーID（数値）またはユーザーキー（文字列）"`
+	UserID string `arg:"" required:"" help:"user ID (numeric) or user key (string)"`
 	// Project はプロジェクトキーでフィルタ。
-	Project string `help:"プロジェクトキーでフィルタ" env:"LOGVALET_PROJECT"`
+	Project string `help:"filter by project key" env:"LOGVALET_PROJECT"`
 	// ActivityType はアクティビティタイプでフィルタ（オプション拡張）。
-	ActivityType string `name:"type" help:"アクティビティタイプでフィルタ（例: issue_created, issue_commented）"`
+	ActivityType string `name:"type" help:"filter by activity type (e.g., issue_created, issue_commented)"`
 }
 
 func (c *UserActivityCmd) Run(g *GlobalFlags) error {

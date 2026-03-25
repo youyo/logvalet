@@ -7,15 +7,15 @@ import (
 
 // MetaCmd は meta コマンド群のルート。
 type MetaCmd struct {
-	Status      MetaStatusCmd      `cmd:"" help:"課題ステータス一覧を取得する"`
-	Category    MetaCategoryCmd    `cmd:"" help:"課題カテゴリー一覧を取得する"`
-	Version     MetaVersionCmd     `cmd:"" help:"バージョン一覧を取得する"`
-	CustomField MetaCustomFieldCmd `cmd:"" help:"カスタムフィールド一覧を取得する"`
+	Status      MetaStatusCmd      `cmd:"" help:"list issue statuses"`
+	Category    MetaCategoryCmd    `cmd:"" help:"list issue categories"`
+	Version     MetaVersionCmd     `cmd:"" help:"list versions"`
+	CustomField MetaCustomFieldCmd `cmd:"" help:"list custom fields"`
 }
 
 // MetaStatusCmd は meta status コマンド。
 type MetaStatusCmd struct {
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	ProjectKey string `arg:"" required:"" help:"project key"`
 }
 
 func (c *MetaStatusCmd) Run(g *GlobalFlags) error {
@@ -33,7 +33,7 @@ func (c *MetaStatusCmd) Run(g *GlobalFlags) error {
 
 // MetaCategoryCmd は meta category コマンド。
 type MetaCategoryCmd struct {
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	ProjectKey string `arg:"" required:"" help:"project key"`
 }
 
 func (c *MetaCategoryCmd) Run(g *GlobalFlags) error {
@@ -51,7 +51,7 @@ func (c *MetaCategoryCmd) Run(g *GlobalFlags) error {
 
 // MetaVersionCmd は meta version コマンド。
 type MetaVersionCmd struct {
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	ProjectKey string `arg:"" required:"" help:"project key"`
 }
 
 func (c *MetaVersionCmd) Run(g *GlobalFlags) error {
@@ -69,7 +69,7 @@ func (c *MetaVersionCmd) Run(g *GlobalFlags) error {
 
 // MetaCustomFieldCmd は meta custom-field コマンド。
 type MetaCustomFieldCmd struct {
-	ProjectKey string `arg:"" required:"" help:"プロジェクトキー"`
+	ProjectKey string `arg:"" required:"" help:"project key"`
 }
 
 func (c *MetaCustomFieldCmd) Run(g *GlobalFlags) error {

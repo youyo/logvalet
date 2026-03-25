@@ -14,16 +14,16 @@ import (
 
 // ConfigCmd は config サブコマンド群。
 type ConfigCmd struct {
-	Init ConfigInitCmd `cmd:"" help:"対話型で設定を初期化する"`
+	Init ConfigInitCmd `cmd:"" help:"interactively initialize configuration"`
 }
 
 // ConfigureCmd は config init のトップレベルエイリアス。
 // logvalet configure = logvalet config init として動作する。
 type ConfigureCmd struct {
-	InitProfile string `help:"プロファイル名" name:"init-profile"`
-	InitSpace   string `help:"Backlog スペース名" name:"init-space"`
-	InitBaseURL string `help:"Backlog ベース URL" name:"init-base-url"`
-	InitAPIKey  string `help:"API キーを設定する" name:"init-api-key"`
+	InitProfile string `help:"profile name" name:"init-profile"`
+	InitSpace   string `help:"Backlog space name" name:"init-space"`
+	InitBaseURL string `help:"Backlog base URL" name:"init-base-url"`
+	InitAPIKey  string `help:"set API key" name:"init-api-key"`
 }
 
 // Run は configure のメインエントリポイント（Kong から呼び出し）。
@@ -41,10 +41,10 @@ func (c *ConfigureCmd) Run(g *GlobalFlags) error {
 // ConfigInitCmd は config init コマンド。
 // 対話プロンプトで profile 名、space 名、base_url を入力し config.toml を生成する。
 type ConfigInitCmd struct {
-	InitProfile string `help:"プロファイル名" name:"init-profile"`
-	InitSpace   string `help:"Backlog スペース名" name:"init-space"`
-	InitBaseURL string `help:"Backlog ベース URL" name:"init-base-url"`
-	InitAPIKey  string `help:"API キーを設定する" name:"init-api-key"`
+	InitProfile string `help:"profile name" name:"init-profile"`
+	InitSpace   string `help:"Backlog space name" name:"init-space"`
+	InitBaseURL string `help:"Backlog base URL" name:"init-base-url"`
+	InitAPIKey  string `help:"set API key" name:"init-api-key"`
 }
 
 // Prompter は対話入力を抽象化するインターフェース。
@@ -79,7 +79,7 @@ func (p *stdinPrompter) Prompt(label string, defaultValue string) (string, error
 
 	line, err := p.reader.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("入力の読み取りに失敗しました: %w", err)
+		return "", fmt.Errorf("failed to read input: %w", err)
 	}
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -97,7 +97,7 @@ func (p *stdinPrompter) Confirm(label string, defaultYes bool) (bool, error) {
 
 	line, err := p.reader.ReadString('\n')
 	if err != nil {
-		return false, fmt.Errorf("入力の読み取りに失敗しました: %w", err)
+		return false, fmt.Errorf("failed to read input: %w", err)
 	}
 	line = strings.TrimSpace(strings.ToLower(line))
 	if line == "" {
@@ -148,7 +148,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 			}
 		}
 		if profileName == "" {
-			return fmt.Errorf("プロファイル名は必須です")
+			return fmt.Errorf("profile name is required")
 		}
 
 		if space == "" {
@@ -158,7 +158,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 			}
 		}
 		if space == "" {
-			return fmt.Errorf("スペース名は必須です")
+			return fmt.Errorf("space name is required")
 		}
 
 		defaultBaseURL := fmt.Sprintf("https://%s.backlog.com", space)
@@ -171,7 +171,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 
 		// API Key 入力（対話モード）
 		if apiKey == "" {
-			apiKey, err = deps.Prompter.Prompt("API Key (空欄でスキップ)", "")
+			apiKey, err = deps.Prompter.Prompt("API Key (leave empty to skip)", "")
 			if err != nil {
 				return err
 			}
@@ -186,7 +186,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 	// 既存 config.toml をロード
 	cfg, err := deps.Loader.Load(deps.ConfigPath)
 	if err != nil {
-		return fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+		return fmt.Errorf("failed to load config file: %w", err)
 	}
 
 	// 既存プロファイルの上書き確認（対話モードのみ）
@@ -196,14 +196,14 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 			created = false
 			if interactive {
 				ok, err := deps.Prompter.Confirm(
-					fmt.Sprintf("プロファイル %q は既に存在します。上書きしますか？", profileName),
+					fmt.Sprintf("profile %q already exists. overwrite?", profileName),
 					false,
 				)
 				if err != nil {
 					return err
 				}
 				if !ok {
-					return fmt.Errorf("プロファイル %q の上書きがキャンセルされました", profileName)
+					return fmt.Errorf("overwrite of profile %q cancelled", profileName)
 				}
 			}
 		}
@@ -231,7 +231,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 
 	// config.toml を書き出し
 	if err := deps.Writer.Write(deps.ConfigPath, cfg); err != nil {
-		return fmt.Errorf("設定ファイルの書き出しに失敗しました: %w", err)
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	// API Key が入力された場合、tokens.json に保存
@@ -239,7 +239,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 	if apiKey != "" && deps.CredStore != nil {
 		tokens, err := deps.CredStore.Load()
 		if err != nil {
-			return fmt.Errorf("認証情報の読み込みに失敗しました: %w", err)
+			return fmt.Errorf("failed to load credentials: %w", err)
 		}
 		if tokens.Auth == nil {
 			tokens.Auth = make(map[string]credentials.AuthEntry)
@@ -252,7 +252,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 			APIKey:   apiKey,
 		}
 		if err := deps.CredStore.Save(tokens); err != nil {
-			return fmt.Errorf("認証情報の保存に失敗しました: %w", err)
+			return fmt.Errorf("failed to save credentials: %w", err)
 		}
 		authSaved = true
 	}
@@ -270,16 +270,16 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 	}
 	data, err := json.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("レスポンスの生成に失敗しました: %w", err)
+		return fmt.Errorf("failed to generate response: %w", err)
 	}
 	fmt.Fprintln(deps.Stdout, string(data))
 
 	// stderr に案内
-	fmt.Fprintf(deps.Stderr, "設定を保存しました: %s\n", deps.ConfigPath)
+	fmt.Fprintf(deps.Stderr, "configuration saved: %s\n", deps.ConfigPath)
 	if authSaved {
-		fmt.Fprintf(deps.Stderr, "セットアップ完了！ logvalet project list で動作確認できます\n")
+		fmt.Fprintf(deps.Stderr, "setup complete! run logvalet project list to verify\n")
 	} else {
-		fmt.Fprintf(deps.Stderr, "次のステップ: logvalet auth login --profile %s\n", profileName)
+		fmt.Fprintf(deps.Stderr, "next step: logvalet auth login --profile %s\n", profileName)
 	}
 
 	return nil

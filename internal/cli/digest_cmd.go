@@ -12,21 +12,21 @@ import (
 // 課題・アクティビティを統合した期間スコープ指定のダイジェストを生成する。
 type DigestCmd struct {
 	// Project はプロジェクトキー（複数指定可）。
-	Project []string `short:"k" help:"プロジェクトキー (複数指定可)"`
+	Project []string `short:"k" help:"project key (multiple allowed)"`
 	// User はユーザー指定（me, 数値ID, ユーザー名。複数指定可）。
-	User []string `help:"ユーザー (me, 数値ID, ユーザー名。複数指定可)"`
+	User []string `help:"user (me, numeric ID, or user name, multiple allowed)"`
 	// Team はチームID またはチーム名（複数指定可）。メンバー全員の課題・アクティビティを取得する。
-	Team []string `help:"チームID またはチーム名 (複数指定可)"`
+	Team []string `help:"team ID or name (multiple allowed)"`
 	// Issue は課題キー（複数指定可）。
-	Issue []string `help:"課題キー (複数指定可)"`
+	Issue []string `help:"issue key (multiple allowed)"`
 	// Since は期間開始（today, this-week, this-month, YYYY-MM-DD）。必須。
-	Since string `help:"期間開始 (today, this-week, this-month, YYYY-MM-DD)" required:""`
+	Since string `help:"period start (today, this-week, this-month, YYYY-MM-DD)" required:""`
 	// Until は期間終了（today, this-week, this-month, YYYY-MM-DD）。省略時は today。
-	Until string `help:"期間終了 (today, this-week, this-month, YYYY-MM-DD)"`
+	Until string `help:"period end (today, this-week, this-month, YYYY-MM-DD)"`
 	// DueDate は期限日フィルタ。
-	DueDate string `help:"期限日フィルタ (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
+	DueDate string `help:"due date filter (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
 	// StartDate は開始日フィルタ。
-	StartDate string `help:"開始日フィルタ (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
+	StartDate string `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
 }
 
 // Run は digest コマンドの実行。
@@ -40,7 +40,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	// 1. 期間解決
 	since, until, err := resolvePeriod(c.Since, c.Until)
 	if err != nil {
-		return fmt.Errorf("期間の解決に失敗: %w", err)
+		return fmt.Errorf("failed to resolve period: %w", err)
 	}
 
 	scope := digest.UnifiedDigestScope{
@@ -53,7 +53,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	if c.DueDate != "" {
 		dueSince, dueUntil, err := resolveDueDate(c.DueDate)
 		if err != nil {
-			return fmt.Errorf("期限日の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve due date: %w", err)
 		}
 		scope.DueDateSince = dueSince
 		scope.DueDateUntil = dueUntil
@@ -63,7 +63,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	if c.StartDate != "" {
 		startSince, startUntil, err := resolveStartDate(c.StartDate)
 		if err != nil {
-			return fmt.Errorf("開始日の解決に失敗: %w", err)
+			return fmt.Errorf("failed to resolve start date: %w", err)
 		}
 		scope.StartDateSince = startSince
 		scope.StartDateUntil = startUntil
@@ -73,7 +73,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	for _, key := range c.Project {
 		proj, err := rc.Client.GetProject(ctx, key)
 		if err != nil {
-			return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", key, err)
+			return fmt.Errorf("failed to resolve project key %q: %w", key, err)
 		}
 		scope.ProjectKeys = append(scope.ProjectKeys, proj.ProjectKey)
 		scope.ProjectIDs = append(scope.ProjectIDs, proj.ID)
@@ -83,7 +83,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	for _, u := range c.User {
 		ids, err := resolveAssignee(ctx, u, rc.Client)
 		if err != nil {
-			return fmt.Errorf("ユーザー %q の解決に失敗: %w", u, err)
+			return fmt.Errorf("failed to resolve user %q: %w", u, err)
 		}
 		scope.UserIDs = append(scope.UserIDs, ids...)
 	}
@@ -94,7 +94,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	// 4. Team → TeamIDs 解決（名前 or 数値ID → int ID）
 	teamIDs, err := resolveTeamIDs(ctx, c.Team, rc.Client)
 	if err != nil {
-		return fmt.Errorf("チームの解決に失敗: %w", err)
+		return fmt.Errorf("failed to resolve teams: %w", err)
 	}
 	scope.TeamIDs = teamIDs
 
@@ -102,7 +102,7 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 	for _, teamID := range teamIDs {
 		team, err := rc.Client.GetTeam(ctx, teamID)
 		if err != nil {
-			return fmt.Errorf("チーム (ID=%d) の取得に失敗: %w", teamID, err)
+			return fmt.Errorf("failed to get team (ID=%d): %w", teamID, err)
 		}
 		for _, m := range team.Members {
 			scope.UserIDs = append(scope.UserIDs, m.ID)

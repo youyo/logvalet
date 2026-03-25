@@ -12,10 +12,10 @@ import (
 
 // AuthCmd は auth コマンド群のルート。
 type AuthCmd struct {
-	Login  AuthLoginCmd  `cmd:"" help:"Backlog にログインする"`
-	Logout AuthLogoutCmd `cmd:"" help:"Backlog からログアウトする"`
-	Whoami AuthWhoamiCmd `cmd:"" help:"現在のログインユーザーを表示する"`
-	List   AuthListCmd   `cmd:"" help:"保存されている認証情報を一覧表示する"`
+	Login  AuthLoginCmd  `cmd:"" help:"login to Backlog"`
+	Logout AuthLogoutCmd `cmd:"" help:"logout from Backlog"`
+	Whoami AuthWhoamiCmd `cmd:"" help:"display current logged-in user"`
+	List   AuthListCmd   `cmd:"" help:"list saved credentials"`
 }
 
 // ---- auth login ----
@@ -43,11 +43,11 @@ func (c *AuthLoginCmd) Run(g *GlobalFlags) error {
 	if apiKey == "" {
 		fmt.Fprint(os.Stderr, "API Key: ")
 		if _, err := fmt.Fscanln(os.Stdin, &apiKey); err != nil {
-			return fmt.Errorf("API Key の読み取りに失敗しました: %w", err)
+			return fmt.Errorf("failed to read API key: %w", err)
 		}
 	}
 	if apiKey == "" {
-		return fmt.Errorf("API Key が指定されていません")
+		return fmt.Errorf("API key is required")
 	}
 
 	// BaseURL を解決（プロファイルまたは直接指定）
@@ -82,13 +82,13 @@ func resolveAuthBaseURL(g *GlobalFlags) (baseURL, space string, err error) {
 	configPath := config.DefaultConfigPath()
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return "", "", fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+		return "", "", fmt.Errorf("failed to load config file: %w", err)
 	}
 
 	flags := config.OverrideFlags{Profile: g.Profile}
 	resolved, err := config.Resolve(cfg, flags, os.Getenv)
 	if err != nil {
-		return "", "", fmt.Errorf("設定の解決に失敗しました: %w", err)
+		return "", "", fmt.Errorf("failed to resolve config: %w", err)
 	}
 
 	baseURL = resolved.BaseURL
@@ -99,7 +99,7 @@ func resolveAuthBaseURL(g *GlobalFlags) (baseURL, space string, err error) {
 	}
 
 	if baseURL == "" {
-		return "", "", fmt.Errorf("Backlog スペースの URL が設定されていません。--profile でプロファイルを指定するか、LOGVALET_BASE_URL 環境変数を設定してください (exit 2)")
+		return "", "", fmt.Errorf("Backlog space URL not set. specify profile with --profile or set LOGVALET_BASE_URL (exit 2)")
 	}
 
 	if space == "" {
@@ -411,15 +411,15 @@ func resolveProfile(g *GlobalFlags) (string, error) {
 	configPath := config.ResolveConfigPath(g.Config, os.Getenv)
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return "", fmt.Errorf("設定ファイルの読み込みに失敗: %w", err)
+		return "", fmt.Errorf("failed to load config file: %w", err)
 	}
 	flags := config.OverrideFlags{Profile: g.Profile}
 	resolved, err := config.Resolve(cfg, flags, os.Getenv)
 	if err != nil {
-		return "", fmt.Errorf("設定の解決に失敗: %w", err)
+		return "", fmt.Errorf("failed to resolve config: %w", err)
 	}
 	if resolved.Profile == "" {
-		return "", fmt.Errorf("--profile が必要です。config.toml の default_profile を設定するか --profile を指定してください")
+		return "", fmt.Errorf("--profile is required. set default_profile in config.toml or specify --profile")
 	}
 	return resolved.Profile, nil
 }

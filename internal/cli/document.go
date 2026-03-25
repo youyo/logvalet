@@ -11,17 +11,17 @@ import (
 
 // DocumentCmd は document コマンド群のルート。
 type DocumentCmd struct {
-	Get    DocumentGetCmd    `cmd:"" help:"ドキュメントを取得する"`
-	List   DocumentListCmd   `cmd:"" help:"ドキュメント一覧を取得する"`
-	Tree   DocumentTreeCmd   `cmd:"" help:"ドキュメントツリーを取得する"`
-	Digest DocumentDigestCmd `cmd:"" help:"ドキュメントのダイジェストを生成する"`
-	Create DocumentCreateCmd `cmd:"" help:"ドキュメントを作成する"`
+	Get    DocumentGetCmd    `cmd:"" help:"get document"`
+	List   DocumentListCmd   `cmd:"" help:"list documents"`
+	Tree   DocumentTreeCmd   `cmd:"" help:"get document tree"`
+	Digest DocumentDigestCmd `cmd:"" help:"generate document digest"`
+	Create DocumentCreateCmd `cmd:"" help:"create document"`
 }
 
 // DocumentGetCmd は document get コマンド（spec §14.18）。
 // lv document get <document_id>
 type DocumentGetCmd struct {
-	DocumentID string `arg:"" required:"" help:"ドキュメントID"`
+	DocumentID string `arg:"" required:"" help:"document ID"`
 }
 
 func (c *DocumentGetCmd) Run(g *GlobalFlags) error {
@@ -41,7 +41,7 @@ func (c *DocumentGetCmd) Run(g *GlobalFlags) error {
 // lv document list --project <key>
 type DocumentListCmd struct {
 	ListFlags
-	ProjectKey string `required:"" help:"プロジェクトキー"`
+	ProjectKey string `required:"" help:"project key"`
 }
 
 func (c *DocumentListCmd) Run(g *GlobalFlags) error {
@@ -53,7 +53,7 @@ func (c *DocumentListCmd) Run(g *GlobalFlags) error {
 	// projectKey → projectID 変換
 	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
 	if err != nil {
-		return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", c.ProjectKey, err)
+		return fmt.Errorf("failed to resolve project key %q: %w", c.ProjectKey, err)
 	}
 	opt := backlog.ListDocumentsOptions{
 		Limit:  c.Count,
@@ -69,7 +69,7 @@ func (c *DocumentListCmd) Run(g *GlobalFlags) error {
 // DocumentTreeCmd は document tree コマンド（spec §14.20）。
 // lv document tree --project <key>
 type DocumentTreeCmd struct {
-	ProjectKey string `required:"" help:"プロジェクトキー"`
+	ProjectKey string `required:"" help:"project key"`
 }
 
 func (c *DocumentTreeCmd) Run(g *GlobalFlags) error {
@@ -89,7 +89,7 @@ func (c *DocumentTreeCmd) Run(g *GlobalFlags) error {
 // lv document digest <document_id>
 type DocumentDigestCmd struct {
 	DigestFlags
-	DocumentID string `arg:"" required:"" help:"ドキュメントID"`
+	DocumentID string `arg:"" required:"" help:"document ID"`
 }
 
 func (c *DocumentDigestCmd) Run(g *GlobalFlags) error {
@@ -110,13 +110,13 @@ func (c *DocumentDigestCmd) Run(g *GlobalFlags) error {
 // lv document create --project <key> --title <text> (--content <text> | --content-file <path>)
 type DocumentCreateCmd struct {
 	WriteFlags
-	ProjectKey  string  `required:"" help:"プロジェクトキー"`
-	Title       string  `required:"" help:"ドキュメントのタイトル"`
-	Content     string  `help:"ドキュメントの本文（--content-file と排他）"`
-	ContentFile string  `help:"ドキュメント本文のファイルパス（--content と排他）" type:"existingfile"`
-	ParentID    *string `help:"親ドキュメントID（任意）"`
-	Emoji       string  `help:"タイトル横の絵文字"`
-	AddLast     bool    `help:"末尾に追加する"`
+	ProjectKey  string  `required:"" help:"project key"`
+	Title       string  `required:"" help:"document title"`
+	Content     string  `help:"document body (mutually exclusive with --content-file)"`
+	ContentFile string  `help:"document body file path (mutually exclusive with --content)" type:"existingfile"`
+	ParentID    *string `help:"parent document ID (optional)"`
+	Emoji       string  `help:"emoji for title"`
+	AddLast     bool    `help:"add at the end"`
 }
 
 func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
@@ -130,7 +130,7 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 	if c.ContentFile != "" {
 		fileContent, err := readContentFromFile(c.ContentFile)
 		if err != nil {
-			return fmt.Errorf("--content-file の読み込みに失敗しました: %w", err)
+			return fmt.Errorf("failed to read --content-file: %w", err)
 		}
 		content = fileContent
 	}
@@ -165,7 +165,7 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 	// projectKey → projectID 変換
 	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
 	if err != nil {
-		return fmt.Errorf("プロジェクトキー %q の解決に失敗: %w", c.ProjectKey, err)
+		return fmt.Errorf("failed to resolve project key %q: %w", c.ProjectKey, err)
 	}
 	req := backlog.CreateDocumentRequest{
 		ProjectID: proj.ID,

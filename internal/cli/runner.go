@@ -35,7 +35,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	configPath := config.ResolveConfigPath(g.Config, os.Getenv)
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
+		return nil, fmt.Errorf("failed to load config file: %w", err)
 	}
 
 	// 2. 設定値を解決（CLI flags > env > config.toml > デフォルト）
@@ -51,7 +51,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	}
 	resolved, err := config.Resolve(cfg, flags, os.Getenv)
 	if err != nil {
-		return nil, fmt.Errorf("設定の解決に失敗しました: %w", err)
+		return nil, fmt.Errorf("failed to resolve config: %w", err)
 	}
 
 	// 3. 認証情報を解決（CLI flags > env > tokens.json）
@@ -64,7 +64,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	}
 	cred, err := resolver.Resolve(resolved.AuthRef, credFlags, os.Getenv)
 	if err != nil {
-		return nil, fmt.Errorf("認証情報の解決に失敗しました (logvalet auth login を実行してください): %w", err)
+		return nil, fmt.Errorf("failed to resolve credentials (run logvalet auth login): %w", err)
 	}
 
 	// 4. BaseURL を決定
@@ -73,7 +73,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 		baseURL = fmt.Sprintf("https://%s.backlog.com", resolved.Space)
 	}
 	if baseURL == "" {
-		return nil, fmt.Errorf("Backlog スペースの URL が設定されていません (--profile または LOGVALET_BASE_URL を設定してください)")
+		return nil, fmt.Errorf("Backlog space URL not set (configure --profile or LOGVALET_BASE_URL)")
 	}
 
 	// 5. Backlog クライアントを生成
@@ -89,7 +89,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	}
 	renderer, err := render.NewRenderer(format, resolved.Pretty, resolved.Space)
 	if err != nil {
-		return nil, fmt.Errorf("レンダラーの生成に失敗しました: %w", err)
+		return nil, fmt.Errorf("failed to create renderer: %w", err)
 	}
 
 	return &RunContext{
