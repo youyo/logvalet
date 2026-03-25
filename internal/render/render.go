@@ -14,7 +14,7 @@ type Renderer interface {
 
 // NewRenderer はフォーマット名に対応する Renderer を返す。
 // 未知のフォーマットはエラーを返す。
-// サポートするフォーマット: json, yaml, md, markdown, text
+// サポートするフォーマット: json, yaml, md, markdown, text, mermaid
 func NewRenderer(format string, pretty bool) (Renderer, error) {
 	switch format {
 	case "json":
@@ -25,7 +25,9 @@ func NewRenderer(format string, pretty bool) (Renderer, error) {
 		return NewMarkdownRenderer(), nil
 	case "text":
 		return NewTextRenderer(), nil
+	case "mermaid":
+		return NewMermaidGanttRenderer(), nil
 	default:
-		return nil, fmt.Errorf("未サポートのフォーマット: %q (サポート: json, yaml, md, markdown, text)", format)
+		return nil, fmt.Errorf("未サポートのフォーマット: %q (サポート: json, yaml, md, markdown, text, mermaid)", format)
 	}
 }
