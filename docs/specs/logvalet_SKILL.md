@@ -450,11 +450,24 @@ Common filters:
 ```bash
 logvalet issue list --project-key PROJ --assignee me
 logvalet issue list --project-key PROJ --status 3
+logvalet issue list --assignee me --status not-closed
 logvalet issue list --project-key PROJ --due-date today
 logvalet issue list --project-key PROJ --sort dueDate --order asc
 ```
 
 `--assignee` accepts: `me`, numeric user ID, user name, or team name.
+
+`--status` accepts:
+
+| Value | Description | `-k` required? |
+|-------|-------------|----------------|
+| `not-closed` | 完了以外すべて（未対応+処理中+処理済み） | No — cross-project OK |
+| `open` | 未対応のみ（プロジェクトのステータス一覧から完了以外を取得） | Yes |
+| Name string | `"処理中"` etc. — プロジェクトのステータス名で照合 | Yes |
+| Numeric ID | `3` etc. — ステータスIDを直接指定 | No |
+| Comma-separated | `"1,2,3"` — 複数ステータスIDを一括指定 | No (if all numeric) |
+
+**Important:** `not-closed` is the most useful default for agents. It requires no `-k` flag and works across all projects, making it ideal for `--assignee me` queries.
 
 ### Create an issue
 
@@ -834,7 +847,15 @@ logvalet --version
 
 ## Recommended patterns for coding agents
 
-### 1. Prefer digest over get for reasoning
+### 1. Get my open tasks (most common pattern)
+
+```bash
+logvalet issue list --assignee me --status not-closed --due-date this-week -f gantt
+```
+
+`not-closed` requires no `-k` flag and works across all projects, making it the best choice for assignee-based task lists. Combine with `--due-date` or `--start-date` to scope the time range. Use `-f gantt` for a visual timeline or `-f md` for a Markdown table.
+
+### 2. Prefer digest over get for reasoning
 
 Good:
 
@@ -848,7 +869,7 @@ Less useful for reasoning alone:
 logvalet issue get PROJ-123
 ```
 
-### 2. Use JSON unless a human needs to read it directly
+### 3. Use JSON unless a human needs to read it directly
 
 Good:
 
@@ -862,7 +883,7 @@ Use Markdown for sharing:
 logvalet digest --user 12345 --since 30d -f md
 ```
 
-### 3. Name-or-ID resolution is automatic
+### 4. Name-or-ID resolution is automatic
 
 `issue create` and `issue update` accept both names and IDs for issue types, priorities, statuses, categories, versions, and milestones.
 
@@ -881,7 +902,7 @@ logvalet meta status PROJ
 logvalet meta category PROJ
 ```
 
-### 4. Use `digest --user` for reporting workflows
+### 5. Use `digest --user` for reporting workflows
 
 For monthly activity review:
 
@@ -889,7 +910,7 @@ For monthly activity review:
 logvalet digest --user 12345 --since 30d
 ```
 
-### 5. Use `--dry-run` for write commands prepared by an agent
+### 6. Use `--dry-run` for write commands prepared by an agent
 
 ```bash
 logvalet issue update PROJ-123 --status 3 --dry-run
@@ -903,6 +924,7 @@ logvalet document create --project PROJ --title "Runbook" --content-file ./runbo
 
 Avoid these:
 
+- using `--status "未対応" --status "処理中"` without `-k` — use `--status not-closed` instead (no `-k` needed, cross-project)
 - using `document` commands for destructive operations
 - treating `get` output as if it were equivalent to `digest`
 - relying on stderr for structured data
@@ -916,6 +938,7 @@ Avoid these:
 If you only remember a few commands, remember these:
 
 ```bash
+logvalet issue list --assignee me --status not-closed -f gantt
 logvalet digest --issue PROJ-123 --since 30d
 logvalet issue list --project-key PROJ
 logvalet issue create --project-key PROJ --summary "..."
