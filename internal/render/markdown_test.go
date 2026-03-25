@@ -8,77 +8,116 @@ import (
 	"github.com/youyo/logvalet/internal/render"
 )
 
-func TestMarkdownRenderer_Render(t *testing.T) {
-	t.Run("struct を Markdown コードブロックで出力する", func(t *testing.T) {
-		r := render.NewMarkdownRenderer()
-		data := testData{Name: "test", Value: 42}
-
-		var buf bytes.Buffer
-		if err := r.Render(&buf, data); err != nil {
-			t.Fatalf("Render() エラー: %v", err)
-		}
-
-		output := buf.String()
-		if !strings.Contains(output, "```") {
-			t.Errorf("Markdown 出力にコードブロック ``` が含まれていない: %s", output)
-		}
-		if !strings.Contains(output, `"name"`) {
-			t.Errorf("Markdown 出力に name フィールドが含まれていない: %s", output)
-		}
-	})
-
-	t.Run("nil データを渡した場合 null を含む出力を返す", func(t *testing.T) {
-		r := render.NewMarkdownRenderer()
-
-		var buf bytes.Buffer
-		if err := r.Render(&buf, nil); err != nil {
-			t.Fatalf("Render() エラー: %v", err)
-		}
-
-		output := buf.String()
-		if !strings.Contains(output, "null") {
-			t.Errorf("Markdown 出力に null が含まれていない: %s", output)
-		}
-	})
-
-	t.Run("コードブロックは json タグ付きで出力される", func(t *testing.T) {
-		r := render.NewMarkdownRenderer()
-		data := map[string]int{"count": 3}
-
-		var buf bytes.Buffer
-		if err := r.Render(&buf, data); err != nil {
-			t.Fatalf("Render() エラー: %v", err)
-		}
-
-		output := buf.String()
-		if !strings.HasPrefix(output, "```json") {
-			t.Errorf("Markdown コードブロックが ```json で始まっていない: %s", output)
-		}
-	})
+func TestMarkdown_table_basic(t *testing.T) {
+	data := []map[string]any{
+		{"id": 1, "name": "Alice", "email": "alice@example.com"},
+		{"id": 2, "name": "Bob", "email": "bob@example.com"},
+	}
+	var buf bytes.Buffer
+	r := render.NewMarkdownRenderer()
+	if err := r.Render(&buf, data); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "| id") {
+		t.Error("テーブルヘッダーに id がない")
+	}
+	if !strings.Contains(out, "| name") {
+		t.Error("テーブルヘッダーに name がない")
+	}
+	if !strings.Contains(out, "Alice") {
+		t.Error("データ行に Alice がない")
+	}
+	if !strings.Contains(out, "Bob") {
+		t.Error("データ行に Bob がない")
+	}
+	// セパレーター行の確認
+	if !strings.Contains(out, "----") {
+		t.Error("セパレーター行がない")
+	}
 }
 
-func TestMarkdownRenderer_ImplementsRenderer(t *testing.T) {
-	var _ render.Renderer = render.NewMarkdownRenderer()
+func TestMarkdown_table_nested(t *testing.T) {
+	data := []map[string]any{
+		{"issueKey": "CND-7", "status": map[string]any{"id": 1, "name": "処理中"}},
+	}
+	var buf bytes.Buffer
+	r := render.NewMarkdownRenderer()
+	if err := r.Render(&buf, data); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	out := buf.String()
+	// ネストした map で name キーがあれば Name を表示
+	if !strings.Contains(out, "処理中") {
+		t.Error("ネストした map の name が表示されていない")
+	}
 }
 
-func TestNewRenderer_Markdown(t *testing.T) {
-	t.Run("md フォーマットで MarkdownRenderer を返す", func(t *testing.T) {
-		r, err := render.NewRenderer("md", false, "")
-		if err != nil {
-			t.Fatalf("NewRenderer(md) エラー: %v", err)
-		}
-		if r == nil {
-			t.Error("NewRenderer(md) は nil を返してはならない")
-		}
-	})
+func TestMarkdown_table_empty(t *testing.T) {
+	data := []map[string]any{}
+	var buf bytes.Buffer
+	r := render.NewMarkdownRenderer()
+	if err := r.Render(&buf, data); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "(データなし)") {
+		t.Errorf("空配列で (データなし) が出力されない: %q", out)
+	}
+}
 
-	t.Run("markdown フォーマットで MarkdownRenderer を返す", func(t *testing.T) {
-		r, err := render.NewRenderer("markdown", false, "")
-		if err != nil {
-			t.Fatalf("NewRenderer(markdown) エラー: %v", err)
-		}
-		if r == nil {
-			t.Error("NewRenderer(markdown) は nil を返してはならない")
-		}
-	})
+func TestMarkdown_kv_basic(t *testing.T) {
+	data := map[string]any{
+		"profile":   "heptagon",
+		"auth_type": "api_key",
+		"expired":   false,
+	}
+	var buf bytes.Buffer
+	r := render.NewMarkdownRenderer()
+	if err := r.Render(&buf, data); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "- **profile**: heptagon") {
+		t.Error("キー・値リストに profile がない")
+	}
+	if !strings.Contains(out, "- **auth_type**: api_key") {
+		t.Error("キー・値リストに auth_type がない")
+	}
+}
+
+func TestMarkdown_kv_nested(t *testing.T) {
+	data := map[string]any{
+		"profile": "heptagon",
+		"user":    map[string]any{"id": 1, "name": "Naoto Ishizawa"},
+	}
+	var buf bytes.Buffer
+	r := render.NewMarkdownRenderer()
+	if err := r.Render(&buf, data); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Naoto Ishizawa") {
+		t.Error("ネストした user の name が表示されていない")
+	}
+}
+
+func TestNewRenderer_md(t *testing.T) {
+	r, err := render.NewRenderer("md", false, "")
+	if err != nil {
+		t.Fatalf("NewRenderer(md) error: %v", err)
+	}
+	if r == nil {
+		t.Error("renderer が nil")
+	}
+}
+
+func TestNewRenderer_markdown(t *testing.T) {
+	r, err := render.NewRenderer("markdown", false, "")
+	if err != nil {
+		t.Fatalf("NewRenderer(markdown) error: %v", err)
+	}
+	if r == nil {
+		t.Error("renderer が nil")
+	}
 }
