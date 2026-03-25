@@ -72,7 +72,7 @@ func (b *DefaultSpaceDigestBuilder) Build(ctx context.Context, opt SpaceDigestOp
 	if err != nil {
 		warnings = append(warnings, domain.Warning{
 			Code:      "disk_usage_fetch_failed",
-			Message:   fmt.Sprintf("ディスク使用量の取得に失敗しました: %v", err),
+			Message:   fmt.Sprintf("failed to get disk usage: %v", err),
 			Component: "disk_usage",
 			Retryable: true,
 		})

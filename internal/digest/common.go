@@ -104,7 +104,7 @@ func fetchProjectMeta(ctx context.Context, client backlog.Client, projectKey str
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "statuses_fetch_failed",
-				Message:   fmt.Sprintf("ステータス一覧の取得に失敗しました: %v", err),
+				Message:   fmt.Sprintf("failed to list statuses: %v", err),
 				Component: "meta.statuses",
 				Retryable: true,
 			})
@@ -125,7 +125,7 @@ func fetchProjectMeta(ctx context.Context, client backlog.Client, projectKey str
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "categories_fetch_failed",
-				Message:   fmt.Sprintf("カテゴリ一覧の取得に失敗しました: %v", err),
+				Message:   fmt.Sprintf("failed to list categories: %v", err),
 				Component: "meta.categories",
 				Retryable: true,
 			})
@@ -146,7 +146,7 @@ func fetchProjectMeta(ctx context.Context, client backlog.Client, projectKey str
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "versions_fetch_failed",
-				Message:   fmt.Sprintf("バージョン一覧の取得に失敗しました: %v", err),
+				Message:   fmt.Sprintf("failed to list versions: %v", err),
 				Component: "meta.versions",
 				Retryable: true,
 			})
@@ -167,7 +167,7 @@ func fetchProjectMeta(ctx context.Context, client backlog.Client, projectKey str
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "custom_fields_fetch_failed",
-				Message:   fmt.Sprintf("カスタムフィールド一覧の取得に失敗しました: %v", err),
+				Message:   fmt.Sprintf("failed to list custom fields: %v", err),
 				Component: "meta.custom_fields",
 				Retryable: true,
 			})

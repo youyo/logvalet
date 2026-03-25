@@ -121,7 +121,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "team_fetch_failed",
-				Message:   fmt.Sprintf("チーム (ID=%d) の取得に失敗: %v", teamID, err),
+				Message:   fmt.Sprintf("failed to get team (ID=%d): %v", teamID, err),
 				Component: fmt.Sprintf("scope.teams.%d", teamID),
 				Retryable: true,
 			})
@@ -146,7 +146,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "project_fetch_failed",
-				Message:   fmt.Sprintf("プロジェクト %q の解決に失敗: %v", key, err),
+				Message:   fmt.Sprintf("failed to resolve project %q: %v", key, err),
 				Component: fmt.Sprintf("scope.projects.%s", key),
 				Retryable: true,
 			})
@@ -166,7 +166,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 			mu.Lock()
 			warnings = append(warnings, domain.Warning{
 				Code:      "user_fetch_failed",
-				Message:   fmt.Sprintf("ユーザー (ID=%d) の取得に失敗: %v", uid, err),
+				Message:   fmt.Sprintf("failed to get user (ID=%d): %v", uid, err),
 				Component: fmt.Sprintf("scope.users.%d", uid),
 				Retryable: true,
 			})
@@ -199,7 +199,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 				mu.Lock()
 				warnings = append(warnings, domain.Warning{
 					Code:      "issue_fetch_failed",
-					Message:   fmt.Sprintf("課題 %q の取得に失敗: %v", key, err),
+					Message:   fmt.Sprintf("failed to get issue %q: %v", key, err),
 					Component: fmt.Sprintf("issues.%s", key),
 					Retryable: true,
 				})
@@ -214,7 +214,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 		if err != nil {
 			warnings = append(warnings, domain.Warning{
 				Code:      "issues_fetch_failed",
-				Message:   fmt.Sprintf("課題一覧の取得に失敗: %v", err),
+				Message:   fmt.Sprintf("failed to list issues: %v", err),
 				Component: "issues",
 				Retryable: true,
 			})
@@ -248,7 +248,7 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 	if actErr != nil {
 		warnings = append(warnings, domain.Warning{
 			Code:      "activities_fetch_failed",
-			Message:   fmt.Sprintf("アクティビティの取得に失敗: %v", actErr),
+			Message:   fmt.Sprintf("failed to fetch activities: %v", actErr),
 			Component: "activities",
 			Retryable: true,
 		})

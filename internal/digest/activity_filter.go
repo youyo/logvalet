@@ -52,7 +52,7 @@ func FetchActivitiesWithDateFilter(ctx context.Context, fetcher ActivityPageFetc
 
 		page, err := fetcher(ctx, activityPageSize, maxID)
 		if err != nil {
-			return nil, fmt.Errorf("activities 取得失敗 (maxID=%d): %w", maxID, err)
+			return nil, fmt.Errorf("failed to fetch activities (maxID=%d): %w", maxID, err)
 		}
 		if len(page) == 0 {
 			break
@@ -109,11 +109,11 @@ func FetchActivitiesWithDateFilter(ctx context.Context, fetcher ActivityPageFetc
 func extractActivityCreated(item interface{}) (time.Time, error) {
 	m, ok := item.(map[string]interface{})
 	if !ok {
-		return time.Time{}, fmt.Errorf("activity が map[string]interface{} でない: %T", item)
+		return time.Time{}, fmt.Errorf("activity is not map[string]interface{}: %T", item)
 	}
 	createdRaw, ok := m["created"]
 	if !ok {
-		return time.Time{}, fmt.Errorf("created フィールドがない")
+		return time.Time{}, fmt.Errorf("missing created field")
 	}
 
 	switch v := createdRaw.(type) {
@@ -123,7 +123,7 @@ func extractActivityCreated(item interface{}) (time.Time, error) {
 			// フォールバック: RFC3339Nano
 			t, err = time.Parse(time.RFC3339Nano, v)
 			if err != nil {
-				return time.Time{}, fmt.Errorf("created のパース失敗 %q: %w", v, err)
+				return time.Time{}, fmt.Errorf("failed to parse created %q: %w", v, err)
 			}
 		}
 		return t, nil
@@ -131,11 +131,11 @@ func extractActivityCreated(item interface{}) (time.Time, error) {
 		return v, nil
 	case *time.Time:
 		if v == nil {
-			return time.Time{}, fmt.Errorf("created が nil")
+			return time.Time{}, fmt.Errorf("created is nil")
 		}
 		return *v, nil
 	default:
-		return time.Time{}, fmt.Errorf("created の型が未対応: %T", createdRaw)
+		return time.Time{}, fmt.Errorf("unsupported type for created: %T", createdRaw)
 	}
 }
 
@@ -143,11 +143,11 @@ func extractActivityCreated(item interface{}) (time.Time, error) {
 func extractActivityID(item interface{}) (int, error) {
 	m, ok := item.(map[string]interface{})
 	if !ok {
-		return 0, fmt.Errorf("activity が map[string]interface{} でない: %T", item)
+		return 0, fmt.Errorf("activity is not map[string]interface{}: %T", item)
 	}
 	idRaw, ok := m["id"]
 	if !ok {
-		return 0, fmt.Errorf("id フィールドがない")
+		return 0, fmt.Errorf("missing id field")
 	}
 	switch v := idRaw.(type) {
 	case float64:
@@ -157,6 +157,6 @@ func extractActivityID(item interface{}) (int, error) {
 	case int64:
 		return int(v), nil
 	default:
-		return 0, fmt.Errorf("id の型が未対応: %T", idRaw)
+		return 0, fmt.Errorf("unsupported type for id: %T", idRaw)
 	}
 }

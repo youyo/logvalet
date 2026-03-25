@@ -83,7 +83,7 @@ func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID str
 	if err != nil {
 		warnings = append(warnings, domain.Warning{
 			Code:      "project_fetch_failed",
-			Message:   fmt.Sprintf("プロジェクト一覧の取得に失敗しました: %v", err),
+			Message:   fmt.Sprintf("failed to list projects: %v", err),
 			Component: "project",
 			Retryable: true,
 		})
@@ -103,7 +103,7 @@ func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID str
 		if !matched {
 			warnings = append(warnings, domain.Warning{
 				Code:      "project_not_matched",
-				Message:   fmt.Sprintf("プロジェクト ID %d に対応するプロジェクトが見つかりませんでした", doc.ProjectID),
+				Message:   fmt.Sprintf("project not found for project ID %d", doc.ProjectID),
 				Component: "project",
 				Retryable: false,
 			})
@@ -116,7 +116,7 @@ func (b *DefaultDocumentDigestBuilder) Build(ctx context.Context, documentID str
 	if err != nil {
 		warnings = append(warnings, domain.Warning{
 			Code:      "attachments_fetch_failed",
-			Message:   fmt.Sprintf("添付ファイル一覧の取得に失敗しました: %v", err),
+			Message:   fmt.Sprintf("failed to list attachments: %v", err),
 			Component: "attachments",
 			Retryable: true,
 		})

@@ -102,7 +102,7 @@ func (b *DefaultActivityDigestBuilder) Build(ctx context.Context, opt ActivityDi
 	if fetchErr != nil {
 		warnings = append(warnings, domain.Warning{
 			Code:      "activities_fetch_failed",
-			Message:   fmt.Sprintf("アクティビティの取得に失敗しました: %v", fetchErr),
+			Message:   fmt.Sprintf("failed to fetch activities: %v", fetchErr),
 			Component: "activities",
 			Retryable: true,
 		})
@@ -252,9 +252,9 @@ func buildActivityDigestSummary(project string, activities []domain.NormalizedAc
 		projectKeys = append(projectKeys, k)
 	}
 
-	headline := fmt.Sprintf("アクティビティダイジェスト（%d件）", len(activities))
+	headline := fmt.Sprintf("activity digest (%d items)", len(activities))
 	if project != "" {
-		headline = fmt.Sprintf("プロジェクト %s のアクティビティダイジェスト（%d件）", project, len(activities))
+		headline = fmt.Sprintf("activity digest for project %s (%d items)", project, len(activities))
 	}
 
 	return ActivityDigestSummary{
