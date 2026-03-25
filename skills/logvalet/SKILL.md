@@ -31,10 +31,9 @@ Supported output formats:
 
 ```bash
 json
-md
-text
 yaml
-mermaid
+md
+gantt
 ```
 
 Use `digest` commands whenever you need context for reasoning. Use `get` or `list` when you need raw-ish structured data.
@@ -147,7 +146,7 @@ Common flags available across commands:
 
 ```text
 --profile, -p <name>
---format, -f <json|md|text|yaml>
+--format, -f <json|yaml|md|gantt>
 --pretty
 --config, -c <path>
 --api-key <key>
@@ -213,17 +212,26 @@ This is intentional.
 - verbose logs
 - warnings and operational details
 - token refresh details
-- mermaid format: issues skipped due to missing dates
+- gantt format: issues skipped due to missing dates
 
 Do not rely on stderr for primary data.
 
-### Mermaid output
+### Gantt output
 
-Use `--format mermaid` with `issue list` to generate a Mermaid gantt diagram. Issues are grouped into sections by project key. Issues without both start date and due date are skipped with a stderr warning.
+Use `--format gantt` with `issue list` to generate a date-annotated Gantt table. Each row shows the issue key, summary, start/due dates, elapsed and remaining days, and a Backlog URL. Issues without both start date and due date are skipped with a stderr warning.
 
 ```bash
-logvalet issue list --due-date this-month --format mermaid
-logvalet issue list -k PROJ --start-date this-month --format mermaid
+logvalet issue list --due-date this-month --format gantt
+logvalet issue list -k PROJ --start-date this-month --format gantt
+```
+
+### Markdown output
+
+Use `--format md` for rich Markdown output. Arrays render as Markdown tables; single objects render as key/value lists.
+
+```bash
+logvalet issue list --due-date this-month --format md
+logvalet issue get PROJ-123 --format md
 ```
 
 ### Error contract

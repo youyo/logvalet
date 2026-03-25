@@ -132,7 +132,7 @@ This enables completion for both `logvalet` and `lv`.
 
 ```text
 --profile, -p <name>     Profile to use
---format, -f <format>    Output format: json (default), md, text, yaml
+--format, -f <format>    Output format: json (default), yaml, md, gantt
 --pretty                 Pretty-print JSON output
 --config, -c <path>      Config file path
 --api-key <key>          Backlog API key
@@ -275,33 +275,31 @@ logvalet digest --project PROJ --start-date 2026-03-01 --due-date 2026-03-31
 
 Default output is JSON. Use `--format` to change the format:
 
-```bash
-lv issue digest PROJ-123 --format md
-lv issue digest PROJ-123 --format yaml
-lv issue digest PROJ-123 --format text
-```
-
-### Mermaid Gantt format
-
-Use `--format mermaid` to generate a Mermaid gantt diagram from issue lists. Issues are grouped into sections by project key. Issues without start date or due date are skipped (a warning is printed to stderr).
+| Format | Description |
+|--------|-------------|
+| `json` | Machine-readable JSON (default) |
+| `yaml` | YAML output |
+| `md` | Rich Markdown — arrays render as tables, single objects render as key/value lists |
+| `gantt` | Issue-specific Gantt table with date columns, elapsed/remaining display, and Backlog URLs |
 
 ```bash
-# Gantt chart of issues due this month
-logvalet issue list --due-date this-month --format mermaid
+# Markdown table output (general purpose)
+lv issue list --due-date this-month --format md
 
-# Gantt chart filtered by project
-logvalet issue list -k PROJ --start-date this-month --format mermaid
+# YAML output
+lv issue get PROJ-123 --format yaml
 ```
 
-Example output:
+### Gantt format
 
-```mermaid
-gantt
-    title Backlog Issues
-    dateFormat YYYY-MM-DD
-    section PROJ
-    Fix login bug :2026-03-01, 2026-03-15
-    Improve dashboard :2026-03-10, 2026-03-31
+Use `--format gantt` with `issue list` to generate a date-annotated Gantt table. Each row shows the issue key, summary, start/due dates, elapsed and remaining days, and a direct Backlog URL. Issues without both start date and due date are skipped (a warning is printed to stderr).
+
+```bash
+# Gantt table of issues due this month
+logvalet issue list --due-date this-month --format gantt
+
+# Gantt table filtered by project
+logvalet issue list -k PROJ --start-date this-month --format gantt
 ```
 
 ## Safety

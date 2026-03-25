@@ -13,8 +13,8 @@ type GlobalFlags struct {
 	// Profile は使用する設定プロファイル名。
 	Profile string `short:"p" help:"使用するプロファイル名" env:"LOGVALET_PROFILE"`
 
-	// Format は出力フォーマット (json|yaml|markdown|text)。
-	Format string `short:"f" help:"出力フォーマット (json|yaml|markdown|text)" default:"json" env:"LOGVALET_FORMAT"`
+	// Format は出力フォーマット (json|yaml|md|gantt)。
+	Format string `short:"f" help:"出力フォーマット (json|yaml|md|gantt)" default:"json" env:"LOGVALET_FORMAT"`
 
 	// Pretty はインデント付き JSON/YAML 出力を有効にする。
 	Pretty bool `help:"インデント付きで出力する" env:"LOGVALET_PRETTY"`

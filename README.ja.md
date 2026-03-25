@@ -131,7 +131,7 @@ end
 
 ```text
 --profile, -p <name>     使用するプロファイル
---format, -f <format>    出力フォーマット: json（デフォルト）, md, text, yaml
+--format, -f <format>    出力フォーマット: json（デフォルト）, yaml, md, gantt
 --pretty                 JSON の整形出力
 --config, -c <path>      設定ファイルパス
 --api-key <key>          Backlog API キー
@@ -274,33 +274,31 @@ logvalet digest --project PROJ --start-date 2026-03-01 --due-date 2026-03-31
 
 デフォルト出力は JSON です。`--format` で変更できます:
 
-```bash
-lv issue digest PROJ-123 --format md
-lv issue digest PROJ-123 --format yaml
-lv issue digest PROJ-123 --format text
-```
-
-### Mermaid Gantt フォーマット
-
-`--format mermaid` を指定すると、課題一覧から Mermaid gantt ダイアグラムを生成します。課題はプロジェクトキーごとに section に分けられます。開始日または期限日が設定されていない課題はスキップされ、stderr に警告が出力されます。
+| フォーマット | 説明 |
+|------------|------|
+| `json` | 機械可読 JSON（デフォルト） |
+| `yaml` | YAML 出力 |
+| `md` | リッチ Markdown — 配列はテーブル形式、単体オブジェクトはキー・値リスト形式 |
+| `gantt` | Issue 専用 Gantt テーブル — 日付列・経過/残り日数・Backlog URL 付き |
 
 ```bash
-# 今月が期限の課題をガントチャートで表示
-logvalet issue list --due-date this-month --format mermaid
+# Markdown テーブル出力（汎用）
+lv issue list --due-date this-month --format md
 
-# プロジェクトで絞り込んだガントチャート
-logvalet issue list -k PROJ --start-date this-month --format mermaid
+# YAML 出力
+lv issue get PROJ-123 --format yaml
 ```
 
-出力例:
+### Gantt フォーマット
 
-```mermaid
-gantt
-    title Backlog Issues
-    dateFormat YYYY-MM-DD
-    section PROJ
-    ログインバグを修正 :2026-03-01, 2026-03-15
-    ダッシュボード改善 :2026-03-10, 2026-03-31
+`--format gantt` を `issue list` と組み合わせると、日付付き Gantt テーブルを生成します。各行に課題キー・件名・開始日/期限日・経過日数・残り日数・Backlog の直接 URL が表示されます。開始日または期限日が設定されていない課題はスキップされ、stderr に警告が出力されます。
+
+```bash
+# 今月が期限の課題を Gantt テーブルで表示
+logvalet issue list --due-date this-month --format gantt
+
+# プロジェクトで絞り込んだ Gantt テーブル
+logvalet issue list -k PROJ --start-date this-month --format gantt
 ```
 
 ## 安全性
