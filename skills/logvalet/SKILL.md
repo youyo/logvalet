@@ -1,6 +1,10 @@
 ---
 name: logvalet
-description: Use logvalet (lv) to read, summarize, and safely update Backlog with LLM-friendly JSON digests.
+description: >
+  Use logvalet (lv) to read, summarize, and safely update Backlog with LLM-friendly JSON digests.
+  TRIGGER when: user provides a Backlog URL (*.backlog.com/view/*, *.backlog.com/alias/*),
+  mentions a Backlog issue key (e.g. PROJ-123, ESU2_S2-32),
+  or asks about Backlog issues, projects, activities, documents, or users.
 ---
 
 # logvalet
