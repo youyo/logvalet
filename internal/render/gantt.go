@@ -23,11 +23,11 @@ func NewGanttTableRenderer(space string) *GanttTableRenderer {
 func (r *GanttTableRenderer) Render(w io.Writer, data any) error {
 	issues, ok := data.([]domain.Issue)
 	if !ok {
-		return fmt.Errorf("gantt フォーマットは issue list でのみ使用できます")
+		return fmt.Errorf("gantt format is only available for issue list")
 	}
 
 	if len(issues) == 0 {
-		_, err := fmt.Fprintln(w, "(データなし)")
+		_, err := fmt.Fprintln(w, "(no data)")
 		return err
 	}
 
@@ -49,9 +49,9 @@ func (r *GanttTableRenderer) Render(w io.Writer, data any) error {
 	}
 
 	if len(valid) == 0 {
-		fmt.Fprintln(w, "(データなし)")
+		fmt.Fprintln(w, "(no data)")
 		if skipped > 0 {
-			fmt.Fprintf(os.Stderr, "警告: %d 件の課題は日付未設定のためスキップしました\n", skipped)
+			fmt.Fprintf(os.Stderr, "warning: %d issue(s) skipped (missing dates)\n", skipped)
 		}
 		return nil
 	}
@@ -82,7 +82,7 @@ func (r *GanttTableRenderer) Render(w io.Writer, data any) error {
 	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
 	// タイトル
-	fmt.Fprintf(w, "📅 タスク一覧 (%d/%d 〜 %d/%d)\n\n",
+	fmt.Fprintf(w, "📅 Tasks (%d/%d – %d/%d)\n\n",
 		int(minDate.Month()), minDate.Day(),
 		int(maxDate.Month()), maxDate.Day())
 
@@ -91,7 +91,7 @@ func (r *GanttTableRenderer) Render(w io.Writer, data any) error {
 	for i, d := range dates {
 		headers[i] = fmt.Sprintf("%d/%d", int(d.Month()), d.Day())
 	}
-	fmt.Fprintf(w, "| 課題 | %s |\n", strings.Join(headers, " | "))
+	fmt.Fprintf(w, "| Issue | %s |\n", strings.Join(headers, " | "))
 
 	// セパレーター
 	seps := make([]string, len(dates)+1)
@@ -123,10 +123,10 @@ func (r *GanttTableRenderer) Render(w io.Writer, data any) error {
 
 	// 凡例
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "凡例: ░░ 経過  ██ 残り")
+	fmt.Fprintln(w, "Legend: ░░ elapsed  ██ remaining")
 
 	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "警告: %d 件の課題は日付未設定のためスキップしました\n", skipped)
+		fmt.Fprintf(os.Stderr, "warning: %d issue(s) skipped (missing dates)\n", skipped)
 	}
 
 	return nil

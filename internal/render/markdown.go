@@ -38,7 +38,7 @@ func (r *MarkdownRenderer) Render(w io.Writer, data any) error {
 
 func renderTable(w io.Writer, rows []any) error {
 	if len(rows) == 0 {
-		_, err := fmt.Fprintln(w, "(データなし)")
+		_, err := fmt.Fprintln(w, "(no data)")
 		return err
 	}
 

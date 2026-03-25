@@ -24,6 +24,6 @@ func NewRenderer(format string, pretty bool, space string) (Renderer, error) {
 	case "gantt":
 		return NewGanttTableRenderer(space), nil
 	default:
-		return nil, fmt.Errorf("未サポートのフォーマット: %q (サポート: json, yaml, md, markdown, gantt)", format)
+		return nil, fmt.Errorf("unsupported format: %q (supported: json, yaml, md, markdown, gantt)", format)
 	}
 }

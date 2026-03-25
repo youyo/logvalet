@@ -27,7 +27,7 @@ func TestGantt_basic(t *testing.T) {
 		t.Fatalf("Render error: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "📅 タスク一覧") {
+	if !strings.Contains(out, "📅 Tasks") {
 		t.Error("タイトルがない")
 	}
 	if !strings.Contains(out, "3/20") {
@@ -39,7 +39,7 @@ func TestGantt_basic(t *testing.T) {
 	if !strings.Contains(out, "heptagon.backlog.com/view/CND-7") {
 		t.Error("Backlog URL がない")
 	}
-	if !strings.Contains(out, "凡例") {
+	if !strings.Contains(out, "Legend") {
 		t.Error("凡例がない")
 	}
 }
@@ -68,7 +68,7 @@ func TestGantt_bothNil(t *testing.T) {
 	r := render.NewGanttTableRenderer("heptagon")
 	_ = r.Render(&buf, issues)
 	out := buf.String()
-	if !strings.Contains(out, "(データなし)") {
+	if !strings.Contains(out, "(no data)") {
 		t.Error("両方nil で (データなし) が出力されない")
 	}
 }
@@ -119,7 +119,7 @@ func TestGantt_empty(t *testing.T) {
 	if err := r.Render(&buf, []domain.Issue{}); err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
-	if !strings.Contains(buf.String(), "(データなし)") {
+	if !strings.Contains(buf.String(), "(no data)") {
 		t.Error("空スライスで (データなし) が出力されない")
 	}
 }
@@ -148,7 +148,7 @@ func TestGantt_nonIssue(t *testing.T) {
 	if err == nil {
 		t.Error("非 Issue データでエラーが返らない")
 	}
-	if !strings.Contains(err.Error(), "gantt フォーマットは issue list でのみ使用できます") {
+	if !strings.Contains(err.Error(), "gantt format is only available for issue list") {
 		t.Errorf("エラーメッセージが不正: %v", err)
 	}
 }

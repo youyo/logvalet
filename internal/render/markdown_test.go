@@ -61,7 +61,7 @@ func TestMarkdown_table_empty(t *testing.T) {
 		t.Fatalf("Render error: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "(データなし)") {
+	if !strings.Contains(out, "(no data)") {
 		t.Errorf("空配列で (データなし) が出力されない: %q", out)
 	}
 }
