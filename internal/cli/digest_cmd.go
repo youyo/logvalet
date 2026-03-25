@@ -23,6 +23,10 @@ type DigestCmd struct {
 	Since string `help:"期間開始 (today, this-week, this-month, YYYY-MM-DD)" required:""`
 	// Until は期間終了（today, this-week, this-month, YYYY-MM-DD）。省略時は today。
 	Until string `help:"期間終了 (today, this-week, this-month, YYYY-MM-DD)"`
+	// DueDate は期限日フィルタ。
+	DueDate string `help:"期限日フィルタ (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
+	// StartDate は開始日フィルタ。
+	StartDate string `help:"開始日フィルタ (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
 }
 
 // Run は digest コマンドの実行。
@@ -43,6 +47,26 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 		IssueKeys: c.Issue,
 		Since:     since,
 		Until:     until,
+	}
+
+	// 2a. --due-date 解決
+	if c.DueDate != "" {
+		dueSince, dueUntil, err := resolveDueDate(c.DueDate)
+		if err != nil {
+			return fmt.Errorf("期限日の解決に失敗: %w", err)
+		}
+		scope.DueDateSince = dueSince
+		scope.DueDateUntil = dueUntil
+	}
+
+	// 2b. --start-date 解決
+	if c.StartDate != "" {
+		startSince, startUntil, err := resolveStartDate(c.StartDate)
+		if err != nil {
+			return fmt.Errorf("開始日の解決に失敗: %w", err)
+		}
+		scope.StartDateSince = startSince
+		scope.StartDateUntil = startUntil
 	}
 
 	// 2. Project → ProjectIDs 解決

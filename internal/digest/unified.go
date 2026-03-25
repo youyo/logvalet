@@ -28,6 +28,14 @@ type UnifiedDigestScope struct {
 	Since *time.Time
 	// Until は期間終了日時（inclusive）。nil の場合は制限なし。
 	Until *time.Time
+	// DueDateSince は期限日の開始（inclusive）。nil の場合は制限なし。
+	DueDateSince *time.Time
+	// DueDateUntil は期限日の終了（inclusive）。nil の場合は制限なし。
+	DueDateUntil *time.Time
+	// StartDateSince は開始日の開始（inclusive）。nil の場合は制限なし。
+	StartDateSince *time.Time
+	// StartDateUntil は開始日の終了（inclusive）。nil の場合は制限なし。
+	StartDateUntil *time.Time
 }
 
 // UnifiedDigestBuilder は統一 digest コマンドの Builder。
@@ -172,11 +180,15 @@ func (b *UnifiedDigestBuilder) Build(ctx context.Context, scope UnifiedDigestSco
 	// 4. issues 取得（自動ページング）
 	var issues []domain.Issue
 	issueOpt := backlog.ListIssuesOptions{
-		ProjectIDs:   projectIDs,
-		AssigneeIDs:  userIDs,
-		UpdatedSince: scope.Since,
-		UpdatedUntil: scope.Until,
-		Limit:        100,
+		ProjectIDs:     projectIDs,
+		AssigneeIDs:    userIDs,
+		UpdatedSince:   scope.Since,
+		UpdatedUntil:   scope.Until,
+		DueDateSince:   scope.DueDateSince,
+		DueDateUntil:   scope.DueDateUntil,
+		StartDateSince: scope.StartDateSince,
+		StartDateUntil: scope.StartDateUntil,
+		Limit:          100,
 	}
 
 	if len(scope.IssueKeys) > 0 {
