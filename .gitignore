@@ -10,3 +10,4 @@
 *.exe
 .DS_Store
 .envrc
+.serena/
