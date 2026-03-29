@@ -44,7 +44,8 @@ func downloadToFile(body io.ReadCloser, filename string, outputPath string) (str
 		return "", fmt.Errorf("failed to create file %q: %w", destPath, err)
 	}
 
-	if _, err := io.Copy(f, body); err != nil {
+	buf := make([]byte, 256*1024) // 256KB バッファで大容量ファイルの効率向上
+	if _, err := io.CopyBuffer(f, body, buf); err != nil {
 		f.Close()
 		os.Remove(destPath)
 		return "", fmt.Errorf("failed to write file %q: %w", destPath, err)

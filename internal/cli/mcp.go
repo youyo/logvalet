@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,7 +34,6 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", h)
 
-	ctx := context.Background()
-	_ = ctx // context は将来の graceful shutdown 用
+	// TODO: graceful shutdown 対応時に http.Server{}.Shutdown(ctx) に移行
 	return http.ListenAndServe(addr, mux)
 }

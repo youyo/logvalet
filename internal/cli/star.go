@@ -42,10 +42,10 @@ func (c *StarAddCmd) Run(g *GlobalFlags) error {
 		count++
 	}
 	if count == 0 {
-		return fmt.Errorf("at least one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id must be specified (exit 2)")
+		return fmt.Errorf("at least one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id must be specified")
 	}
 	if count > 1 {
-		return fmt.Errorf("only one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id can be specified at a time (exit 2)")
+		return fmt.Errorf("only one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id can be specified")
 	}
 
 	ctx := context.Background()
