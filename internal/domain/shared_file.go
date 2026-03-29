@@ -10,8 +10,8 @@ type SharedFile struct {
 	Dir         string     `json:"dir"`
 	Name        string     `json:"name"`
 	Size        int64      `json:"size"`
-	CreatedUser *User      `json:"created_user,omitempty"`
+	CreatedUser *User      `json:"createdUser,omitempty"`
 	Created     *time.Time `json:"created,omitempty"`
-	UpdatedUser *User      `json:"updated_user,omitempty"`
+	UpdatedUser *User      `json:"updatedUser,omitempty"`
 	Updated     *time.Time `json:"updated,omitempty"`
 }
