@@ -949,33 +949,6 @@ func TestHTTPClientListSharedFiles(t *testing.T) {
 	})
 }
 
-// TestHTTPClientGetSharedFile は GetSharedFile のテスト。
-func TestHTTPClientGetSharedFile(t *testing.T) {
-	t.Run("returns shared file by ID", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/v2/projects/PROJ/files/metadata/42" {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			file := map[string]interface{}{
-				"id": int64(42), "type": "file", "dir": "/", "name": "report.pdf", "size": int64(2048),
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(file)
-		}))
-		defer srv.Close()
-
-		client := newOAuthClient(t, srv.URL)
-		got, err := client.GetSharedFile(context.Background(), "PROJ", 42)
-		if err != nil {
-			t.Fatalf("GetSharedFile() error = %v", err)
-		}
-		if got.Name != "report.pdf" {
-			t.Errorf("Name = %q, want %q", got.Name, "report.pdf")
-		}
-	})
-}
-
 // TestHTTPClientDownloadSharedFile は DownloadSharedFile のテスト。
 func TestHTTPClientDownloadSharedFile(t *testing.T) {
 	t.Run("returns reader and filename from Content-Disposition", func(t *testing.T) {

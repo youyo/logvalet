@@ -216,16 +216,6 @@ func TestMockClientListSharedFiles(t *testing.T) {
 	})
 }
 
-func TestMockClientGetSharedFile(t *testing.T) {
-	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
-		mock := backlog.NewMockClient()
-		_, err := mock.GetSharedFile(context.Background(), "PROJ", 1)
-		if !errors.Is(err, backlog.ErrNotFound) {
-			t.Errorf("error = %v, want ErrNotFound", err)
-		}
-	})
-}
-
 func TestMockClientDownloadSharedFile(t *testing.T) {
 	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
 		mock := backlog.NewMockClient()

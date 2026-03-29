@@ -866,20 +866,6 @@ func (c *HTTPClient) ListSharedFiles(ctx context.Context, projectKey string, opt
 	return files, nil
 }
 
-// GetSharedFile は指定共有ファイルのメタデータを返す。
-// GET /api/v2/projects/{projectIdOrKey}/files/metadata/{fileId}
-func (c *HTTPClient) GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error) {
-	apiPath := fmt.Sprintf("/api/v2/projects/%s/files/metadata/%d", url.PathEscape(projectKey), fileID)
-	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
-	if err != nil {
-		return nil, err
-	}
-	var file domain.SharedFile
-	if err := c.do(req, &file); err != nil {
-		return nil, err
-	}
-	return &file, nil
-}
 
 // DownloadSharedFile は指定共有ファイルのコンテンツを返す。
 // GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}

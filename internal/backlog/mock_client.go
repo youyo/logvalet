@@ -64,7 +64,6 @@ type MockClient struct {
 
 	// Shared files
 	ListSharedFilesFunc    func(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
-	GetSharedFileFunc      func(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error)
 	DownloadSharedFileFunc func(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
 
 	// Issue attachments
@@ -354,14 +353,6 @@ func (m *MockClient) ListSharedFiles(ctx context.Context, projectKey string, opt
 	m.increment("ListSharedFiles")
 	if m.ListSharedFilesFunc != nil {
 		return m.ListSharedFilesFunc(ctx, projectKey, opt)
-	}
-	return nil, ErrNotFound
-}
-
-func (m *MockClient) GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error) {
-	m.increment("GetSharedFile")
-	if m.GetSharedFileFunc != nil {
-		return m.GetSharedFileFunc(ctx, projectKey, fileID)
 	}
 	return nil, ErrNotFound
 }

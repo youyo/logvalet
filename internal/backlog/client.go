@@ -162,10 +162,6 @@ type Client interface {
 	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/metadata/{path}
 	ListSharedFiles(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
 
-	// GetSharedFile は指定共有ファイルのメタデータを返す。
-	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/metadata/{path}
-	GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error)
-
 	// DownloadSharedFile は指定共有ファイルのコンテンツを返す。
 	// 戻り値の string はファイル名（Content-Disposition から取得。失敗した場合は URL パス末尾）。
 	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}

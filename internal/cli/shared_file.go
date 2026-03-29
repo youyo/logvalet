@@ -11,7 +11,6 @@ import (
 // SharedFileCmd は shared-file コマンド群のルート。
 type SharedFileCmd struct {
 	List     SharedFileListCmd     `cmd:"" help:"list shared files"`
-	Get      SharedFileGetCmd      `cmd:"" help:"get shared file metadata"`
 	Download SharedFileDownloadCmd `cmd:"" help:"download shared file"`
 }
 
@@ -39,26 +38,6 @@ func (c *SharedFileListCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 	return rc.Renderer.Render(os.Stdout, files)
-}
-
-// SharedFileGetCmd は shared-file get コマンド。
-// lv shared-file get --project KEY FILE-ID
-type SharedFileGetCmd struct {
-	ProjectKey string `required:"" help:"project key"`
-	FileID     int64  `arg:"" required:"" help:"shared file ID"`
-}
-
-func (c *SharedFileGetCmd) Run(g *GlobalFlags) error {
-	ctx := context.Background()
-	rc, err := buildRunContext(g)
-	if err != nil {
-		return err
-	}
-	file, err := rc.Client.GetSharedFile(ctx, c.ProjectKey, c.FileID)
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, file)
 }
 
 // SharedFileDownloadCmd は shared-file download コマンド。
