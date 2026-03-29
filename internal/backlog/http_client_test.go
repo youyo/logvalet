@@ -890,6 +890,284 @@ func TestListIssues_updatedEmpty(t *testing.T) {
 	}
 }
 
+// TestHTTPClientListSharedFiles は ListSharedFiles のテスト。
+func TestHTTPClientListSharedFiles(t *testing.T) {
+	t.Run("correct path and query params", func(t *testing.T) {
+		var gotPath string
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotQuery = r.URL.Query()
+			files := []map[string]interface{}{
+				{"id": int64(1), "type": "file", "dir": "/", "name": "test.txt", "size": int64(1024)},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(files)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.ListSharedFiles(context.Background(), "PROJ", backlog.ListSharedFilesOptions{
+			Path:   "/docs",
+			Limit:  10,
+			Offset: 5,
+		})
+		if err != nil {
+			t.Fatalf("ListSharedFiles() error = %v", err)
+		}
+		if gotPath != "/api/v2/projects/PROJ/files/metadata/docs" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ/files/metadata/docs")
+		}
+		if gotQuery.Get("count") != "10" {
+			t.Errorf("count = %q, want %q", gotQuery.Get("count"), "10")
+		}
+		if gotQuery.Get("offset") != "5" {
+			t.Errorf("offset = %q, want %q", gotQuery.Get("offset"), "5")
+		}
+		if len(got) != 1 {
+			t.Fatalf("len = %d, want 1", len(got))
+		}
+		if got[0].Name != "test.txt" {
+			t.Errorf("Name = %q, want %q", got[0].Name, "test.txt")
+		}
+	})
+
+	t.Run("path without leading slash", func(t *testing.T) {
+		var gotPath string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, _ = client.ListSharedFiles(context.Background(), "PROJ", backlog.ListSharedFilesOptions{Path: "docs"})
+		if gotPath != "/api/v2/projects/PROJ/files/metadata/docs" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ/files/metadata/docs")
+		}
+	})
+}
+
+// TestHTTPClientGetSharedFile は GetSharedFile のテスト。
+func TestHTTPClientGetSharedFile(t *testing.T) {
+	t.Run("returns shared file by ID", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/projects/PROJ/files/metadata/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			file := map[string]interface{}{
+				"id": int64(42), "type": "file", "dir": "/", "name": "report.pdf", "size": int64(2048),
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(file)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.GetSharedFile(context.Background(), "PROJ", 42)
+		if err != nil {
+			t.Fatalf("GetSharedFile() error = %v", err)
+		}
+		if got.Name != "report.pdf" {
+			t.Errorf("Name = %q, want %q", got.Name, "report.pdf")
+		}
+	})
+}
+
+// TestHTTPClientDownloadSharedFile は DownloadSharedFile のテスト。
+func TestHTTPClientDownloadSharedFile(t *testing.T) {
+	t.Run("returns reader and filename from Content-Disposition", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/projects/PROJ/files/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Disposition", `attachment; filename="myfile.bin"`)
+			_, _ = w.Write([]byte("file contents"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		rc, filename, err := client.DownloadSharedFile(context.Background(), "PROJ", 42)
+		if err != nil {
+			t.Fatalf("DownloadSharedFile() error = %v", err)
+		}
+		defer rc.Close()
+		if filename != "myfile.bin" {
+			t.Errorf("filename = %q, want %q", filename, "myfile.bin")
+		}
+	})
+
+	t.Run("fallback to URL path when no Content-Disposition", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("data"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		rc, filename, err := client.DownloadSharedFile(context.Background(), "PROJ", 99)
+		if err != nil {
+			t.Fatalf("DownloadSharedFile() error = %v", err)
+		}
+		defer rc.Close()
+		if filename != "99" {
+			t.Errorf("filename = %q, want %q", filename, "99")
+		}
+	})
+}
+
+// TestHTTPClientListIssueAttachments は ListIssueAttachments のテスト。
+func TestHTTPClientListIssueAttachments(t *testing.T) {
+	t.Run("returns attachments list", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/issues/PROJ-1/attachments" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			attachments := []map[string]interface{}{
+				{"id": int64(10), "name": "attach.png", "size": int64(512)},
+				{"id": int64(11), "name": "data.csv", "size": int64(256)},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(attachments)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.ListIssueAttachments(context.Background(), "PROJ-1")
+		if err != nil {
+			t.Fatalf("ListIssueAttachments() error = %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+		if got[0].Name != "attach.png" {
+			t.Errorf("Name = %q, want %q", got[0].Name, "attach.png")
+		}
+	})
+}
+
+// TestHTTPClientDeleteIssueAttachment は DeleteIssueAttachment のテスト。
+func TestHTTPClientDeleteIssueAttachment(t *testing.T) {
+	t.Run("deletes attachment and returns info", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete || r.URL.Path != "/api/v2/issues/PROJ-1/attachments/10" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			attachment := map[string]interface{}{
+				"id": int64(10), "name": "deleted.png", "size": int64(512),
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(attachment)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.DeleteIssueAttachment(context.Background(), "PROJ-1", 10)
+		if err != nil {
+			t.Fatalf("DeleteIssueAttachment() error = %v", err)
+		}
+		if got.Name != "deleted.png" {
+			t.Errorf("Name = %q, want %q", got.Name, "deleted.png")
+		}
+	})
+}
+
+// TestHTTPClientDownloadIssueAttachment は DownloadIssueAttachment のテスト。
+func TestHTTPClientDownloadIssueAttachment(t *testing.T) {
+	t.Run("returns reader and filename from Content-Disposition", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/issues/PROJ-1/attachments/10" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Disposition", `attachment; filename="screenshot.png"`)
+			_, _ = w.Write([]byte("image data"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		rc, filename, err := client.DownloadIssueAttachment(context.Background(), "PROJ-1", 10)
+		if err != nil {
+			t.Fatalf("DownloadIssueAttachment() error = %v", err)
+		}
+		defer rc.Close()
+		if filename != "screenshot.png" {
+			t.Errorf("filename = %q, want %q", filename, "screenshot.png")
+		}
+	})
+
+	t.Run("fallback filename from URL path", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("data"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		rc, filename, err := client.DownloadIssueAttachment(context.Background(), "PROJ-1", 99)
+		if err != nil {
+			t.Fatalf("DownloadIssueAttachment() error = %v", err)
+		}
+		defer rc.Close()
+		if filename != "99" {
+			t.Errorf("filename = %q, want %q", filename, "99")
+		}
+	})
+}
+
+// TestHTTPClientAddStar は AddStar のテスト。
+func TestHTTPClientAddStar(t *testing.T) {
+	t.Run("posts to /api/v2/stars with issueId", func(t *testing.T) {
+		var gotPath string
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotQuery = r.URL.Query()
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		issueID := 42
+		err := client.AddStar(context.Background(), backlog.AddStarRequest{IssueID: &issueID})
+		if err != nil {
+			t.Fatalf("AddStar() error = %v", err)
+		}
+		if gotPath != "/api/v2/stars" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/stars")
+		}
+		if gotQuery.Get("issueId") != "42" {
+			t.Errorf("issueId = %q, want %q", gotQuery.Get("issueId"), "42")
+		}
+	})
+
+	t.Run("posts with commentId", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		commentID := 100
+		err := client.AddStar(context.Background(), backlog.AddStarRequest{CommentID: &commentID})
+		if err != nil {
+			t.Fatalf("AddStar() error = %v", err)
+		}
+		if gotQuery.Get("commentId") != "100" {
+			t.Errorf("commentId = %q, want %q", gotQuery.Get("commentId"), "100")
+		}
+	})
+}
+
 // TestHTTPClientGetMyselfParsesUserFields は GetMyself のレスポンスが正しく domain.User にマップされるかテスト。
 func TestHTTPClientGetMyselfParsesUserFields(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

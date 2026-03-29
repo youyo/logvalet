@@ -2,6 +2,7 @@ package backlog
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	"github.com/youyo/logvalet/internal/domain"
@@ -60,6 +61,19 @@ type MockClient struct {
 	// Space
 	GetSpaceFunc          func(ctx context.Context) (*domain.Space, error)
 	GetSpaceDiskUsageFunc func(ctx context.Context) (*domain.DiskUsage, error)
+
+	// Shared files
+	ListSharedFilesFunc    func(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
+	GetSharedFileFunc      func(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error)
+	DownloadSharedFileFunc func(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
+
+	// Issue attachments
+	ListIssueAttachmentsFunc    func(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)
+	DeleteIssueAttachmentFunc   func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error)
+	DownloadIssueAttachmentFunc func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
+
+	// Stars
+	AddStarFunc func(ctx context.Context, req AddStarRequest) error
 
 	mu         sync.Mutex
 	callCounts map[string]int
@@ -334,4 +348,60 @@ func (m *MockClient) GetSpaceDiskUsage(ctx context.Context) (*domain.DiskUsage, 
 		return m.GetSpaceDiskUsageFunc(ctx)
 	}
 	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListSharedFiles(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error) {
+	m.increment("ListSharedFiles")
+	if m.ListSharedFilesFunc != nil {
+		return m.ListSharedFilesFunc(ctx, projectKey, opt)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error) {
+	m.increment("GetSharedFile")
+	if m.GetSharedFileFunc != nil {
+		return m.GetSharedFileFunc(ctx, projectKey, fileID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DownloadSharedFile(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error) {
+	m.increment("DownloadSharedFile")
+	if m.DownloadSharedFileFunc != nil {
+		return m.DownloadSharedFileFunc(ctx, projectKey, fileID)
+	}
+	return nil, "", ErrNotFound
+}
+
+func (m *MockClient) ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error) {
+	m.increment("ListIssueAttachments")
+	if m.ListIssueAttachmentsFunc != nil {
+		return m.ListIssueAttachmentsFunc(ctx, issueKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DeleteIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error) {
+	m.increment("DeleteIssueAttachment")
+	if m.DeleteIssueAttachmentFunc != nil {
+		return m.DeleteIssueAttachmentFunc(ctx, issueKey, attachmentID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DownloadIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error) {
+	m.increment("DownloadIssueAttachment")
+	if m.DownloadIssueAttachmentFunc != nil {
+		return m.DownloadIssueAttachmentFunc(ctx, issueKey, attachmentID)
+	}
+	return nil, "", ErrNotFound
+}
+
+func (m *MockClient) AddStar(ctx context.Context, req AddStarRequest) error {
+	m.increment("AddStar")
+	if m.AddStarFunc != nil {
+		return m.AddStarFunc(ctx, req)
+	}
+	return ErrNotFound
 }

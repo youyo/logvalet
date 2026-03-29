@@ -2,6 +2,7 @@ package backlog
 
 import (
 	"context"
+	"io"
 
 	"github.com/youyo/logvalet/internal/domain"
 )
@@ -154,4 +155,41 @@ type Client interface {
 	// GetSpaceDiskUsage はスペースのディスク使用量を返す。
 	// Backlog API: GET /api/v2/space/diskUsage
 	GetSpaceDiskUsage(ctx context.Context) (*domain.DiskUsage, error)
+
+	// Shared files
+
+	// ListSharedFiles は指定プロジェクトの共有ファイル一覧を返す。
+	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/metadata/{path}
+	ListSharedFiles(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
+
+	// GetSharedFile は指定共有ファイルのメタデータを返す。
+	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/metadata/{path}
+	GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error)
+
+	// DownloadSharedFile は指定共有ファイルのコンテンツを返す。
+	// 戻り値の string はファイル名（Content-Disposition から取得。失敗した場合は URL パス末尾）。
+	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}
+	DownloadSharedFile(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
+
+	// Issue attachments
+
+	// ListIssueAttachments は指定課題の添付ファイル一覧を返す。
+	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments
+	ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)
+
+	// DeleteIssueAttachment は指定課題の添付ファイルを削除し、削除した添付ファイル情報を返す。
+	// Backlog API: DELETE /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+	DeleteIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error)
+
+	// DownloadIssueAttachment は指定課題の添付ファイルコンテンツを返す。
+	// 戻り値の string はファイル名（Content-Disposition から取得。失敗した場合は URL パス末尾）。
+	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+	DownloadIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
+
+	// Stars
+
+	// AddStar は課題・コメント・Wiki 等にスターを追加する。
+	// レスポンスは 204 No Content。
+	// Backlog API: POST /api/v2/stars
+	AddStar(ctx context.Context, req AddStarRequest) error
 }

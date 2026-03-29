@@ -189,6 +189,130 @@ func TestMockClientListTeams_withMembers(t *testing.T) {
 	})
 }
 
+func TestMockClientListSharedFiles(t *testing.T) {
+	t.Run("returns files from func", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		mock.ListSharedFilesFunc = func(ctx context.Context, projectKey string, opt backlog.ListSharedFilesOptions) ([]domain.SharedFile, error) {
+			return []domain.SharedFile{{ID: 1, Name: "test.txt"}}, nil
+		}
+		got, err := mock.ListSharedFiles(context.Background(), "PROJ", backlog.ListSharedFilesOptions{})
+		if err != nil {
+			t.Fatalf("ListSharedFiles() error = %v", err)
+		}
+		if len(got) != 1 || got[0].Name != "test.txt" {
+			t.Errorf("unexpected result: %+v", got)
+		}
+		if mock.GetCallCount("ListSharedFiles") != 1 {
+			t.Errorf("call count = %d, want 1", mock.GetCallCount("ListSharedFiles"))
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.ListSharedFiles(context.Background(), "PROJ", backlog.ListSharedFilesOptions{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientGetSharedFile(t *testing.T) {
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.GetSharedFile(context.Background(), "PROJ", 1)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientDownloadSharedFile(t *testing.T) {
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, _, err := mock.DownloadSharedFile(context.Background(), "PROJ", 1)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientListIssueAttachments(t *testing.T) {
+	t.Run("returns attachments from func", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		mock.ListIssueAttachmentsFunc = func(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error) {
+			return []domain.IssueAttachment{{ID: 10, Name: "file.png"}}, nil
+		}
+		got, err := mock.ListIssueAttachments(context.Background(), "PROJ-1")
+		if err != nil {
+			t.Fatalf("ListIssueAttachments() error = %v", err)
+		}
+		if len(got) != 1 || got[0].Name != "file.png" {
+			t.Errorf("unexpected result: %+v", got)
+		}
+		if mock.GetCallCount("ListIssueAttachments") != 1 {
+			t.Errorf("call count = %d, want 1", mock.GetCallCount("ListIssueAttachments"))
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.ListIssueAttachments(context.Background(), "PROJ-1")
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientDeleteIssueAttachment(t *testing.T) {
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.DeleteIssueAttachment(context.Background(), "PROJ-1", 10)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientDownloadIssueAttachment(t *testing.T) {
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, _, err := mock.DownloadIssueAttachment(context.Background(), "PROJ-1", 10)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientAddStar(t *testing.T) {
+	t.Run("calls func with request", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		issueID := 42
+		var gotReq backlog.AddStarRequest
+		mock.AddStarFunc = func(ctx context.Context, req backlog.AddStarRequest) error {
+			gotReq = req
+			return nil
+		}
+		err := mock.AddStar(context.Background(), backlog.AddStarRequest{IssueID: &issueID})
+		if err != nil {
+			t.Fatalf("AddStar() error = %v", err)
+		}
+		if gotReq.IssueID == nil || *gotReq.IssueID != 42 {
+			t.Errorf("IssueID = %v, want 42", gotReq.IssueID)
+		}
+		if mock.GetCallCount("AddStar") != 1 {
+			t.Errorf("call count = %d, want 1", mock.GetCallCount("AddStar"))
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		err := mock.AddStar(context.Background(), backlog.AddStarRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
 func TestMockClientAllMethodsDefaultToErrNotFound(t *testing.T) {
 	mock := backlog.NewMockClient()
 	ctx := context.Background()

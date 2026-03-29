@@ -62,6 +62,17 @@ type CreateDocumentRequest struct {
 	AddLast   bool
 }
 
+// AddStarRequest は AddStar リクエストのパラメータ。
+// 各フィールドはポインタ型（nil = 指定なし）。
+// issueId, commentId, wikiId, pullRequestId, pullRequestCommentId のいずれか1つを指定する。
+type AddStarRequest struct {
+	IssueID              *int `json:"issueId,omitempty"`
+	CommentID            *int `json:"commentId,omitempty"`
+	WikiID               *int `json:"wikiId,omitempty"`
+	PullRequestID        *int `json:"pullRequestId,omitempty"`
+	PullRequestCommentID *int `json:"pullRequestCommentId,omitempty"`
+}
+
 // ---- Response metadata ----
 
 // Pagination はリスト API のページネーション情報。

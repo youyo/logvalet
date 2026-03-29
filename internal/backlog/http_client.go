@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/youyo/logvalet/internal/credentials"
 	"github.com/youyo/logvalet/internal/domain"
@@ -797,4 +798,167 @@ func (c *HTTPClient) GetSpaceDiskUsage(ctx context.Context) (*domain.DiskUsage, 
 		return nil, err
 	}
 	return &usage, nil
+}
+
+// ---- ダウンロードヘルパー ----
+
+// doDownload はリクエストを実行し、レスポンス Body を io.ReadCloser としてそのまま返す。
+// ファイル名は Content-Disposition ヘッダから取得する。取得できない場合は URL パス末尾を使用する。
+func (c *HTTPClient) doDownload(req *http.Request) (io.ReadCloser, string, error) {
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("backlog: HTTP request failed: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, "", c.normalizeError(resp.StatusCode, body)
+	}
+
+	// ファイル名を Content-Disposition から取得
+	filename := filenameFromResponse(resp)
+
+	return resp.Body, filename, nil
+}
+
+// filenameFromResponse は HTTP レスポンスからファイル名を取得する。
+// Content-Disposition ヘッダを優先し、取得できない場合は URL パス末尾を使用する。
+func filenameFromResponse(resp *http.Response) string {
+	cd := resp.Header.Get("Content-Disposition")
+	if cd != "" {
+		_, params, err := mime.ParseMediaType(cd)
+		if err == nil {
+			if fn, ok := params["filename"]; ok && fn != "" {
+				return fn
+			}
+		}
+	}
+	// フォールバック: URL パスの末尾
+	return path.Base(resp.Request.URL.Path)
+}
+
+// ---- Shared files ----
+
+// ListSharedFiles は指定プロジェクトの共有ファイル一覧を返す。
+// GET /api/v2/projects/{projectIdOrKey}/files/metadata/{path}
+func (c *HTTPClient) ListSharedFiles(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error) {
+	p := opt.Path
+	p = strings.TrimPrefix(p, "/")
+	apiPath := fmt.Sprintf("/api/v2/projects/%s/files/metadata/%s", url.PathEscape(projectKey), p)
+
+	q := url.Values{}
+	if opt.Limit > 0 {
+		q.Set("count", strconv.Itoa(opt.Limit))
+	}
+	if opt.Offset > 0 {
+		q.Set("offset", strconv.Itoa(opt.Offset))
+	}
+
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, q)
+	if err != nil {
+		return nil, err
+	}
+	var files []domain.SharedFile
+	if err := c.do(req, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+// GetSharedFile は指定共有ファイルのメタデータを返す。
+// GET /api/v2/projects/{projectIdOrKey}/files/metadata/{fileId}
+func (c *HTTPClient) GetSharedFile(ctx context.Context, projectKey string, fileID int64) (*domain.SharedFile, error) {
+	apiPath := fmt.Sprintf("/api/v2/projects/%s/files/metadata/%d", url.PathEscape(projectKey), fileID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var file domain.SharedFile
+	if err := c.do(req, &file); err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
+// DownloadSharedFile は指定共有ファイルのコンテンツを返す。
+// GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}
+func (c *HTTPClient) DownloadSharedFile(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error) {
+	apiPath := fmt.Sprintf("/api/v2/projects/%s/files/%d", url.PathEscape(projectKey), fileID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	return c.doDownload(req)
+}
+
+// ---- Issue attachments ----
+
+// ListIssueAttachments は指定課題の添付ファイル一覧を返す。
+// GET /api/v2/issues/{issueIdOrKey}/attachments
+func (c *HTTPClient) ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error) {
+	apiPath := fmt.Sprintf("/api/v2/issues/%s/attachments", url.PathEscape(issueKey))
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var attachments []domain.IssueAttachment
+	if err := c.do(req, &attachments); err != nil {
+		return nil, err
+	}
+	return attachments, nil
+}
+
+// DeleteIssueAttachment は指定課題の添付ファイルを削除し、削除した添付ファイル情報を返す。
+// DELETE /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+func (c *HTTPClient) DeleteIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error) {
+	apiPath := fmt.Sprintf("/api/v2/issues/%s/attachments/%d", url.PathEscape(issueKey), attachmentID)
+	req, err := c.newRequest(ctx, http.MethodDelete, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var attachment domain.IssueAttachment
+	if err := c.do(req, &attachment); err != nil {
+		return nil, err
+	}
+	return &attachment, nil
+}
+
+// DownloadIssueAttachment は指定課題の添付ファイルコンテンツを返す。
+// GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+func (c *HTTPClient) DownloadIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error) {
+	apiPath := fmt.Sprintf("/api/v2/issues/%s/attachments/%d", url.PathEscape(issueKey), attachmentID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	return c.doDownload(req)
+}
+
+// ---- Stars ----
+
+// AddStar は課題・コメント・Wiki 等にスターを追加する。
+// POST /api/v2/stars (レスポンス: 204 No Content)
+func (c *HTTPClient) AddStar(ctx context.Context, reqBody AddStarRequest) error {
+	q := url.Values{}
+	if reqBody.IssueID != nil {
+		q.Set("issueId", strconv.Itoa(*reqBody.IssueID))
+	}
+	if reqBody.CommentID != nil {
+		q.Set("commentId", strconv.Itoa(*reqBody.CommentID))
+	}
+	if reqBody.WikiID != nil {
+		q.Set("wikiId", strconv.Itoa(*reqBody.WikiID))
+	}
+	if reqBody.PullRequestID != nil {
+		q.Set("pullRequestId", strconv.Itoa(*reqBody.PullRequestID))
+	}
+	if reqBody.PullRequestCommentID != nil {
+		q.Set("pullRequestCommentId", strconv.Itoa(*reqBody.PullRequestCommentID))
+	}
+	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/stars", q)
+	if err != nil {
+		return err
+	}
+	return c.do(req, nil)
 }

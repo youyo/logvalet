@@ -54,3 +54,10 @@ type ListDocumentsOptions struct {
 	Limit  int
 	Offset int
 }
+
+// ListSharedFilesOptions は ListSharedFiles リクエストのオプション。
+type ListSharedFilesOptions struct {
+	Path   string
+	Limit  int
+	Offset int
+}
