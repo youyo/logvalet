@@ -108,6 +108,10 @@ end
 | `issue comment list <KEY>` | コメント一覧 |
 | `issue comment add <KEY>` | コメントの追加 |
 | `issue comment update <KEY> <ID>` | コメントの更新 |
+| `issue attachment list <KEY>` | 添付ファイル一覧 |
+| `issue attachment get <KEY> <ID>` | 添付ファイル情報の取得 |
+| `issue attachment download <KEY> <ID>` | 添付ファイルのダウンロード |
+| `issue attachment delete <KEY> <ID>` | 添付ファイルの削除 |
 | `project get <KEY>` | プロジェクトの取得 |
 | `project list` | プロジェクト一覧 |
 | `activity list` | アクティビティ一覧 |
@@ -126,6 +130,11 @@ end
 | `team project <KEY>` | プロジェクトのチーム一覧 |
 | `space info` | スペース情報の表示 |
 | `space disk-usage` | ディスク使用量の表示 |
+| `shared-file list` | プロジェクトの共有ファイル一覧 |
+| `shared-file get <FILE-ID>` | 共有ファイル情報の取得 |
+| `shared-file download <FILE-ID>` | 共有ファイルのダウンロード |
+| `star add` | スター追加（課題、コメント、Wiki等） |
+| `mcp` | MCP サーバー起動（Streamable HTTP） |
 
 ## グローバルフラグ
 
@@ -301,6 +310,86 @@ logvalet issue list --due-date this-month --format gantt
 logvalet issue list -k PROJ --start-date this-month --format gantt
 ```
 
+## 添付ファイル
+
+課題の添付ファイルを管理します:
+
+```bash
+# 課題の添付ファイル一覧を表示
+logvalet issue attachment list PROJ-123
+
+# 添付ファイル情報を取得
+logvalet issue attachment get PROJ-123 12345
+
+# 添付ファイルをダウンロード
+logvalet issue attachment download PROJ-123 12345 --output ./file.pdf
+
+# 添付ファイルを削除（--dry-run で確認）
+logvalet issue attachment delete PROJ-123 12345 --dry-run
+logvalet issue attachment delete PROJ-123 12345
+```
+
+## 共有ファイル
+
+プロジェクト内の共有ファイルを管理します:
+
+```bash
+# プロジェクトの共有ファイル一覧を表示
+logvalet shared-file list --project PROJ
+
+# 特定ディレクトリ内のファイルを一覧
+logvalet shared-file list --project PROJ --path "/docs/technical"
+
+# 共有ファイル情報を取得
+logvalet shared-file get --project PROJ abc123def
+
+# 共有ファイルをダウンロード
+logvalet shared-file download --project PROJ abc123def --output ./file.pdf
+```
+
+## スター
+
+課題・コメント・Wiki・プルリクエストにスターを追加します:
+
+```bash
+# 課題にスターを追加
+logvalet star add --issue-id 12345
+
+# コメントにスターを追加
+logvalet star add --comment-id 67890
+
+# Wiki ページにスターを追加
+logvalet star add --wiki-id wiki123
+
+# プルリクエストにスターを追加
+logvalet star add --pr-id pr456
+
+# プルリクエストコメントにスターを追加
+logvalet star add --pr-comment-id prcomment789
+```
+
+## MCP サーバー
+
+logvalet は Model Context Protocol (MCP) サーバーとして実行でき、すべての操作を Claude Desktop や Claude Code のツールとして公開できます:
+
+```bash
+# MCP サーバーを起動（デフォルト: 127.0.0.1:8080）
+logvalet mcp
+
+# カスタムホストとポート指定
+logvalet mcp --host 0.0.0.0 --port 9000
+```
+
+MCP サーバーは以下を含む 24 個以上のツールを提供します:
+- `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
+- `logvalet_project_get`, `logvalet_project_list`
+- `logvalet_digest`
+- `logvalet_shared_file_list`, `logvalet_shared_file_download`
+- `logvalet_star_add`
+- その他多数...
+
+Claude Desktop の設定または Claude Code のスキル設定で MCP サーバーを設定し、logvalet をツールとして使用できます。
+
 ## 安全性
 
 書き込み操作は `--dry-run` でリクエストペイロードを確認してから実行できます:
@@ -308,7 +397,36 @@ logvalet issue list -k PROJ --start-date this-month --format gantt
 ```bash
 lv issue create --project PROJ --summary "バグ修正" --issue-type "Bug" --dry-run
 lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
+lv issue attachment delete PROJ-123 12345 --dry-run
 ```
+
+## スキル
+
+logvalet には、AI コーディングエージェントに logvalet コマンドの効果的な使用方法を教えるエージェントスキルが含まれます。
+
+### インストール（全サポートエージェント）
+
+```bash
+npx skills add youyo/logvalet
+```
+
+### インストール（Claude Code のみ）
+
+```bash
+npx skills add youyo/logvalet -a claude-code
+```
+
+### 利用可能なスキル
+
+| スキル | 説明 |
+|--------|------|
+| `logvalet` | コア操作（課題、プロジェクト、ダイジェスト、ユーザー、チーム） |
+| `logvalet-report` | レポート生成・分析 |
+| `logvalet-my-week` | 週次サマリーとタスク管理 |
+| `logvalet-my-next` | 次のタスク・優先順位管理 |
+| `logvalet-issue-create` | 課題作成ワークフロー（テンプレート付き） |
+
+インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
 
 ## ライセンス
 

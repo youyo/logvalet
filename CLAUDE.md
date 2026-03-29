@@ -41,6 +41,7 @@ internal/
   credentials/   — tokens.json / OAuth
   digest/        — Digest ビルダー
   domain/        — ドメインモデル
+  mcp/           — MCP サーバー + ToolRegistry
   render/        — 出力フォーマッタ（JSON/YAML/MD/Text）
   version/       — バージョン情報（GoReleaser ldflags）
   util/          — 汎用ヘルパー
@@ -59,6 +60,18 @@ skills/          — Claude Code スキル定義
 
 `plans/logvalet-roadmap.md` に 12 マイルストーンのロードマップがある。
 各マイルストーンの詳細計画は `plans/logvalet-m{NN}-{slug}.md`。
+
+## スキル
+
+v3 で以下のスキルが利用可能:
+
+- `logvalet` — コア操作（issue, project, digest, user, team）
+- `logvalet-report` — レポート生成・分析
+- `logvalet-my-week` — 週次サマリー・タスク管理
+- `logvalet-my-next` — 次のタスク・優先順位
+- `logvalet-issue-create` — 課題作成ワークフロー
+
+インストール: `npx skills add youyo/logvalet`
 
 ## 開発ルール
 

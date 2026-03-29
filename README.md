@@ -106,6 +106,10 @@ This enables completion for both `logvalet` and `lv`.
 | `issue comment list <KEY>` | List issue comments |
 | `issue comment add <KEY>` | Add a comment to an issue |
 | `issue comment update <KEY> <ID>` | Update a comment |
+| `issue attachment list <KEY>` | List issue attachments |
+| `issue attachment get <KEY> <ID>` | Get attachment info |
+| `issue attachment download <KEY> <ID>` | Download an attachment |
+| `issue attachment delete <KEY> <ID>` | Delete an attachment |
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
 | `activity list` | List activity events |
@@ -124,6 +128,11 @@ This enables completion for both `logvalet` and `lv`.
 | `team project <KEY>` | List teams for a project |
 | `space info` | Show space information |
 | `space disk-usage` | Show disk usage |
+| `shared-file list` | List shared files in a project |
+| `shared-file get <FILE-ID>` | Get shared file info |
+| `shared-file download <FILE-ID>` | Download a shared file |
+| `star add` | Add a star (issue, comment, wiki, PR, etc.) |
+| `mcp` | Start MCP server (Streamable HTTP) |
 | `config init` | Interactive configuration setup |
 | `configure` | Alias for config init |
 | `version` | Show version information |
@@ -302,6 +311,86 @@ logvalet issue list --due-date this-month --format gantt
 logvalet issue list -k PROJ --start-date this-month --format gantt
 ```
 
+## Attachments
+
+Manage issue attachments:
+
+```bash
+# List attachments for an issue
+logvalet issue attachment list PROJ-123
+
+# Get attachment info
+logvalet issue attachment get PROJ-123 12345
+
+# Download an attachment
+logvalet issue attachment download PROJ-123 12345 --output ./file.pdf
+
+# Delete an attachment (with dry-run for safety)
+logvalet issue attachment delete PROJ-123 12345 --dry-run
+logvalet issue attachment delete PROJ-123 12345
+```
+
+## Shared Files
+
+Manage shared files in a project:
+
+```bash
+# List shared files in a project
+logvalet shared-file list --project PROJ
+
+# List files in a specific directory
+logvalet shared-file list --project PROJ --path "/docs/technical"
+
+# Get shared file info
+logvalet shared-file get --project PROJ abc123def
+
+# Download a shared file
+logvalet shared-file download --project PROJ abc123def --output ./file.pdf
+```
+
+## Stars
+
+Add stars to issues, comments, wikis, and pull requests:
+
+```bash
+# Star an issue
+logvalet star add --issue-id 12345
+
+# Star a comment
+logvalet star add --comment-id 67890
+
+# Star a wiki page
+logvalet star add --wiki-id wiki123
+
+# Star a pull request
+logvalet star add --pr-id pr456
+
+# Star a pull request comment
+logvalet star add --pr-comment-id prcomment789
+```
+
+## MCP Server
+
+logvalet can run as a Model Context Protocol (MCP) server, exposing all its operations as tools for Claude Desktop and Claude Code:
+
+```bash
+# Start MCP server (default: 127.0.0.1:8080)
+logvalet mcp
+
+# Specify custom host and port
+logvalet mcp --host 0.0.0.0 --port 9000
+```
+
+The MCP server provides 24+ tools including:
+- `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
+- `logvalet_project_get`, `logvalet_project_list`
+- `logvalet_digest`
+- `logvalet_shared_file_list`, `logvalet_shared_file_download`
+- `logvalet_star_add`
+- And many more...
+
+Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
+
 ## Safety
 
 Write operations support `--dry-run` to preview the request payload before executing:
@@ -310,11 +399,12 @@ Write operations support `--dry-run` to preview the request payload before execu
 lv issue create --project PROJ --summary "Fix bug" --dry-run
 lv issue create --project PROJ --summary "Fix bug" --issue-type "バグ" --priority "高" --dry-run
 lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
+lv issue attachment delete PROJ-123 12345 --dry-run
 ```
 
-## Skill
+## Skills
 
-logvalet includes an agent skill that teaches AI coding agents how to use logvalet commands effectively.
+logvalet includes agent skills that teach AI coding agents how to use logvalet commands effectively.
 
 ### Install (all supported agents)
 
@@ -327,6 +417,16 @@ npx skills add youyo/logvalet
 ```bash
 npx skills add youyo/logvalet -a claude-code
 ```
+
+### Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `logvalet` | Core operations (issue, project, digest, user, team) |
+| `logvalet-report` | Report generation and analysis |
+| `logvalet-my-week` | Weekly summary and task management |
+| `logvalet-my-next` | Next-up task and priority management |
+| `logvalet-issue-create` | Issue creation workflow with templates |
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 
