@@ -1,5 +1,5 @@
 ---
-name: backlog:my-next
+name: logvalet-my-next
 description: >
   Show near-term Backlog issues assigned to me (next few business days, crossing week boundaries), including overdue.
   TRIGGER when: user says "直近のタスク", "upcoming tasks", "次にやること", "次やること",
@@ -8,7 +8,7 @@ description: >
   "backlog 直近", "バックログ 直近", "直近 backlog".
 ---
 
-# backlog:my-next
+# logvalet-my-next
 
 直近数日（今日から4営業日先まで）の Backlog 課題一覧を表示する。週を跨ぐ。期限切れ含む。プロジェクト横断。
 
@@ -16,9 +16,9 @@ description: >
 
 ---
 
-## Difference from backlog:my-week
+## Difference from logvalet-my-week
 
-| | backlog:my-week | backlog:my-next |
+| | logvalet-my-week | logvalet-my-next |
 |---|---|---|
 | 範囲 | 今週（月〜日） | 今日〜4営業日先 |
 | 金曜日の場合 | 金〜日のみ | 金〜翌週木 |

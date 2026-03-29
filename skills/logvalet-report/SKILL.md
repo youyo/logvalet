@@ -1,5 +1,5 @@
 ---
-name: backlog:report
+name: logvalet-report
 description: >
   Generate a Backlog activity report for specified users, teams, or projects over a time period.
   TRIGGER when: user says "レポート作成", "月次レポート", "活動レポート", "チームレポート",
@@ -9,7 +9,7 @@ description: >
   "backlog レポート", "バックログ レポート", "活動報告", "月報", "週報".
 ---
 
-# backlog:report
+# logvalet-report
 
 対象ユーザー/チーム/期間の Backlog 活動レポートを指定フォーマットで生成する。
 

@@ -1,5 +1,5 @@
 ---
-name: backlog:issue-create
+name: logvalet-issue-create
 description: >
   Create a Backlog issue interactively, gathering missing information via questions before submission.
   TRIGGER when: user says "課題作成", "issue作成", "チケット作成", "タスク登録",
@@ -9,7 +9,7 @@ description: >
   "課題を作りたい", "issueを立てたい", "チケットを切って", "タスクを作って".
 ---
 
-# backlog:issue-create
+# logvalet-issue-create
 
 Backlog 課題をインタラクティブに作成する。不足情報は質問で補完し、dry-run でプレビューしてから実行する。
 

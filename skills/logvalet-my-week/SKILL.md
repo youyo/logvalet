@@ -1,5 +1,5 @@
 ---
-name: backlog:my-week
+name: logvalet-my-week
 description: >
   Show this week's Backlog issues assigned to me, including overdue items, across all projects.
   TRIGGER when: user says "今週のタスク", "my week", "今週やること", "今週の予定",
@@ -8,7 +8,7 @@ description: >
   "backlog 今週", "バックログ 今週", "今週 backlog".
 ---
 
-# backlog:my-week
+# logvalet-my-week
 
 今週自分がやるべき Backlog 課題の一覧を表示する。期限切れも含む。プロジェクト横断。
 
