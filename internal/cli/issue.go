@@ -14,11 +14,12 @@ import (
 
 // IssueCmd は issue コマンド群のルート。
 type IssueCmd struct {
-	Get     IssueGetCmd     `cmd:"" help:"get issue"`
-	List    IssueListCmd    `cmd:"" help:"list issues"`
-	Create  IssueCreateCmd  `cmd:"" help:"create issue"`
-	Update  IssueUpdateCmd  `cmd:"" help:"update issue"`
-	Comment IssueCommentCmd `cmd:"" help:"manage comments"`
+	Get        IssueGetCmd        `cmd:"" help:"get issue"`
+	List       IssueListCmd       `cmd:"" help:"list issues"`
+	Create     IssueCreateCmd     `cmd:"" help:"create issue"`
+	Update     IssueUpdateCmd     `cmd:"" help:"update issue"`
+	Comment    IssueCommentCmd    `cmd:"" help:"manage comments"`
+	Attachment IssueAttachmentCmd `cmd:"" help:"manage attachments"`
 }
 
 // IssueGetCmd は issue get コマンド。

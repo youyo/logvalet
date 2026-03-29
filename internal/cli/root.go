@@ -14,9 +14,11 @@ type CLI struct {
 	Project     ProjectCmd    `cmd:"" help:"manage projects"`
 	Activity    ActivityCmd   `cmd:"" help:"manage activities"`
 	User        UserCmd       `cmd:"" help:"manage users"`
-	Document    DocumentCmd   `cmd:"" help:"manage documents"`
-	Meta        MetaCmd       `cmd:"" help:"get metadata (statuses, categories, etc.)"`
-	Team        TeamCmd       `cmd:"" help:"manage teams"`
-	Space       SpaceCmd      `cmd:"" help:"manage spaces"`
-	VersionInfo VersionCmd    `cmd:"" name:"version" help:"display version information"`
+	Document    DocumentCmd    `cmd:"" help:"manage documents"`
+	SharedFile  SharedFileCmd  `cmd:"" help:"manage shared files"`
+	Star        StarCmd        `cmd:"" help:"manage stars"`
+	Meta        MetaCmd        `cmd:"" help:"get metadata (statuses, categories, etc.)"`
+	Team        TeamCmd        `cmd:"" help:"manage teams"`
+	Space       SpaceCmd       `cmd:"" help:"manage spaces"`
+	VersionInfo VersionCmd     `cmd:"" name:"version" help:"display version information"`
 }
