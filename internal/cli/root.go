@@ -20,5 +20,6 @@ type CLI struct {
 	Meta        MetaCmd        `cmd:"" help:"get metadata (statuses, categories, etc.)"`
 	Team        TeamCmd        `cmd:"" help:"manage teams"`
 	Space       SpaceCmd       `cmd:"" help:"manage spaces"`
+	Mcp         McpCmd         `cmd:"" help:"start MCP server (Streamable HTTP)"`
 	VersionInfo VersionCmd     `cmd:"" name:"version" help:"display version information"`
 }
