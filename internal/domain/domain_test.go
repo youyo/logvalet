@@ -326,6 +326,74 @@ func TestIssueJSON_nullStartDate(t *testing.T) {
 	}
 }
 
+// TestDocument_JSONFieldAsObject は Document の json フィールドが JSON オブジェクトとして返された場合に
+// 正しくパースできることを検証する（GitHub Issue #1 対応）。
+func TestDocument_JSONFieldAsObject(t *testing.T) {
+	// Backlog API が json フィールドをオブジェクトとして返すケース
+	raw := `{
+		"id": "doc-001",
+		"projectId": 100,
+		"title": "テストドキュメント",
+		"json": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Hello"}]}]}
+	}`
+
+	var doc domain.Document
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		t.Fatalf("json.Unmarshal() エラー: %v（json フィールドが string 型のため失敗）", err)
+	}
+
+	if doc.ID != "doc-001" {
+		t.Errorf("ID = %q, want %q", doc.ID, "doc-001")
+	}
+	if doc.ProjectID != 100 {
+		t.Errorf("ProjectID = %d, want %d", doc.ProjectID, 100)
+	}
+	if doc.Title != "テストドキュメント" {
+		t.Errorf("Title = %q, want %q", doc.Title, "テストドキュメント")
+	}
+	if len(doc.JSON) == 0 {
+		t.Error("JSON フィールドが空: オブジェクトが正しくパースされていない")
+	}
+
+	// 再シリアライズして json フィールドが保持されることを確認
+	b, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatalf("json.Marshal() エラー: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("json.Unmarshal() エラー: %v", err)
+	}
+	jsonField, ok := m["json"]
+	if !ok {
+		t.Fatal("再シリアライズ後に json フィールドが存在しない")
+	}
+	// json.RawMessage はオブジェクトとして保持されるはず
+	if _, ok := jsonField.(map[string]interface{}); !ok {
+		t.Errorf("json フィールドがオブジェクトでない: %T %v", jsonField, jsonField)
+	}
+}
+
+// TestDocument_JSONFieldAsString は Document の json フィールドが文字列の場合でも
+// パースできることを検証する（後方互換性）。
+func TestDocument_JSONFieldAsString(t *testing.T) {
+	// json フィールドが文字列のケース（後方互換性）
+	raw := `{
+		"id": "doc-002",
+		"projectId": 200,
+		"title": "テストドキュメント2",
+		"json": "plain text content"
+	}`
+
+	var doc domain.Document
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		t.Fatalf("json.Unmarshal() エラー: %v", err)
+	}
+	if len(doc.JSON) == 0 {
+		t.Error("JSON フィールドが空: 文字列が正しくパースされていない")
+	}
+}
+
 // TestIssueJSON_withDates は Issue の null でない DueDate/StartDate が正しく出力されることを検証する。
 func TestIssueJSON_withDates(t *testing.T) {
 	now := time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC)

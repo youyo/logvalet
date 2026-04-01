@@ -1,7 +1,10 @@
 // Package domain は logvalet のドメインモデルを定義する。
 package domain
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // NulabAccount は Nulab アカウント情報（spec §11）。
 type NulabAccount struct {
@@ -105,8 +108,8 @@ type Document struct {
 	ID          string       `json:"id"`
 	ProjectID   int          `json:"projectId"`
 	Title       string       `json:"title"`
-	Plain       string       `json:"plain,omitempty"`
-	JSON        string       `json:"json,omitempty"`
+	Plain       string           `json:"plain,omitempty"`
+	JSON        json.RawMessage  `json:"json,omitempty"`
 	StatusID    int          `json:"statusId,omitempty"`
 	Emoji       string       `json:"emoji,omitempty"`
 	Attachments []Attachment `json:"attachments,omitempty"`

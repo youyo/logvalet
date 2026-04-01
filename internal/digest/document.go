@@ -2,6 +2,7 @@ package digest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -44,7 +45,7 @@ type DigestDocumentDetail struct {
 	ProjectID   int             `json:"project_id"`
 	Title       string          `json:"title"`
 	Plain       string          `json:"plain,omitempty"`
-	JSON        string          `json:"json,omitempty"`
+	JSON        json.RawMessage `json:"json,omitempty"`
 	Created     *time.Time      `json:"created,omitempty"`
 	Updated     *time.Time      `json:"updated,omitempty"`
 	CreatedUser *domain.UserRef `json:"created_user,omitempty"`
