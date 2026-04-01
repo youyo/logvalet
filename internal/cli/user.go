@@ -13,6 +13,7 @@ type UserCmd struct {
 	List     UserListCmd     `cmd:"" help:"list users"`
 	Get      UserGetCmd      `cmd:"" help:"get user"`
 	Activity UserActivityCmd `cmd:"" help:"get user activities"`
+	Workload UserWorkloadCmd `cmd:"" help:"calculate user workload for a project"`
 }
 
 // UserListCmd は user list コマンド（spec §14.14）。

@@ -114,4 +114,35 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
 		return detector.Detect(ctx, projectKeys, staleCfg)
 	})
+
+	// logvalet_user_workload
+	r.Register(gomcp.NewTool("logvalet_user_workload",
+		gomcp.WithDescription("Calculate user workload distribution for a project"),
+		gomcp.WithString("project_key",
+			gomcp.Required(),
+			gomcp.Description("Project key (e.g. PROJ)"),
+		),
+		gomcp.WithNumber("days",
+			gomcp.Description("Days threshold for stale detection (default 7)"),
+		),
+		gomcp.WithString("exclude_status",
+			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+
+		workloadCfg := analysis.WorkloadConfig{}
+		if days, ok := intArg(args, "days"); ok && days > 0 {
+			workloadCfg.StaleDays = days
+		}
+		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
+			workloadCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+		}
+
+		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return calculator.Calculate(ctx, projectKey, workloadCfg)
+	})
 }
