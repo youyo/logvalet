@@ -796,6 +796,70 @@ logvalet project list
 
 ---
 
+## issue timeline
+
+課題のコメント・更新履歴を時系列で返す（意思決定ログの材料）。
+
+```bash
+logvalet issue timeline PROJ-123
+logvalet issue timeline PROJ-123 --since YYYY-MM-DD --until YYYY-MM-DD -f json
+logvalet issue timeline PROJ-123 --max-comments 50 --max-activity-pages 10 -f json
+logvalet issue timeline PROJ-123 --no-include-updates -f json
+```
+
+Flags:
+
+```text
+--max-comments <n>       最大コメント取得数（0=全件）
+--include-updates        更新履歴イベントを含める（デフォルト: true）
+--no-include-updates     更新履歴イベントを除外
+--max-activity-pages <n> アクティビティページネーション最大数（デフォルト: 5）
+--since <YYYY-MM-DD>     絞り込み開始日
+--until <YYYY-MM-DD>     絞り込み終了日
+```
+
+Returns a chronological sequence of comments and update events for the issue.
+
+Use `logvalet-decisions` skill to extract decision logs from this output.
+
+---
+
+## activity stats
+
+アクティビティの統計（タイプ別・アクター別・時間帯別・パターン）を集計する。
+
+```bash
+logvalet activity stats --scope project -k PROJ -f json
+logvalet activity stats --scope user --user-id 12345 -f json
+logvalet activity stats --scope space -f json
+logvalet activity stats --scope project -k PROJ --since 2026-01-01T00:00:00Z --until 2026-03-31T23:59:59Z --top-n 10 -f json
+```
+
+Flags:
+
+```text
+--scope <project|user|space>  集計スコープ（デフォルト: space）
+-k, --project-key <key>       プロジェクトキー（scope=project 時に使用）
+--user-id <id>                ユーザーID（scope=user 時に使用）
+--since <ISO8601>             取得開始日時
+--until <ISO8601>             取得終了日時
+--top-n <n>                   上位表示数（デフォルト: 5）
+```
+
+Returns:
+
+- `total_count`: 期間内総アクティビティ数
+- `by_type`: タイプ別内訳
+- `by_actor`: アクター別内訳
+- `by_hour`: 時間帯別分布
+- `by_day_of_week`: 曜日別分布
+- `top_active_actors`: 最も活発なアクター上位 N 件
+- `top_active_types`: 最も多いタイプ上位 N 件
+
+Use `logvalet-intelligence` skill to interpret anomalies and biases from this output.
+
+---
+
 ## activity
 
 ### List activity
@@ -1123,6 +1187,8 @@ logvalet digest --project PROJ --since 30d
 logvalet digest weekly -k PROJ
 logvalet digest daily -k PROJ
 logvalet activity digest --project PROJ --since 30d
+logvalet activity stats --scope project -k PROJ -f json
+logvalet issue timeline PROJ-123 -f json
 logvalet digest --user 12345 --since 30d
 logvalet document digest 019b0240-4a9a-7c90-xxxx
 logvalet document create --project-key PROJ --title "..." --content-file ./doc.md
