@@ -1,11 +1,18 @@
 ---
-name: logvalet-spec-to-issues
+name: spec-to-issues
 description: >
-  Decompose a spec file into a Backlog issue list and create them one by one.
+  Decompose a specification document into Backlog issues: the LLM analyzes a spec/requirements
+  file, breaks it into appropriately-scoped tasks, and creates them in Backlog one by one
+  with dry-run preview before each submission.
   TRIGGER when: user says "specから課題作成", "仕様から課題を作って", "spec to issues",
   "仕様書を課題に分解", "要件を課題にして", "spec 分解", "仕様分解",
   "仕様書からチケットを切って", "spec からタスクを作成", "要件定義を課題に",
-  "仕様をバックログに登録", "spec を issue に変換".
+  "仕様をバックログに登録", "spec を issue に変換",
+  "設計書から課題を起こして", "PRD から課題を作成", "タスク分解",
+  "break down spec into issues", "create issues from requirements",
+  "一括課題作成", "bulk issue creation from spec".
+  DO NOT TRIGGER when: user wants to create a single issue manually (use issue-create)
+  or wants to write a spec first (use an external spec tool).
 ---
 
 # logvalet-spec-to-issues

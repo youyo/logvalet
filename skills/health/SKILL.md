@@ -1,11 +1,19 @@
 ---
-name: logvalet-health
+name: health
 description: >
-  Check the health of a Backlog project: stale issues, blockers, and user workload.
+  Check the health of a Backlog project: stale issues, blockers, user workload imbalance,
+  and an overall health score (0-100) with level (healthy/warning/critical).
+  Use this skill whenever someone asks about the state of a project, team performance,
+  or whether a project is on track.
   TRIGGER when: user says "プロジェクトの状態", "project health", "プロジェクト健全性",
-  "ブロッカー", "停滞", "健全性チェック", "project status check", "プロジェクト状況",
-  "何が詰まってる", "進捗確認", "ボトルネック", "project blockers", "user workload",
-  "誰が忙しい", "負荷状況", "チーム負荷", "workload check".
+  "プロジェクト大丈夫", "このプロジェクトどう", "停滞してる課題ある？",
+  "ブロッカーは？", "プロジェクトの健全性", "health check",
+  "チームの負荷状況", "ワークロード", "workload", "プロジェクト診断",
+  "project status", "is the project on track", "プロジェクトのスコア",
+  "開発の進み具合", "課題の滞留状況", "プロジェクト概況".
+  DO NOT TRIGGER when: user wants a detailed risk assessment with recommendations
+  (use risk) or wants activity trend analysis (use intelligence).
+  Complements: Follow up with /logvalet:risk for actionable recommendations.
 ---
 
 # logvalet-health

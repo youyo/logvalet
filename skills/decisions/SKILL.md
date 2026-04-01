@@ -1,10 +1,17 @@
 ---
-name: logvalet-decisions
+name: decisions
 description: >
-  Extract and summarize decision logs from a Backlog issue or project timeline.
+  Extract and summarize decision logs from a Backlog issue's timeline: who decided what,
+  when, and why — by analyzing comments and status change history.
   TRIGGER when: user says "意思決定", "decision log", "決定履歴", "なぜこうなったか",
-  "経緯", "決定の背景", "decision history", "どうして変更された", "意思決定ログ",
-  "何が決まった", "承認経緯", "設計の経緯", "why was this decided".
+  "経緯を教えて", "決定の背景", "decision history", "どうして変更された",
+  "意思決定ログ", "何が決まった", "承認経緯", "設計の経緯",
+  "why was this decided", "変更の理由", "この課題の歴史", "議論の経緯",
+  "ステータス変更の理由", "誰が決めたか", "合意形成の過程",
+  "過去の決定を振り返りたい", "この仕様になった理由".
+  DO NOT TRIGGER when: user wants current issue status (use context)
+  or wants to analyze project-wide activity patterns (use intelligence).
+  Complements: Use after /logvalet:context to dive deeper into the decision history.
 ---
 
 # logvalet-decisions

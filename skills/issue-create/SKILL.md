@@ -1,12 +1,18 @@
 ---
-name: logvalet-issue-create
+name: issue-create
 description: >
-  Create a Backlog issue interactively, gathering missing information via questions before submission.
+  Create a Backlog issue interactively: gather project, type, summary, description, priority,
+  assignee, and other fields via questions, preview with dry-run, then submit.
+  Use this skill whenever the user wants to create, register, file, or add a new Backlog issue,
+  ticket, task, or bug report.
   TRIGGER when: user says "課題作成", "issue作成", "チケット作成", "タスク登録",
   "backlogに課題を作って", "バックログに登録", "新しいissue", "create issue",
-  "file a ticket", "make a task", "backlog.com に課題追加", "backlog 課題作成",
-  "バックログ 課題作成", "backlog 登録", "バックログ 登録",
-  "課題を作りたい", "issueを立てたい", "チケットを切って", "タスクを作って".
+  "file a ticket", "make a task", "backlog.com に課題追加",
+  "課題を作りたい", "issueを立てたい", "チケットを切って", "タスクを作って",
+  "バグ報告を登録", "新規課題", "register an issue", "open a ticket",
+  "add a task to backlog", "課題追加", "バックログに追加".
+  DO NOT TRIGGER when: user wants to update an existing issue (use logvalet CLI directly)
+  or wants to bulk-create issues from a spec (use spec-to-issues).
 ---
 
 # logvalet-issue-create

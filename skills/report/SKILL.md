@@ -1,12 +1,18 @@
 ---
-name: logvalet-report
+name: report
 description: >
-  Generate a Backlog activity report for specified users, teams, or projects over a time period.
+  Generate a Backlog activity report for specified users, teams, or projects over a time period:
+  monthly report, weekly report, team activity summary, KPT retrospective material, and more.
+  Use this skill whenever someone needs a shareable report or summary of Backlog activity.
   TRIGGER when: user says "レポート作成", "月次レポート", "活動レポート", "チームレポート",
-  "backlogレポート", "バックログのレポート", "activity report", "monthly report",
-  "team report", "backlog.com のレポート", "先月のレポート", "今月のレポート",
-  "メンバーの活動", "チームの活動まとめ", "KPTレポート", "ふりかえりレポート",
-  "backlog レポート", "バックログ レポート", "活動報告", "月報", "週報".
+  "backlogレポート", "activity report", "monthly report", "team report",
+  "先月のレポート", "今月のレポート", "メンバーの活動",
+  "チームの活動まとめ", "KPTレポート", "ふりかえりレポート",
+  "活動報告", "月報", "週報", "進捗報告", "稼働報告",
+  "generate a report", "activity summary", "team performance report",
+  "期間レポート", "backlog 月報", "チームの成果", "実績報告".
+  DO NOT TRIGGER when: user wants a quick daily/weekly digest without user breakdown
+  (use digest-periodic) or wants project health metrics (use health).
 ---
 
 # logvalet-report

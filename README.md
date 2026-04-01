@@ -525,20 +525,20 @@ npx skills add youyo/logvalet -a claude-code
 
 | Skill | Description |
 |-------|-------------|
-| `logvalet` | Core operations (issue, project, digest, user, team, and AI analysis commands) |
-| `logvalet-report` | Report generation and analysis (with project health integration) |
-| `logvalet-my-week` | Weekly summary and task management (with stale/overdue signals) |
-| `logvalet-my-next` | Next-up task and priority management (with workload context) |
-| `logvalet-issue-create` | Issue creation workflow with templates |
-| `logvalet-health` | Project health check: stale issues, blockers, and user workload |
-| `logvalet-context` | Full issue context: details, comments, and analysis signals |
-| `logvalet-triage` | Issue triage workflow: LLM-assisted priority/assignee suggestions using triage-materials |
-| `logvalet-draft` | Draft issue comments using issue context and conversation history |
-| `logvalet-digest-periodic` | Generate weekly/daily digest summaries with LLM highlights |
-| `logvalet-spec-to-issues` | Decompose a spec document into Backlog issues (SKILL-only, no CLI needed) |
-| `logvalet-decisions` | Extract and summarize decision logs from issue timeline history |
-| `logvalet-intelligence` | Analyze activity statistics to detect anomalies, biases, and risks |
-| `logvalet-risk` | Generate integrated risk assessment and recommended actions for a project |
+| `logvalet:logvalet` | PM meta-model hub: all skills overview, workflows, and getting started guide |
+| `logvalet:report` | Report generation and analysis (with project health integration) |
+| `logvalet:my-week` | Weekly summary and task management (with stale/overdue signals) |
+| `logvalet:my-next` | Next-up task and priority management (with workload context) |
+| `logvalet:issue-create` | Issue creation workflow with templates |
+| `logvalet:health` | Project health check: stale issues, blockers, and user workload |
+| `logvalet:context` | Full issue context: details, comments, and analysis signals |
+| `logvalet:triage` | Issue triage workflow: LLM-assisted priority/assignee suggestions using triage-materials |
+| `logvalet:draft` | Draft issue comments using issue context and conversation history |
+| `logvalet:digest-periodic` | Generate weekly/daily digest summaries with LLM highlights |
+| `logvalet:spec-to-issues` | Decompose a spec document into Backlog issues (SKILL-only, no CLI needed) |
+| `logvalet:decisions` | Extract and summarize decision logs from issue timeline history |
+| `logvalet:intelligence` | Analyze activity statistics to detect anomalies, biases, and risks |
+| `logvalet:risk` | Generate integrated risk assessment and recommended actions for a project |
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 

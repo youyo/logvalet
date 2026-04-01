@@ -523,20 +523,20 @@ npx skills add youyo/logvalet -a claude-code
 
 | スキル | 説明 |
 |--------|------|
-| `logvalet` | コア操作（課題、プロジェクト、ダイジェスト、ユーザー、チーム、AI分析コマンド） |
-| `logvalet-report` | レポート生成・分析（プロジェクト健全性統合対応） |
-| `logvalet-my-week` | 週次サマリーとタスク管理（停滞・期限超過シグナル対応） |
-| `logvalet-my-next` | 次のタスク・優先順位管理（負荷状況コンテキスト対応） |
-| `logvalet-issue-create` | 課題作成ワークフロー（テンプレート付き） |
-| `logvalet-health` | プロジェクト健全性チェック（停滞課題・ブロッカー・ユーザー負荷） |
-| `logvalet-context` | 課題コンテキスト分析（詳細・コメント・分析シグナル） |
-| `logvalet-triage` | トリアージワークフロー：triage-materials をもとに LLM が優先度・担当者を提案 |
-| `logvalet-draft` | 課題コンテキストをもとに LLM がコメント下書きを生成 |
-| `logvalet-digest-periodic` | 週次・日次ダイジェストの LLM サマリー生成 |
-| `logvalet-spec-to-issues` | spec.md を Backlog 課題に分解（SKILL 完結、CLI 不要） |
-| `logvalet-decisions` | 課題タイムライン履歴から意思決定ログを抽出・要約 |
-| `logvalet-intelligence` | アクティビティ統計を分析して偏り・異常・リスクを検出 |
-| `logvalet-risk` | プロジェクトの統合リスク評価・推奨アクションを生成 |
+| `logvalet:logvalet` | PM メタモデルハブ：全スキル一覧・ワークフロー・はじめかたガイド |
+| `logvalet:report` | レポート生成・分析（プロジェクト健全性統合対応） |
+| `logvalet:my-week` | 週次サマリーとタスク管理（停滞・期限超過シグナル対応） |
+| `logvalet:my-next` | 次のタスク・優先順位管理（負荷状況コンテキスト対応） |
+| `logvalet:issue-create` | 課題作成ワークフロー（テンプレート付き） |
+| `logvalet:health` | プロジェクト健全性チェック（停滞課題・ブロッカー・ユーザー負荷） |
+| `logvalet:context` | 課題コンテキスト分析（詳細・コメント・分析シグナル） |
+| `logvalet:triage` | トリアージワークフロー：triage-materials をもとに LLM が優先度・担当者を提案 |
+| `logvalet:draft` | 課題コンテキストをもとに LLM がコメント下書きを生成 |
+| `logvalet:digest-periodic` | 週次・日次ダイジェストの LLM サマリー生成 |
+| `logvalet:spec-to-issues` | spec.md を Backlog 課題に分解（SKILL 完結、CLI 不要） |
+| `logvalet:decisions` | 課題タイムライン履歴から意思決定ログを抽出・要約 |
+| `logvalet:intelligence` | アクティビティ統計を分析して偏り・異常・リスクを検出 |
+| `logvalet:risk` | プロジェクトの統合リスク評価・推奨アクションを生成 |
 
 インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
 

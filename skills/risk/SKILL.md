@@ -1,11 +1,18 @@
 ---
-name: logvalet-risk
+name: risk
 description: >
-  Generate an integrated risk assessment and recommended actions for a Backlog project.
+  Generate an integrated risk assessment for a Backlog project: combining project health,
+  blockers, stale issues, and workload data — the LLM produces risk ratings, root cause analysis,
+  and prioritized recommended actions.
   TRIGGER when: user says "リスク評価", "risk summary", "プロジェクトリスク", "リスク分析",
-  "risk assessment", "project risk", "リスクをまとめて", "何がリスクか",
-  "プロジェクトの危険信号", "リスクレポート", "危険な課題", "risk report",
-  "最悪のシナリオ", "問題の全体像", "project risk summary".
+  "リスクは何", "対策は", "risk assessment", "リスクを洗い出して",
+  "プロジェクトの懸念事項", "危険な兆候", "リスクマネジメント",
+  "what are the risks", "risk analysis", "プロジェクトの課題を特定",
+  "改善すべき点", "問題点の洗い出し", "risk mitigation",
+  "推奨アクション", "次にやるべき対策", "プロジェクトの危機管理".
+  DO NOT TRIGGER when: user wants a quick health score only (use health)
+  or wants activity pattern analysis without risk interpretation (use intelligence).
+  Workflow: Automatically gathers health + blockers + stale data before analysis.
 ---
 
 # logvalet-risk

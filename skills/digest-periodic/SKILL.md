@@ -1,11 +1,17 @@
 ---
-name: logvalet-digest-periodic
+name: digest-periodic
 description: >
-  Generate a weekly or daily digest summary for a Backlog project: highlights, risks, and next actions.
-  TRIGGER when: user says "週次ダイジェスト", "日次ダイジェスト", "weekly digest", "daily digest",
-  "今週のまとめ", "今日のまとめ", "週報ダイジェスト", "日報ダイジェスト",
-  "定期レポート", "週次サマリー", "日次サマリー", "週次レポート", "日次レポート",
-  "今週の進捗", "今日の進捗", "週次ハイライト", "日次ハイライト".
+  Generate a weekly or daily digest of Backlog project activity: completed issues,
+  newly started work, blocked items, and active issue counts — deterministic, no LLM needed.
+  TRIGGER when: user says "週次ダイジェスト", "日次ダイジェスト", "今週の進捗",
+  "weekly digest", "daily digest", "今週のまとめ", "進捗まとめ",
+  "先週の振り返り", "日報ネタ", "週報ネタ", "今日の進捗",
+  "プロジェクトの今週の動き", "weekly summary", "daily summary",
+  "weekly progress", "今週完了したもの", "今日のアクティビティ",
+  "定期レポート", "periodic digest", "進捗サマリー".
+  DO NOT TRIGGER when: user wants a full activity report with user/team breakdown
+  (use report) or wants anomaly detection (use intelligence).
+  Complements: Combine with /logvalet:report for a comprehensive periodic review.
 ---
 
 # logvalet-digest-periodic

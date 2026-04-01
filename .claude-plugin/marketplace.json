@@ -1,0 +1,13 @@
+{
+  "name": "youyo",
+  "owner": {
+    "name": "youyo"
+  },
+  "plugins": [
+    {
+      "name": "logvalet",
+      "description": "LLM-first Backlog CLI skills: PM workflows, project health, risk analysis, activity intelligence, issue triage, and periodic digests for Backlog.com",
+      "source": "./"
+    }
+  ]
+}

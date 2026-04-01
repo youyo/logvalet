@@ -1,0 +1,10 @@
+{
+  "name": "logvalet",
+  "description": "LLM-first Backlog CLI skills for Claude Code: PM workflows, project health, risk analysis, activity intelligence, issue triage, and periodic digests",
+  "version": "0.6.2",
+  "author": {
+    "name": "youyo"
+  },
+  "homepage": "https://github.com/youyo/logvalet",
+  "license": "MIT"
+}

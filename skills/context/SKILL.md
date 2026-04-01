@@ -1,11 +1,17 @@
 ---
-name: logvalet-context
+name: context
 description: >
-  Fetch full context for a Backlog issue: details, comments, related info, and analysis signals.
-  TRIGGER when: user says "課題の詳細", "issue context", "コンテキスト", "この課題について",
-  "課題を理解したい", "issue を調べて", "PROJ-123 について教えて", "課題の背景",
-  "この issue の状況", "課題の情報をまとめて", "issue context", "issue summary",
-  "課題コンテキスト", "バックログの課題の詳細", "backlog issue context".
+  Fetch full context for a Backlog issue in one shot: issue details, comments, status signals,
+  overdue/stale detection, and LLM hints — everything needed to understand and act on an issue.
+  TRIGGER when: user provides a Backlog issue key (e.g. PROJ-123, ESU2_S2-32),
+  a Backlog URL (*.backlog.com/view/*, *.backlog.com/alias/*),
+  or says "課題の詳細", "この課題について", "issue context", "課題を理解したい",
+  "issue を調べて", "この issue の状況", "課題の背景", "課題の情報をまとめて",
+  "PROJ-123 について教えて", "バックログの課題の詳細", "issue summary",
+  "課題コンテキスト", "backlog issue context", "チケットの状態",
+  "このチケットについて", "課題の全体像", "what's the status of this issue".
+  DO NOT TRIGGER when: user wants to create/update an issue (use issue-create),
+  wants a triage recommendation (use triage), or wants a comment draft (use draft).
 ---
 
 # logvalet-context

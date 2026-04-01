@@ -1,11 +1,16 @@
 ---
-name: logvalet-my-next
+name: my-next
 description: >
-  Show near-term Backlog issues assigned to me (next few business days, crossing week boundaries), including overdue.
+  Show near-term Backlog issues assigned to me: next few business days across all projects,
+  including overdue items — helps answer "what should I work on next?"
   TRIGGER when: user says "直近のタスク", "upcoming tasks", "次にやること", "次やること",
-  "明日以降のタスク", "backlogの直近", "バックログで直近", "coming up", "what's next",
-  "近々のタスク", "backlog.com の予定", "今日明日のタスク", "数日以内の課題",
-  "backlog 直近", "バックログ 直近", "直近 backlog".
+  "明日以降のタスク", "backlogの直近", "coming up", "what's next",
+  "明日何やる", "次の予定", "今日と明日のタスク", "直近の課題",
+  "next tasks", "upcoming issues", "what should I do next",
+  "明日の予定", "次のアクション", "今日やること", "today's tasks",
+  "直近やるべきこと", "tomorrow's tasks", "近日中のタスク".
+  DO NOT TRIGGER when: user wants a full week overview (use my-week)
+  or wants a project-wide task list (use logvalet CLI directly).
 ---
 
 # logvalet-my-next

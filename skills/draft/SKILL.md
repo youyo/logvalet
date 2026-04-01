@@ -1,11 +1,17 @@
 ---
-name: logvalet-draft
+name: draft
 description: >
-  Draft a Backlog issue comment based on issue context: progress update, inquiry, or resolution notice.
+  Draft a context-aware Backlog issue comment: progress update, inquiry, resolution notice,
+  or escalation — the LLM generates a draft based on the issue's full context and comment history.
   TRIGGER when: user says "コメント下書き", "draft comment", "コメントを書いて",
   "返信を作って", "コメントを作成", "comment draft", "コメント草稿",
   "コメントを下書きして", "issue comment を書いて", "バックログにコメント",
-  "進捗報告コメント", "確認依頼コメント", "解決通知コメント".
+  "進捗報告コメント", "確認依頼コメント", "解決通知コメント",
+  "コメントで報告したい", "返信案を作って", "エスカレーションコメント",
+  "write a comment", "reply to this issue", "コメントの文面を考えて".
+  DO NOT TRIGGER when: user wants to create a new issue (use issue-create)
+  or wants to update issue fields like status/assignee (use logvalet CLI directly).
+  Workflow: Automatically fetches context via /logvalet:context before drafting.
 ---
 
 # logvalet-draft

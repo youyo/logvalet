@@ -1,11 +1,16 @@
 ---
-name: logvalet-my-week
+name: my-week
 description: >
-  Show this week's Backlog issues assigned to me, including overdue items, across all projects.
+  Show this week's Backlog issues assigned to me across all projects,
+  including overdue items from previous weeks — the weekly planning view.
   TRIGGER when: user says "今週のタスク", "my week", "今週やること", "今週の予定",
-  "backlogの今週分", "バックログで今週", "weekly tasks", "this week's issues",
-  "今週やるべきこと", "backlog.com の今週のタスク", "今週何やる", "今週の課題",
-  "backlog 今週", "バックログ 今週", "今週 backlog".
+  "backlogの今週分", "weekly tasks", "this week's issues",
+  "今週やるべきこと", "今週何やる", "今週の課題",
+  "今週のバックログ", "weekly plan", "week overview",
+  "今週の計画", "月曜から金曜のタスク", "今週のスケジュール",
+  "weekly planning", "what's on my plate this week", "今週の見通し".
+  DO NOT TRIGGER when: user wants only the next 1-2 days (use my-next)
+  or wants team-wide workload (use health).
 ---
 
 # logvalet-my-week

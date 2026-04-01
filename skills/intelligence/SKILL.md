@@ -1,11 +1,17 @@
 ---
-name: logvalet-intelligence
+name: intelligence
 description: >
-  Analyze Backlog activity statistics to detect anomalies, biases, and risks.
+  Analyze Backlog activity patterns: detect anomalies, concentration bias, peak hours,
+  and unusual trends — the LLM interprets activity statistics and project health data
+  to surface risks that numbers alone don't reveal.
   TRIGGER when: user says "アクティビティ分析", "activity intelligence", "異常検知",
-  "偏り", "アクティビティの偏り", "activity anomaly", "activity pattern",
-  "チームの動き", "活動パターン", "誰が活発", "誰が止まってる", "activity analysis",
-  "アクティビティ異常", "負荷の偏り", "contribution bias".
+  "偏り", "アクティビティの傾向", "activity patterns", "最近の動きに異常は",
+  "チームの活動パターン", "作業の偏り", "ピーク時間帯", "activity anomaly",
+  "特定の人に集中してない？", "活動量の分析", "誰が何をしてるか",
+  "concentration analysis", "activity trends", "稼働分析".
+  DO NOT TRIGGER when: user wants a simple activity list (use logvalet CLI directly),
+  wants a periodic digest (use digest-periodic), or wants risk recommendations (use risk).
+  Workflow: Combines activity stats + project health for holistic analysis.
 ---
 
 # logvalet-intelligence

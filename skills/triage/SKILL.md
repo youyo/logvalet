@@ -1,10 +1,18 @@
 ---
-name: logvalet-triage
+name: triage
 description: >
-  Triage a Backlog issue: suggest priority, assignee, and category using triage-materials.
+  Triage a Backlog issue: the LLM analyzes triage materials (issue attributes, history,
+  project statistics, similar issues) and suggests priority, assignee, and category assignments.
+  Use this skill whenever someone needs help deciding how to prioritize or assign an issue.
   TRIGGER when: user says "トリアージ", "triage", "優先度を決めて", "アサイン提案",
   "課題を振り分けて", "誰に担当させる", "priority 提案", "担当者を決めて",
-  "課題のカテゴリ分類", "issue triage", "優先度の見直し", "アサインの提案".
+  "課題のカテゴリ分類", "issue triage", "優先度の見直し", "アサインの提案",
+  "この課題の優先度は", "誰にアサインすべき", "振り分けて",
+  "prioritize this issue", "who should handle this", "assign this task",
+  "課題の優先順位", "タスクの振り分け", "課題を整理して".
+  DO NOT TRIGGER when: user wants full issue context without recommendations (use context)
+  or wants to create a new issue (use issue-create).
+  Workflow: Automatically fetches triage-materials before analysis.
 ---
 
 # logvalet-triage
