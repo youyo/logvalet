@@ -5,6 +5,8 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -81,4 +83,14 @@ func intArg(args map[string]any, key string) (int, bool) {
 		return int(n), true
 	}
 	return 0, false
+}
+
+// parseDateStr は "YYYY-MM-DD" 形式の文字列を time.Time に変換するヘルパー。
+// MCP ツールの since/until 引数パース用。
+func parseDateStr(s string) (time.Time, error) {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid date format (must be YYYY-MM-DD): %q", s)
+	}
+	return t, nil
 }

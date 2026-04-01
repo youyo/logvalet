@@ -188,6 +188,80 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, issueKey, analysis.TriageMaterialsOptions{})
 	})
 
+	// logvalet_digest_weekly
+	r.Register(gomcp.NewTool("logvalet_digest_weekly",
+		gomcp.WithDescription("Generate weekly periodic digest for a project (completed/started/blocked)"),
+		gomcp.WithString("project_key",
+			gomcp.Required(),
+			gomcp.Description("Project key (e.g. PROJ)"),
+		),
+		gomcp.WithString("since",
+			gomcp.Description("Start date in YYYY-MM-DD format (default: 7 days ago)"),
+		),
+		gomcp.WithString("until",
+			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		opts := analysis.PeriodicDigestOptions{Period: "weekly"}
+		if since, ok := stringArg(args, "since"); ok && since != "" {
+			t, err := parseDateStr(since)
+			if err != nil {
+				return nil, fmt.Errorf("invalid since: %w", err)
+			}
+			opts.Since = &t
+		}
+		if until, ok := stringArg(args, "until"); ok && until != "" {
+			t, err := parseDateStr(until)
+			if err != nil {
+				return nil, fmt.Errorf("invalid until: %w", err)
+			}
+			opts.Until = &t
+		}
+		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, projectKey, opts)
+	})
+
+	// logvalet_digest_daily
+	r.Register(gomcp.NewTool("logvalet_digest_daily",
+		gomcp.WithDescription("Generate daily periodic digest for a project (completed/started/blocked)"),
+		gomcp.WithString("project_key",
+			gomcp.Required(),
+			gomcp.Description("Project key (e.g. PROJ)"),
+		),
+		gomcp.WithString("since",
+			gomcp.Description("Start date in YYYY-MM-DD format (default: 1 day ago)"),
+		),
+		gomcp.WithString("until",
+			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		opts := analysis.PeriodicDigestOptions{Period: "daily"}
+		if since, ok := stringArg(args, "since"); ok && since != "" {
+			t, err := parseDateStr(since)
+			if err != nil {
+				return nil, fmt.Errorf("invalid since: %w", err)
+			}
+			opts.Since = &t
+		}
+		if until, ok := stringArg(args, "until"); ok && until != "" {
+			t, err := parseDateStr(until)
+			if err != nil {
+				return nil, fmt.Errorf("invalid until: %w", err)
+			}
+			opts.Until = &t
+		}
+		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, projectKey, opts)
+	})
+
 	// logvalet_user_workload
 	r.Register(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),

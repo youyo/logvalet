@@ -8,9 +8,17 @@ import (
 	"github.com/youyo/logvalet/internal/digest"
 )
 
-// DigestCmd は lv digest コマンド。
-// 課題・アクティビティを統合した期間スコープ指定のダイジェストを生成する。
+// DigestCmd は lv digest コマンドグループ。
+// unified / weekly / daily の各サブコマンドを含む。
 type DigestCmd struct {
+	Unified DigestUnifiedCmd `cmd:"" name:"unified" help:"generate unified digest (issues + activities)"`
+	Weekly  DigestWeeklyCmd  `cmd:"" help:"generate weekly periodic digest"`
+	Daily   DigestDailyCmd   `cmd:"" help:"generate daily periodic digest"`
+}
+
+// DigestUnifiedCmd は lv digest unified コマンド（旧 DigestCmd の機能を継承）。
+// 課題・アクティビティを統合した期間スコープ指定のダイジェストを生成する。
+type DigestUnifiedCmd struct {
 	// Project はプロジェクトキー（複数指定可）。
 	Project []string `short:"k" help:"project key (multiple allowed)"`
 	// User はユーザー指定（me, 数値ID, ユーザー名。複数指定可）。
@@ -29,8 +37,8 @@ type DigestCmd struct {
 	StartDate string `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD)"`
 }
 
-// Run は digest コマンドの実行。
-func (c *DigestCmd) Run(g *GlobalFlags) error {
+// Run は digest unified コマンドの実行。
+func (c *DigestUnifiedCmd) Run(g *GlobalFlags) error {
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
 	if err != nil {
@@ -121,4 +129,3 @@ func (c *DigestCmd) Run(g *GlobalFlags) error {
 
 	return rc.Renderer.Render(os.Stdout, envelope)
 }
-

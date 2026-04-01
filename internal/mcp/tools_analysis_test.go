@@ -236,3 +236,143 @@ func TestIssueContextHandler_GetIssueError(t *testing.T) {
 		t.Error("expected IsError=true for GetIssue error")
 	}
 }
+
+// M1: logvalet_digest_weekly が登録されていること
+func TestDigestWeekly_MCPTool_Registered(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	tool := s.GetTool("logvalet_digest_weekly")
+	if tool == nil {
+		t.Fatal("logvalet_digest_weekly tool not registered")
+	}
+}
+
+// M2: logvalet_digest_weekly ハンドラーが正常に AnalysisEnvelope を返すこと
+func TestDigestWeekly_MCPTool_Success(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(_ context.Context, key string) (*domain.Project, error) {
+		return &domain.Project{ID: 1, ProjectKey: key, Name: "Test"}, nil
+	}
+	mock.ListIssuesFunc = func(_ context.Context, _ backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{"project_key": "HEP"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "periodic_digest" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "periodic_digest")
+	}
+}
+
+// M3: project_key 省略で IsError になること
+func TestDigestWeekly_MCPTool_MissingProjectKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{})
+	if !result.IsError {
+		t.Error("expected IsError=true for missing project_key")
+	}
+}
+
+// M4: since に不正日付でエラーになること
+func TestDigestWeekly_MCPTool_InvalidDate(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{
+		"project_key": "HEP",
+		"since":       "not-a-date",
+	})
+	if !result.IsError {
+		t.Error("expected IsError=true for invalid since date")
+	}
+}
+
+// M5: ListIssues がエラーを返しても warnings 付き部分結果を返すこと（IsError=false）
+func TestDigestWeekly_MCPTool_ListIssuesFailed(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(_ context.Context, key string) (*domain.Project, error) {
+		return &domain.Project{ID: 1, ProjectKey: key, Name: "Test"}, nil
+	}
+	mock.ListIssuesFunc = func(_ context.Context, _ backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return nil, errors.New("fetch error")
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{"project_key": "HEP"})
+
+	if result.IsError {
+		t.Errorf("expected IsError=false for partial result with warnings, got IsError=true: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if len(envelope.Warnings) == 0 {
+		t.Error("expected warnings when ListIssues failed")
+	}
+}
+
+// M6: logvalet_digest_daily が正常に AnalysisEnvelope を返すこと
+func TestDigestDaily_MCPTool_Success(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(_ context.Context, key string) (*domain.Project, error) {
+		return &domain.Project{ID: 1, ProjectKey: key, Name: "Test"}, nil
+	}
+	mock.ListIssuesFunc = func(_ context.Context, _ backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_daily", map[string]any{"project_key": "HEP"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "periodic_digest" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "periodic_digest")
+	}
+}
+
+// M6b: logvalet_digest_daily の project_key 省略でエラー
+func TestDigestDaily_MCPTool_MissingProjectKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	result := callTool(t, s, "logvalet_digest_daily", map[string]any{})
+	if !result.IsError {
+		t.Error("expected IsError=true for missing project_key")
+	}
+}
