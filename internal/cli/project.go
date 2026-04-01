@@ -7,8 +7,9 @@ import (
 
 // ProjectCmd は project コマンド群のルート。
 type ProjectCmd struct {
-	Get  ProjectGetCmd  `cmd:"" help:"get project"`
-	List ProjectListCmd `cmd:"" help:"list projects"`
+	Get      ProjectGetCmd      `cmd:"" help:"get project"`
+	List     ProjectListCmd     `cmd:"" help:"list projects"`
+	Blockers ProjectBlockersCmd `cmd:"" help:"detect project blockers"`
 }
 
 // ProjectGetCmd は project get コマンド。

@@ -43,6 +43,45 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, issueKey, opts)
 	})
 
+	// logvalet_project_blockers
+	r.Register(gomcp.NewTool("logvalet_project_blockers",
+		gomcp.WithDescription("Detect project blocker issues (high priority unassigned, long in-progress, overdue)"),
+		gomcp.WithString("project_keys",
+			gomcp.Required(),
+			gomcp.Description("Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
+		),
+		gomcp.WithNumber("days",
+			gomcp.Description("Days threshold for in-progress stagnation (default 14)"),
+		),
+		gomcp.WithBoolean("include_comments",
+			gomcp.Description("Enable blocked-by-keyword detection via latest comment (default false)"),
+		),
+		gomcp.WithString("exclude_status",
+			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKeysStr, ok := stringArg(args, "project_keys")
+		if !ok || projectKeysStr == "" {
+			return nil, fmt.Errorf("project_keys is required")
+		}
+
+		projectKeys := strings.Split(projectKeysStr, ",")
+
+		blockerCfg := analysis.BlockerConfig{}
+		if days, ok := intArg(args, "days"); ok && days > 0 {
+			blockerCfg.InProgressDays = days
+		}
+		if includeComments, ok := boolArg(args, "include_comments"); ok {
+			blockerCfg.IncludeComments = includeComments
+		}
+		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
+			blockerCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+		}
+
+		detector := analysis.NewBlockerDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return detector.Detect(ctx, projectKeys, blockerCfg)
+	})
+
 	// logvalet_issue_stale
 	r.Register(gomcp.NewTool("logvalet_issue_stale",
 		gomcp.WithDescription("Detect stale issues in specified projects"),

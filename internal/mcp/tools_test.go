@@ -32,13 +32,13 @@ func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[st
 	return result
 }
 
-// MCP-1: NewServer で 24 ツールが登録されること
+// MCP-1: NewServer で 27 ツールが登録されること
 func TestNewServer_RegistersAllTools(t *testing.T) {
 	mock := backlog.NewMockClient()
 	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 26
+	expectedCount := 27
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {
@@ -156,5 +156,58 @@ func TestIssueGetHandler_NotFound(t *testing.T) {
 
 	if !result.IsError {
 		t.Error("expected IsError=true for ErrNotFound")
+	}
+}
+
+// MCP-26: logvalet_project_blockers ハンドラーが mock client から JSON を返すこと
+func TestProjectBlockersHandler_Basic(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return &domain.Project{
+			ID:         100,
+			ProjectKey: projectKey,
+			Name:       "Test Project",
+		}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opts backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_project_blockers", map[string]any{"project_keys": "PROJ"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected non-empty result content")
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	analysis, ok := envelope["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis field in envelope, got %T", envelope["analysis"])
+	}
+	if _, ok := analysis["total_count"]; !ok {
+		t.Error("expected total_count field in analysis")
+	}
+}
+
+// MCP-27: project_keys 省略 → IsError: true
+func TestProjectBlockersHandler_MissingProjectKeys(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+
+	result := callTool(t, s, "logvalet_project_blockers", map[string]any{})
+
+	if !result.IsError {
+		t.Error("expected IsError=true for missing project_keys")
 	}
 }
