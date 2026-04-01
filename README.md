@@ -173,6 +173,33 @@ logvalet user workload PROJ --exclude-status "完了,却下"
 logvalet project health PROJ --days 7
 ```
 
+## AI Workflow Commands (Phase 2)
+
+Phase 2 added workflow-oriented commands that provide structured materials for LLM-assisted decision-making:
+
+| Command | Description |
+|---------|-------------|
+| `issue triage-materials <KEY>` | Collect structured triage materials (attributes, history, similar-issue stats) for an issue |
+| `digest weekly -k <PROJECT>` | Aggregate weekly activity: completed, started, and blocked issues |
+| `digest daily -k <PROJECT>` | Aggregate daily activity snapshot |
+
+### Design principle
+
+logvalet provides **deterministic materials**. LLM judgment (priority suggestions, comment drafts, etc.) is handled by Skills.
+
+### Examples
+
+```bash
+# Get triage materials for an issue
+logvalet issue triage-materials PROJ-123
+
+# Weekly activity digest for a project
+logvalet digest weekly -k PROJ
+
+# Daily activity snapshot
+logvalet digest daily -k PROJ
+```
+
 ---
 
 ## Global Flags
@@ -472,6 +499,10 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet-issue-create` | Issue creation workflow with templates |
 | `logvalet-health` | Project health check: stale issues, blockers, and user workload |
 | `logvalet-context` | Full issue context: details, comments, and analysis signals |
+| `logvalet-triage` | Issue triage workflow: LLM-assisted priority/assignee suggestions using triage-materials |
+| `logvalet-draft` | Draft issue comments using issue context and conversation history |
+| `logvalet-digest-periodic` | Generate weekly/daily digest summaries with LLM highlights |
+| `logvalet-spec-to-issues` | Decompose a spec document into Backlog issues (SKILL-only, no CLI needed) |
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 

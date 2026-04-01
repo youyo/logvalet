@@ -172,6 +172,33 @@ logvalet user workload PROJ --exclude-status "完了,却下"
 logvalet project health PROJ --days 7
 ```
 
+## AI ワークフローコマンド（Phase 2）
+
+Phase 2 で、LLM 支援の意思決定に向けた構造化された材料を提供するワークフロー向けコマンドが追加されました:
+
+| コマンド | 説明 |
+|---------|------|
+| `issue triage-materials <KEY>` | 課題のトリアージ材料を構造化して取得（属性・履歴・類似課題統計） |
+| `digest weekly -k <PROJECT>` | 週次活動集約（完了・開始・ブロック中の課題） |
+| `digest daily -k <PROJECT>` | 日次活動スナップショット |
+
+### 設計方針
+
+logvalet は **deterministic な材料** を提供します。LLM による判断（優先度提案・コメント下書き等）は SKILL 側が担います。
+
+### 利用例
+
+```bash
+# 課題のトリアージ材料を取得
+logvalet issue triage-materials PROJ-123
+
+# プロジェクトの週次活動ダイジェスト
+logvalet digest weekly -k PROJ
+
+# 日次活動スナップショット
+logvalet digest daily -k PROJ
+```
+
 ---
 
 ## グローバルフラグ
@@ -470,6 +497,10 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet-issue-create` | 課題作成ワークフロー（テンプレート付き） |
 | `logvalet-health` | プロジェクト健全性チェック（停滞課題・ブロッカー・ユーザー負荷） |
 | `logvalet-context` | 課題コンテキスト分析（詳細・コメント・分析シグナル） |
+| `logvalet-triage` | トリアージワークフロー：triage-materials をもとに LLM が優先度・担当者を提案 |
+| `logvalet-draft` | 課題コンテキストをもとに LLM がコメント下書きを生成 |
+| `logvalet-digest-periodic` | 週次・日次ダイジェストの LLM サマリー生成 |
+| `logvalet-spec-to-issues` | spec.md を Backlog 課題に分解（SKILL 完結、CLI 不要） |
 
 インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
 

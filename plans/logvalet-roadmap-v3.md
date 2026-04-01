@@ -206,14 +206,14 @@ Phase 1 で得られる判断材料をもとに、AI が実際の業務フロー
 
 ### Phase 2 完了条件
 
-- [ ] `issue triage-materials` が課題の判断材料を JSON で返せる
-- [ ] `digest weekly/daily` が期間内活動を集約できる
-- [ ] `logvalet-triage` SKILL が材料をもとに priority/assignee を提案できる
-- [ ] `logvalet-draft` SKILL がコンテキストに基づくコメント下書きを生成できる
-- [ ] `logvalet-digest-periodic` SKILL が定期 digest を生成できる
-- [ ] `logvalet-spec-to-issues` SKILL が spec からの課題分解を支援できる
-- [ ] 既存スキル更新
-- [ ] README 更新
+- [x] `issue triage-materials` が課題の判断材料を JSON で返せる（M33-M34 完了）
+- [x] `digest weekly/daily` が期間内活動を集約できる（M35-M36 完了）
+- [x] `logvalet-triage` SKILL が材料をもとに priority/assignee を提案できる（M37 完了）
+- [x] `logvalet-draft` SKILL がコンテキストに基づくコメント下書きを生成できる（M37 完了）
+- [x] `logvalet-digest-periodic` SKILL が定期 digest を生成できる（M37 完了）
+- [x] `logvalet-spec-to-issues` SKILL が spec からの課題分解を支援できる（M37 完了）
+- [x] 既存スキル更新（logvalet-my-week, logvalet-my-next, logvalet-report）（M38 完了）
+- [x] README.md / README.ja.md に Phase 2 コマンドとスキルを記載（M38 完了）
 
 ---
 

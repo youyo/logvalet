@@ -118,3 +118,20 @@ Use this when:
 - You want to recommend delegation targets based on workload balance
 
 **When to include automatically:** If the user's upcoming tasks include items blocked by others, run `lv user workload` for the relevant project and append a "チーム負荷サマリー" section below the upcoming task list.
+
+---
+
+## Optional: Triage materials (Phase 2)
+
+When the user wants to assess or reprioritize a specific upcoming issue before working on it:
+
+```bash
+# Get structured triage materials for an issue
+lv issue triage-materials ISSUE_KEY -f json
+```
+
+Use this when:
+- The user asks "この課題どうすればいい？" or "優先度合ってる？"
+- An upcoming issue looks ambiguous (no assignee, unclear priority, long stale)
+
+The `issue triage-materials` output includes issue attributes, comment history, and similar-issue statistics. Hand the JSON to the `logvalet-triage` skill for LLM-assisted priority and assignee suggestions.

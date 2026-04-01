@@ -82,3 +82,20 @@ Use this when:
 If multiple projects are active, run `lv issue stale` per project in parallel.
 
 **Signal integration rule:** If any stale issues appear in the current week's items, annotate them in the output with a warning indicator (e.g., `⚠ 停滞中`) to help the user prioritize review.
+
+---
+
+## Optional: Weekly digest (Phase 2)
+
+When the user wants a higher-level summary of the week's activity rather than a personal task list, use:
+
+```bash
+# Weekly activity digest for a project
+lv digest weekly -k PROJECT_KEY -f json
+```
+
+Use this when:
+- The user asks "今週何が進んだ？" or "チームの週次サマリーが欲しい"
+- You want to provide a project-level view alongside the personal task list
+
+The `digest weekly` output includes completed, started, and blocked issues for the week. Hand the JSON to the `logvalet-digest-periodic` skill for an LLM-generated narrative summary.

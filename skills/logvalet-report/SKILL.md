@@ -218,6 +218,26 @@ Run these **in parallel** with activity fetching (Step 4) to avoid extra latency
 
 ---
 
+## Optional: Weekly/Daily digest integration (Phase 2)
+
+When generating a project-level report and the user wants a period-based activity summary:
+
+```bash
+# Weekly digest for the report period
+lv digest weekly -k PROJECT_KEY -f json
+
+# Daily digest for a specific day
+lv digest daily -k PROJECT_KEY -f json
+```
+
+Run these **in parallel** with activity fetching (Step 4).
+
+**When to include:** If the user asks for "週次サマリー", "今週の進捗", or "デイリーレポート", use `digest weekly`/`digest daily` instead of (or in addition to) `user activity`. The periodic digest output groups issues by status transition (completed/started/blocked), making it easier to build a progress-oriented report.
+
+**Narrative summary:** Pass the digest JSON to the `logvalet-digest-periodic` skill to generate an LLM-written narrative section.
+
+---
+
 ## Anti-patterns
 
 - レポートフォーマットを勝手にアレンジしない
