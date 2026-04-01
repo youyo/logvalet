@@ -26,6 +26,12 @@ logvalet v0.5.0（M01-M18）は基本 CRUD + Digest + MCP が完備済み。
 - DigestEnvelope + LLMHints + Warning Envelope
 - 共有ファイル / 課題添付 / スター (M17)
 
+### 既知のバグ（Hotfix）
+
+| M# | タイトル | 依存 | 概要 | Issue |
+|----|---------|------|------|-------|
+| **HF01** | Document.json フィールドの型不一致修正 | — | `document create` のレスポンスパースエラー。Backlog API が `json` フィールドをオブジェクトとして返すが、Go 構造体では `string` 型で定義されているため `json.Unmarshal` が失敗する。`json.RawMessage` に変更して修正。 | [#1](https://github.com/youyo/logvalet/issues/1) |
+
 ### 未実装（本ロードマップの対象）
 - AI 分析機能（issue context, stale, blockers, workload）
 - AI ワークフロー機能（draft comment, triage, periodic digest）
