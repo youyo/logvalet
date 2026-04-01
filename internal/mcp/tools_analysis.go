@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/analysis"
@@ -40,5 +41,38 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 
 		builder := analysis.NewIssueContextBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
 		return builder.Build(ctx, issueKey, opts)
+	})
+
+	// logvalet_issue_stale
+	r.Register(gomcp.NewTool("logvalet_issue_stale",
+		gomcp.WithDescription("Detect stale issues in specified projects"),
+		gomcp.WithString("project_keys",
+			gomcp.Required(),
+			gomcp.Description("Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
+		),
+		gomcp.WithNumber("days",
+			gomcp.Description("Days threshold for stale detection (default 7)"),
+		),
+		gomcp.WithString("exclude_status",
+			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKeysStr, ok := stringArg(args, "project_keys")
+		if !ok || projectKeysStr == "" {
+			return nil, fmt.Errorf("project_keys is required")
+		}
+
+		projectKeys := strings.Split(projectKeysStr, ",")
+
+		staleCfg := analysis.StaleConfig{}
+		if days, ok := intArg(args, "days"); ok && days > 0 {
+			staleCfg.DefaultDays = days
+		}
+		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
+			staleCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+		}
+
+		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return detector.Detect(ctx, projectKeys, staleCfg)
 	})
 }
