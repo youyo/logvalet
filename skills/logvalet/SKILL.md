@@ -454,6 +454,25 @@ Use this for:
 
 ---
 
+## digest weekly / digest daily
+
+週次・日次の活動集約サマリーを生成する。
+
+```bash
+logvalet digest weekly -k PROJECT_KEY
+logvalet digest weekly -k PROJECT_KEY -f json
+logvalet digest daily -k PROJECT_KEY
+logvalet digest daily -k PROJECT_KEY --since YYYY-MM-DD --until YYYY-MM-DD -f json
+```
+
+完了課題・新規開始・ステータス変更・コメント活動を期間ベースで集約する。
+
+出力には `llm_hints` フィールドが含まれ、LLM がサマリー生成・リスク検出・アクション提案を行う際のガイダンスを提供する。
+
+`logvalet-digest-periodic` スキルと組み合わせて人間向けのサマリーを生成できる。
+
+---
+
 ## issue
 
 ### Get one issue
@@ -651,6 +670,26 @@ logvalet issue context PROJ-123
 ```
 
 LLM エージェントが課題を理解・判断するために必要なコンテキストをまとめて返す。`digest --issue` よりも課題特化のリッチな出力を提供する。
+
+---
+
+## issue triage-materials
+
+課題のトリアージ（優先度・担当者・カテゴリ決定）に必要な材料を一括収集する。
+
+```bash
+logvalet issue triage-materials ISSUE_KEY
+logvalet issue triage-materials ISSUE_KEY -f json
+```
+
+トリアージ判断材料:
+- 課題属性（優先度・種別・担当者・期限）
+- 課題の更新履歴・コメント履歴
+- 類似課題の統計情報・担当者分布（`similar_issues.assignee_distribution`）
+- プロジェクト内の担当者別オープン課題数（`project_stats.by_assignee`）
+- ブロッカーシグナル
+
+LLM はこの出力をもとに priority / assignee / category を提案できる。`logvalet-triage` スキルと組み合わせて使う。
 
 ---
 
@@ -1072,6 +1111,7 @@ If you only remember a few commands, remember these:
 logvalet issue list --assignee me --status not-closed -f gantt
 logvalet digest --issue PROJ-123 --since 30d
 logvalet issue context PROJ-123
+logvalet issue triage-materials PROJ-123
 logvalet issue stale -k PROJ --days 7
 logvalet project blockers PROJ --days 14
 logvalet user workload PROJ
@@ -1080,6 +1120,8 @@ logvalet issue list --project-key PROJ
 logvalet issue create --project-key PROJ --summary "..."
 logvalet issue comment add PROJ-123 --content "..."
 logvalet digest --project PROJ --since 30d
+logvalet digest weekly -k PROJ
+logvalet digest daily -k PROJ
 logvalet activity digest --project PROJ --since 30d
 logvalet digest --user 12345 --since 30d
 logvalet document digest 019b0240-4a9a-7c90-xxxx

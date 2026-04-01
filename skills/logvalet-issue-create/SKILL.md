@@ -108,8 +108,34 @@ Display:
 - **Multiple values** — `--category` and `--milestone` accept multiple `--category A --category B` flags
 - **Assignee** — accepts numeric user ID or user name string
 
+---
+
+## Alternative: Spec-to-Issues workflow
+
+If the user wants to create **multiple issues at once** from a spec file or requirements document, use the `logvalet-spec-to-issues` skill instead.
+
+**When to switch:**
+- User provides a spec file (e.g., `spec.md`, `requirements.md`)
+- User wants to decompose a feature into many tasks
+- User says "仕様書から課題を作って", "spec to issues", "仕様分解", etc.
+
+**How to switch:**
+
+Tell the user:
+
+> 複数の課題をまとめて作成する場合は `logvalet-spec-to-issues` スキルを使います。spec ファイルのパスを教えてください。
+
+The `logvalet-spec-to-issues` skill handles:
+- spec analysis and decomposition
+- granularity guidance (1–3 days per issue)
+- parent/child structure (epic → task)
+- bulk dry-run and sequential creation
+
+---
+
 ## Anti-patterns
 
 - Do NOT create an issue without showing the dry-run output first
 - Do NOT ask optional fields one-by-one — batch them in a single question
 - Do NOT guess project-key — always confirm with the user or list projects
+- Do NOT use this skill for bulk creation from a spec — use `logvalet-spec-to-issues` instead
