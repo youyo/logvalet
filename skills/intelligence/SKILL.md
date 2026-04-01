@@ -1,5 +1,5 @@
 ---
-name: intelligence
+name: logvalet:intelligence
 description: >
   Analyze Backlog activity patterns: detect anomalies, concentration bias, peak hours,
   and unusual trends — the LLM interprets activity statistics and project health data

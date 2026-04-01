@@ -1,5 +1,5 @@
 ---
-name: health
+name: logvalet:health
 description: >
   Check the health of a Backlog project: stale issues, blockers, user workload imbalance,
   and an overall health score (0-100) with level (healthy/warning/critical).

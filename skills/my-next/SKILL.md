@@ -1,5 +1,5 @@
 ---
-name: my-next
+name: logvalet:my-next
 description: >
   Show near-term Backlog issues assigned to me: next few business days across all projects,
   including overdue items — helps answer "what should I work on next?"

@@ -1,5 +1,5 @@
 ---
-name: report
+name: logvalet:report
 description: >
   Generate a Backlog activity report for specified users, teams, or projects over a time period:
   monthly report, weekly report, team activity summary, KPT retrospective material, and more.

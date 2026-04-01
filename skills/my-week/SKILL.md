@@ -1,5 +1,5 @@
 ---
-name: my-week
+name: logvalet:my-week
 description: >
   Show this week's Backlog issues assigned to me across all projects,
   including overdue items from previous weeks — the weekly planning view.

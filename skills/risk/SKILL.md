@@ -1,5 +1,5 @@
 ---
-name: risk
+name: logvalet:risk
 description: >
   Generate an integrated risk assessment for a Backlog project: combining project health,
   blockers, stale issues, and workload data — the LLM produces risk ratings, root cause analysis,

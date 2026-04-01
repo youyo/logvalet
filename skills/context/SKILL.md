@@ -1,5 +1,5 @@
 ---
-name: context
+name: logvalet:context
 description: >
   Fetch full context for a Backlog issue in one shot: issue details, comments, status signals,
   overdue/stale detection, and LLM hints — everything needed to understand and act on an issue.

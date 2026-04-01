@@ -1,5 +1,5 @@
 ---
-name: triage
+name: logvalet:triage
 description: >
   Triage a Backlog issue: the LLM analyzes triage materials (issue attributes, history,
   project statistics, similar issues) and suggests priority, assignee, and category assignments.

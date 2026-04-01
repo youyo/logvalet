@@ -1,5 +1,5 @@
 ---
-name: decisions
+name: logvalet:decisions
 description: >
   Extract and summarize decision logs from a Backlog issue's timeline: who decided what,
   when, and why — by analyzing comments and status change history.

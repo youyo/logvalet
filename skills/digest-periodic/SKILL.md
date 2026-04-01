@@ -1,5 +1,5 @@
 ---
-name: digest-periodic
+name: logvalet:digest-periodic
 description: >
   Generate a weekly or daily digest of Backlog project activity: completed issues,
   newly started work, blocked items, and active issue counts — deterministic, no LLM needed.

@@ -1,5 +1,5 @@
 ---
-name: spec-to-issues
+name: logvalet:spec-to-issues
 description: >
   Decompose a specification document into Backlog issues: the LLM analyzes a spec/requirements
   file, breaks it into appropriately-scoped tasks, and creates them in Backlog one by one

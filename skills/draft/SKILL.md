@@ -1,5 +1,5 @@
 ---
-name: draft
+name: logvalet:draft
 description: >
   Draft a context-aware Backlog issue comment: progress update, inquiry, resolution notice,
   or escalation — the LLM generates a draft based on the issue's full context and comment history.

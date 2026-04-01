@@ -1,5 +1,5 @@
 ---
-name: issue-create
+name: logvalet:issue-create
 description: >
   Create a Backlog issue interactively: gather project, type, summary, description, priority,
   assignee, and other fields via questions, preview with dry-run, then submit.
