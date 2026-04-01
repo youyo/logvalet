@@ -649,3 +649,41 @@ func TestBlockerDetector_Detect_EmptyProjectKeys(t *testing.T) {
 		t.Errorf("Warnings length = %d, want 0", len(env.Warnings))
 	}
 }
+
+// TestBlockerDetector_DefaultExcludeStatus は ExcludeStatus 未指定時に「完了」課題が除外されることを検証する。
+func TestBlockerDetector_DefaultExcludeStatus(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+
+	issues := helperBlockerIssues(fixedNow, []blockerIssueSpec{
+		// 処理中 30 日以上 → ブロッカー判定対象
+		{issueKey: "PROJ-1", summary: "処理中ブロッカー", projectID: 100, statusName: "処理中", statusID: 2, priorityName: "高", priorityID: 2, daysAgo: 30},
+		// 完了 30 日以上 → デフォルト除外
+		{issueKey: "PROJ-2", summary: "完了課題", projectID: 100, statusName: "完了", statusID: 4, priorityName: "高", priorityID: 2, daysAgo: 30},
+	})
+
+	mc := backlog.NewMockClient()
+	mc.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return helperProject("PROJ", 100), nil
+	}
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return issues, nil
+	}
+
+	detector := NewBlockerDetector(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNow }))
+
+	// ExcludeStatus を指定しない → デフォルトで「完了」が除外される
+	env, err := detector.Detect(context.Background(), []string{"PROJ"}, BlockerConfig{})
+	if err != nil {
+		t.Fatalf("Detect() error: %v", err)
+	}
+
+	result := env.Analysis.(*BlockerResult)
+
+	// PROJ-2 の「完了」は除外され、PROJ-1 のみがブロッカー候補
+	for _, issue := range result.Issues {
+		if issue.IssueKey == "PROJ-2" {
+			t.Errorf("PROJ-2 (完了) should be excluded by default ExcludeStatus")
+		}
+	}
+}

@@ -58,6 +58,11 @@ func (d *StaleIssueDetector) Detect(ctx context.Context, projectKeys []string, c
 		defaultDays = DefaultStaleDays
 	}
 
+	// ExcludeStatus のデフォルト適用（未指定時は「完了」を除外）
+	if len(config.ExcludeStatus) == 0 {
+		config.ExcludeStatus = DefaultExcludeStatus
+	}
+
 	now := d.now()
 	var staleIssues []StaleIssue
 	var warnings []domain.Warning

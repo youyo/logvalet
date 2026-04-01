@@ -97,8 +97,9 @@ func TestWorkloadCalculator_Calculate_Basic(t *testing.T) {
 	if result.ProjectKey != "PROJ" {
 		t.Errorf("ProjectKey = %q, want %q", result.ProjectKey, "PROJ")
 	}
-	if result.TotalIssues != 5 {
-		t.Errorf("TotalIssues = %d, want 5", result.TotalIssues)
+	// デフォルトで「完了」ステータスが除外されるため 4 件（PROJ-5 の「完了」除外）
+	if result.TotalIssues != 4 {
+		t.Errorf("TotalIssues = %d, want 4 (完了 is excluded by default)", result.TotalIssues)
 	}
 	if result.UnassignedCount != 0 {
 		t.Errorf("UnassignedCount = %d, want 0", result.UnassignedCount)
@@ -115,9 +116,10 @@ func TestWorkloadCalculator_Calculate_Basic(t *testing.T) {
 		t.Errorf("Members[1].UserID = %d, want 20 (Bob)", result.Members[1].UserID)
 	}
 
+	// Alice: 未対応(PROJ-1) + 処理中(PROJ-2) = 2件（完了のPROJ-5 は除外）
 	alice := result.Members[0]
-	if alice.Total != 3 {
-		t.Errorf("Alice.Total = %d, want 3", alice.Total)
+	if alice.Total != 2 {
+		t.Errorf("Alice.Total = %d, want 2 (完了 excluded by default)", alice.Total)
 	}
 	if alice.ByStatus["未対応"] != 1 {
 		t.Errorf("Alice.ByStatus[未対応] = %d, want 1", alice.ByStatus["未対応"])
@@ -125,8 +127,8 @@ func TestWorkloadCalculator_Calculate_Basic(t *testing.T) {
 	if alice.ByStatus["処理中"] != 1 {
 		t.Errorf("Alice.ByStatus[処理中] = %d, want 1", alice.ByStatus["処理中"])
 	}
-	if alice.ByStatus["完了"] != 1 {
-		t.Errorf("Alice.ByStatus[完了] = %d, want 1", alice.ByStatus["完了"])
+	if alice.ByStatus["完了"] != 0 {
+		t.Errorf("Alice.ByStatus[完了] = %d, want 0 (excluded by default)", alice.ByStatus["完了"])
 	}
 	if alice.ByPriority["高"] != 1 {
 		t.Errorf("Alice.ByPriority[高] = %d, want 1", alice.ByPriority["高"])
@@ -625,5 +627,49 @@ func TestWorkloadCalculator_Calculate_NilUpdatedStale(t *testing.T) {
 	// TotalIssues は2件（除外なし）
 	if result.TotalIssues != 2 {
 		t.Errorf("TotalIssues = %d, want 2", result.TotalIssues)
+	}
+}
+
+// TestWorkloadCalculator_DefaultExcludeStatus は ExcludeStatus 未指定時に「完了」課題が除外されることを検証する。
+func TestWorkloadCalculator_DefaultExcludeStatus(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+
+	issues := helperWorkloadIssues(fixedNow, []workloadIssueSpec{
+		{issueKey: "PROJ-1", summary: "未対応", projectID: 100, statusName: "未対応", statusID: 1, assigneeID: 10, assigneeName: "Alice", daysAgo: 1},
+		{issueKey: "PROJ-2", summary: "完了", projectID: 100, statusName: "完了", statusID: 4, assigneeID: 10, assigneeName: "Alice", daysAgo: 5},
+	})
+
+	mc := backlog.NewMockClient()
+	mc.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return helperProject("PROJ", 100), nil
+	}
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return issues, nil
+	}
+
+	calc := NewWorkloadCalculator(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNow }))
+
+	// ExcludeStatus を指定しない → デフォルトで「完了」が除外される
+	env, err := calc.Calculate(context.Background(), "PROJ", WorkloadConfig{})
+	if err != nil {
+		t.Fatalf("Calculate() error: %v", err)
+	}
+
+	result := env.Analysis.(*WorkloadResult)
+
+	// PROJ-2 の「完了」は除外されるため TotalIssues = 1
+	if result.TotalIssues != 1 {
+		t.Errorf("TotalIssues = %d, want 1 (完了 excluded by default)", result.TotalIssues)
+	}
+	if len(result.Members) != 1 {
+		t.Fatalf("Members length = %d, want 1", len(result.Members))
+	}
+	alice := result.Members[0]
+	if alice.Total != 1 {
+		t.Errorf("Alice.Total = %d, want 1 (完了 excluded by default)", alice.Total)
+	}
+	if alice.ByStatus["完了"] != 0 {
+		t.Errorf("Alice.ByStatus[完了] = %d, want 0 (excluded by default)", alice.ByStatus["完了"])
 	}
 }

@@ -73,6 +73,11 @@ func (c *WorkloadCalculator) Calculate(ctx context.Context, projectKey string, c
 		staleDays = DefaultStaleDays
 	}
 
+	// ExcludeStatus のデフォルト適用（未指定時は「完了」を除外）
+	if len(config.ExcludeStatus) == 0 {
+		config.ExcludeStatus = DefaultExcludeStatus
+	}
+
 	overloadedThreshold := config.OverloadedThreshold
 	if overloadedThreshold <= 0 {
 		overloadedThreshold = DefaultOverloadedThreshold

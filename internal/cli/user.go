@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
 )
@@ -73,19 +72,7 @@ func (c *UserActivityCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 	opt := backlog.ListUserActivitiesOptions{
-		Limit: c.Limit,
-	}
-	if c.Since != "" {
-		t, parseErr := time.Parse(time.RFC3339, c.Since)
-		if parseErr == nil {
-			opt.Since = &t
-		}
-	}
-	if c.Until != "" {
-		t, parseErr := time.Parse(time.RFC3339, c.Until)
-		if parseErr == nil {
-			opt.Until = &t
-		}
+		Count: c.Limit,
 	}
 	activities, err := rc.Client.ListUserActivities(ctx, c.UserID, opt)
 	if err != nil {

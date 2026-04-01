@@ -603,3 +603,42 @@ func TestStaleDetector_Detect_NilStatus(t *testing.T) {
 		t.Errorf("DaysSinceUpdate = %d, want 10", result.Issues[0].DaysSinceUpdate)
 	}
 }
+
+// TestStaleIssueDetector_DefaultExcludeStatus は ExcludeStatus 未指定時に「完了」課題が除外されることを検証する。
+func TestStaleIssueDetector_DefaultExcludeStatus(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+
+	issues := helperStaleIssues(fixedNow, []staleIssueSpec{
+		{issueKey: "PROJ-1", summary: "stale未対応", projectID: 100, statusName: "未対応", statusID: 1, daysAgo: 10},
+		{issueKey: "PROJ-2", summary: "stale完了", projectID: 100, statusName: "完了", statusID: 4, daysAgo: 10},
+	})
+
+	mc := backlog.NewMockClient()
+	mc.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return helperProject("PROJ", 100), nil
+	}
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return issues, nil
+	}
+
+	detector := NewStaleIssueDetector(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNow }))
+
+	// ExcludeStatus を指定しない → デフォルトで「完了」が除外される
+	env, err := detector.Detect(context.Background(), []string{"PROJ"}, StaleConfig{})
+	if err != nil {
+		t.Fatalf("Detect() error: %v", err)
+	}
+
+	result := env.Analysis.(*StaleIssueResult)
+
+	if result.TotalCount != 1 {
+		t.Errorf("TotalCount = %d, want 1 (完了 excluded by default)", result.TotalCount)
+	}
+	if len(result.Issues) != 1 {
+		t.Fatalf("Issues length = %d, want 1", len(result.Issues))
+	}
+	if result.Issues[0].IssueKey != "PROJ-1" {
+		t.Errorf("Issues[0].IssueKey = %q, want PROJ-1 (PROJ-2 の完了 is excluded)", result.Issues[0].IssueKey)
+	}
+}

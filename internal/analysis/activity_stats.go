@@ -114,10 +114,14 @@ func (b *ActivityStatsBuilder) Build(ctx context.Context, opt ActivityStatsOptio
 
 	switch scope {
 	case "project":
-		acts, err := b.client.ListProjectActivities(ctx, opt.ScopeKey, backlog.ListActivitiesOptions{
-			Since: &since,
-			Until: &until,
-		})
+		fetcher := func(ctx context.Context, maxId int) ([]domain.Activity, error) {
+			listOpt := backlog.ListActivitiesOptions{Count: 100}
+			if maxId > 0 {
+				listOpt.MaxId = maxId
+			}
+			return b.client.ListProjectActivities(ctx, opt.ScopeKey, listOpt)
+		}
+		acts, err := b.fetchActivitiesForStats(ctx, fetcher, since, until)
 		if err != nil {
 			warnings = append(warnings, domain.Warning{
 				Code:      "activities_fetch_failed",
@@ -131,10 +135,14 @@ func (b *ActivityStatsBuilder) Build(ctx context.Context, opt ActivityStatsOptio
 		}
 
 	case "user":
-		acts, err := b.client.ListUserActivities(ctx, opt.ScopeKey, backlog.ListUserActivitiesOptions{
-			Since: &since,
-			Until: &until,
-		})
+		fetcher := func(ctx context.Context, maxId int) ([]domain.Activity, error) {
+			listOpt := backlog.ListUserActivitiesOptions{Count: 100}
+			if maxId > 0 {
+				listOpt.MaxId = maxId
+			}
+			return b.client.ListUserActivities(ctx, opt.ScopeKey, listOpt)
+		}
+		acts, err := b.fetchActivitiesForStats(ctx, fetcher, since, until)
 		if err != nil {
 			warnings = append(warnings, domain.Warning{
 				Code:      "activities_fetch_failed",
@@ -148,10 +156,14 @@ func (b *ActivityStatsBuilder) Build(ctx context.Context, opt ActivityStatsOptio
 		}
 
 	default: // "space" or empty
-		acts, err := b.client.ListSpaceActivities(ctx, backlog.ListActivitiesOptions{
-			Since: &since,
-			Until: &until,
-		})
+		fetcher := func(ctx context.Context, maxId int) ([]domain.Activity, error) {
+			listOpt := backlog.ListActivitiesOptions{Count: 100}
+			if maxId > 0 {
+				listOpt.MaxId = maxId
+			}
+			return b.client.ListSpaceActivities(ctx, listOpt)
+		}
+		acts, err := b.fetchActivitiesForStats(ctx, fetcher, since, until)
 		if err != nil {
 			warnings = append(warnings, domain.Warning{
 				Code:      "activities_fetch_failed",
@@ -167,6 +179,52 @@ func (b *ActivityStatsBuilder) Build(ctx context.Context, opt ActivityStatsOptio
 
 	stats := buildActivityStats(activities, scope, opt.ScopeKey, since, until, topN)
 	return b.newEnvelope("activity_stats", stats, warnings), nil
+}
+
+// fetchActivitiesForStats は maxId ベースでページングしつつ since/until でローカルフィルタする。
+func (b *ActivityStatsBuilder) fetchActivitiesForStats(
+	ctx context.Context,
+	fetcher func(ctx context.Context, maxId int) ([]domain.Activity, error),
+	since, until time.Time,
+) ([]domain.Activity, error) {
+	var result []domain.Activity
+	maxId := 0
+
+	for {
+		batch, err := fetcher(ctx, maxId)
+		if err != nil {
+			return nil, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		reachedSince := false
+		for _, a := range batch {
+			if a.Created != nil {
+				if a.Created.Before(since) {
+					reachedSince = true
+					break
+				}
+				if a.Created.After(until) {
+					continue
+				}
+			}
+			result = append(result, a)
+		}
+
+		if reachedSince || len(batch) < 100 {
+			break
+		}
+
+		lastID := batch[len(batch)-1].ID
+		maxId = int(lastID) - 1
+		if maxId <= 0 {
+			break
+		}
+	}
+
+	return result, nil
 }
 
 // buildActivityStats は activities から ActivityStats を構築する。

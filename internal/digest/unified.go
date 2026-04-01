@@ -309,7 +309,7 @@ func (b *UnifiedDigestBuilder) fetchUserActivities(ctx context.Context, userIDs 
 		g.Go(func() error {
 			fetcher := func(ctx context.Context, count int, maxID int) ([]interface{}, error) {
 				activities, err := b.client.ListUserActivities(ctx, strconv.Itoa(uid), backlog.ListUserActivitiesOptions{
-					Limit: count,
+					Count: count,
 				})
 				if err != nil {
 					return nil, err
@@ -352,7 +352,7 @@ func (b *UnifiedDigestBuilder) fetchProjectActivities(ctx context.Context, proje
 		g.Go(func() error {
 			fetcher := func(ctx context.Context, count int, maxID int) ([]interface{}, error) {
 				activities, err := b.client.ListProjectActivities(ctx, key, backlog.ListActivitiesOptions{
-					Limit: count,
+					Count: count,
 				})
 				if err != nil {
 					return nil, err
@@ -384,7 +384,7 @@ func (b *UnifiedDigestBuilder) fetchProjectActivities(ctx context.Context, proje
 func (b *UnifiedDigestBuilder) fetchSpaceActivities(ctx context.Context, since, until *time.Time) ([]interface{}, error) {
 	fetcher := func(ctx context.Context, count int, maxID int) ([]interface{}, error) {
 		activities, err := b.client.ListSpaceActivities(ctx, backlog.ListActivitiesOptions{
-			Limit: count,
+			Count: count,
 		})
 		if err != nil {
 			return nil, err

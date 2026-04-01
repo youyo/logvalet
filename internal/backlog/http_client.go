@@ -216,20 +216,20 @@ func (c *HTTPClient) GetUser(ctx context.Context, userID string) (*domain.User, 
 // GET /api/v2/users/{userID}/activities
 func (c *HTTPClient) ListUserActivities(ctx context.Context, userID string, opt ListUserActivitiesOptions) ([]domain.Activity, error) {
 	q := url.Values{}
-	if opt.Limit > 0 {
-		q.Set("count", strconv.Itoa(opt.Limit))
+	for _, id := range opt.ActivityTypeIDs {
+		q.Add("activityTypeId[]", strconv.Itoa(id))
 	}
-	if opt.Offset > 0 {
-		q.Set("offset", strconv.Itoa(opt.Offset))
+	if opt.MinId > 0 {
+		q.Set("minId", strconv.Itoa(opt.MinId))
 	}
-	if opt.Since != nil {
-		q.Set("since", opt.Since.Format(time.RFC3339))
+	if opt.MaxId > 0 {
+		q.Set("maxId", strconv.Itoa(opt.MaxId))
 	}
-	if opt.Until != nil {
-		q.Set("until", opt.Until.Format(time.RFC3339))
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
 	}
-	for _, t := range opt.Types {
-		q.Add("activityTypeId[]", t)
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
 	}
 
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/users/"+url.PathEscape(userID)+"/activities", q)
@@ -503,17 +503,20 @@ func (c *HTTPClient) ListProjects(ctx context.Context) ([]domain.Project, error)
 // GET /api/v2/projects/{projectKey}/activities
 func (c *HTTPClient) ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error) {
 	q := url.Values{}
-	if opt.Limit > 0 {
-		q.Set("count", strconv.Itoa(opt.Limit))
+	for _, id := range opt.ActivityTypeIDs {
+		q.Add("activityTypeId[]", strconv.Itoa(id))
 	}
-	if opt.Offset > 0 {
-		q.Set("offset", strconv.Itoa(opt.Offset))
+	if opt.MinId > 0 {
+		q.Set("minId", strconv.Itoa(opt.MinId))
 	}
-	if opt.Since != nil {
-		q.Set("since", opt.Since.Format(time.RFC3339))
+	if opt.MaxId > 0 {
+		q.Set("maxId", strconv.Itoa(opt.MaxId))
 	}
-	if opt.Until != nil {
-		q.Set("until", opt.Until.Format(time.RFC3339))
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
+	}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
 	}
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/activities", q)
 	if err != nil {
@@ -530,17 +533,20 @@ func (c *HTTPClient) ListProjectActivities(ctx context.Context, projectKey strin
 // GET /api/v2/space/activities
 func (c *HTTPClient) ListSpaceActivities(ctx context.Context, opt ListActivitiesOptions) ([]domain.Activity, error) {
 	q := url.Values{}
-	if opt.Limit > 0 {
-		q.Set("count", strconv.Itoa(opt.Limit))
+	for _, id := range opt.ActivityTypeIDs {
+		q.Add("activityTypeId[]", strconv.Itoa(id))
 	}
-	if opt.Offset > 0 {
-		q.Set("offset", strconv.Itoa(opt.Offset))
+	if opt.MinId > 0 {
+		q.Set("minId", strconv.Itoa(opt.MinId))
 	}
-	if opt.Since != nil {
-		q.Set("since", opt.Since.Format(time.RFC3339))
+	if opt.MaxId > 0 {
+		q.Set("maxId", strconv.Itoa(opt.MaxId))
 	}
-	if opt.Until != nil {
-		q.Set("until", opt.Until.Format(time.RFC3339))
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
+	}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
 	}
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/space/activities", q)
 	if err != nil {

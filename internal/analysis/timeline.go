@@ -196,24 +196,46 @@ func (b *CommentTimelineBuilder) Build(ctx context.Context, issueKey string, opt
 	return b.newEnvelope("issue_timeline", ct, warnings), nil
 }
 
-// fetchActivities は ListProjectActivities をページネーションで取得する。
+// fetchActivities は ListProjectActivities を maxId ベースのページネーションで取得する。
+// クライアント側で Since/Until フィルタを適用する。
 // 返値: (activities, truncated, error)
 func (b *CommentTimelineBuilder) fetchActivities(ctx context.Context, projectKey string, opt CommentTimelineOptions) ([]domain.Activity, bool, error) {
 	var result []domain.Activity
-	offset := 0
 	truncated := false
+	maxId := 0 // 初回は 0（制限なし）
 
 	for page := 0; page < opt.MaxActivityPages; page++ {
-		batch, err := b.client.ListProjectActivities(ctx, projectKey, backlog.ListActivitiesOptions{
-			Limit:  DefaultActivityPageLimit,
-			Offset: offset,
-		})
+		listOpt := backlog.ListActivitiesOptions{
+			Count: DefaultActivityPageLimit,
+		}
+		if maxId > 0 {
+			listOpt.MaxId = maxId
+		}
+
+		batch, err := b.client.ListProjectActivities(ctx, projectKey, listOpt)
 		if err != nil {
 			return nil, false, err
 		}
 
-		result = append(result, batch...)
-		offset += len(batch)
+		// クライアント側で since/until フィルタ（API は ID 降順で返すため）
+		reachedSince := false
+		for _, a := range batch {
+			if a.Created != nil {
+				if opt.Since != nil && a.Created.Before(*opt.Since) {
+					// since より古い → これ以上取る必要なし（ID 降順前提）
+					reachedSince = true
+					break
+				}
+				if opt.Until != nil && a.Created.After(*opt.Until) {
+					continue // until より新しい → スキップ
+				}
+			}
+			result = append(result, a)
+		}
+
+		if reachedSince {
+			break
+		}
 
 		// 取得件数が limit 未満 → これ以上ない
 		if len(batch) < DefaultActivityPageLimit {
@@ -223,6 +245,14 @@ func (b *CommentTimelineBuilder) fetchActivities(ctx context.Context, projectKey
 		// まだページが続くが上限に達した
 		if page == opt.MaxActivityPages-1 {
 			truncated = true
+			break
+		}
+
+		// 次ページ: 最後の activity の ID - 1 を maxId に設定
+		lastID := batch[len(batch)-1].ID
+		maxId = int(lastID) - 1
+		if maxId <= 0 {
+			break
 		}
 	}
 

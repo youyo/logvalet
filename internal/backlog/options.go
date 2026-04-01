@@ -28,24 +28,25 @@ type ListCommentsOptions struct {
 }
 
 // ListActivitiesOptions は ListProjectActivities / ListSpaceActivities リクエストのオプション。
-// spec §18.2 準拠。
+// Backlog API 仕様に準拠: activityTypeId[], minId, maxId, count, order のみサポート。
+// offset/since/until は API 非サポートのためクライアント側でフィルタリングすること。
 type ListActivitiesOptions struct {
-	ProjectKey string
-	Since      *time.Time
-	Until      *time.Time
-	Limit      int
-	Offset     int
+	ActivityTypeIDs []int  // activityTypeId[] フィルタ
+	MinId           int    // minId: この ID 以上の活動を取得（0 = 制限なし）
+	MaxId           int    // maxId: この ID 以下の活動を取得（0 = 制限なし）
+	Count           int    // count: 取得件数（最大100）
+	Order           string // "asc" or "desc"（空文字 = API デフォルト desc）
 }
 
 // ListUserActivitiesOptions は ListUserActivities リクエストのオプション。
-// spec §18.2 準拠。
+// Backlog API 仕様に準拠: activityTypeId[], minId, maxId, count, order のみサポート。
+// offset/since/until は API 非サポートのためクライアント側でフィルタリングすること。
 type ListUserActivitiesOptions struct {
-	Since   *time.Time
-	Until   *time.Time
-	Limit   int
-	Offset  int
-	Project string
-	Types   []string
+	ActivityTypeIDs []int  // activityTypeId[] フィルタ
+	MinId           int    // minId
+	MaxId           int    // maxId
+	Count           int    // count: 取得件数（最大100）
+	Order           string // "asc" or "desc"
 }
 
 // ListDocumentsOptions は ListDocuments リクエストのオプション。

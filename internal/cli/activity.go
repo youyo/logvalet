@@ -21,8 +21,6 @@ type ActivityListCmd struct {
 	ListFlags
 	// Project はプロジェクトキーでフィルタ（指定時はプロジェクトのアクティビティのみ取得）。
 	Project string `help:"filter by project key" env:"LOGVALET_PROJECT"`
-	// Since は取得開始日時（ISO 8601 または duration: 30d, 1w 等）。
-	Since string `help:"start date/time (ISO 8601 or duration)" env:"LOGVALET_SINCE"`
 }
 
 func (c *ActivityListCmd) Run(g *GlobalFlags) error {
@@ -33,14 +31,7 @@ func (c *ActivityListCmd) Run(g *GlobalFlags) error {
 	}
 
 	opt := backlog.ListActivitiesOptions{
-		Limit:  c.Count,
-		Offset: c.Offset,
-	}
-	if c.Since != "" {
-		t, parseErr := time.Parse(time.RFC3339, c.Since)
-		if parseErr == nil {
-			opt.Since = &t
-		}
+		Count: c.Count,
 	}
 
 	var activities interface{}

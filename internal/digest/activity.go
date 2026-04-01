@@ -85,16 +85,12 @@ func (b *DefaultActivityDigestBuilder) Build(ctx context.Context, opt ActivityDi
 
 	if opt.Project != "" {
 		listOpt := backlog.ListActivitiesOptions{
-			Since:  opt.Since,
-			Until:  opt.Until,
-			Limit:  opt.Limit,
+			Count: opt.Limit,
 		}
 		rawActivities, fetchErr = b.client.ListProjectActivities(ctx, opt.Project, listOpt)
 	} else {
 		listOpt := backlog.ListActivitiesOptions{
-			Since: opt.Since,
-			Until: opt.Until,
-			Limit: opt.Limit,
+			Count: opt.Limit,
 		}
 		rawActivities, fetchErr = b.client.ListSpaceActivities(ctx, listOpt)
 	}

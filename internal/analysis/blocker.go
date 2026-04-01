@@ -99,6 +99,11 @@ func (d *BlockerDetector) Detect(ctx context.Context, projectKeys []string, conf
 		inProgressDays = DefaultInProgressDays
 	}
 
+	// ExcludeStatus のデフォルト適用（未指定時は「完了」を除外）
+	if len(config.ExcludeStatus) == 0 {
+		config.ExcludeStatus = DefaultExcludeStatus
+	}
+
 	inProgressSet := buildNameSet(config.InProgressStatus, defaultInProgressStatusList)
 	highPrioritySet := buildNameSet(config.HighPriority, defaultHighPriorityList)
 	excludeSet := buildExcludeSet(config.ExcludeStatus)

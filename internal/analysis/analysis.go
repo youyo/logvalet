@@ -12,6 +12,10 @@ import (
 	"github.com/youyo/logvalet/internal/domain"
 )
 
+// DefaultExcludeStatus は ExcludeStatus が未指定の場合にデフォルトで除外するステータス名リスト。
+// Backlog の標準「完了」ステータスを除外する。
+var DefaultExcludeStatus = []string{"完了"}
+
 // AnalysisEnvelope は全 analysis コマンドの共通ラッパー。
 // DigestEnvelope と同構造（LLM が同パターンで処理可能）。
 type AnalysisEnvelope struct {

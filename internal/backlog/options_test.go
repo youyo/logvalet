@@ -85,24 +85,37 @@ func TestListCommentsOptions(t *testing.T) {
 func TestListActivitiesOptions(t *testing.T) {
 	t.Run("zero value is valid", func(t *testing.T) {
 		var opt backlog.ListActivitiesOptions
-		if opt.Since != nil || opt.Until != nil {
-			t.Error("zero value should have Since=nil, Until=nil")
+		if opt.Count != 0 || opt.MinId != 0 || opt.MaxId != 0 {
+			t.Error("zero value should have Count=0, MinId=0, MaxId=0")
+		}
+		if opt.ActivityTypeIDs != nil {
+			t.Error("zero value should have ActivityTypeIDs=nil")
 		}
 	})
 
-	t.Run("set Since and Until", func(t *testing.T) {
-		since := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-		until := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	t.Run("set Count and MaxId", func(t *testing.T) {
 		opt := backlog.ListActivitiesOptions{
-			Since: &since,
-			Until: &until,
-			Limit: 100,
+			Count: 100,
+			MaxId: 12345,
+			Order: "desc",
 		}
-		if opt.Since == nil || !opt.Since.Equal(since) {
-			t.Errorf("Since = %v, want %v", opt.Since, since)
+		if opt.Count != 100 {
+			t.Errorf("Count = %d, want 100", opt.Count)
 		}
-		if opt.Until == nil || !opt.Until.Equal(until) {
-			t.Errorf("Until = %v, want %v", opt.Until, until)
+		if opt.MaxId != 12345 {
+			t.Errorf("MaxId = %d, want 12345", opt.MaxId)
+		}
+		if opt.Order != "desc" {
+			t.Errorf("Order = %q, want %q", opt.Order, "desc")
+		}
+	})
+
+	t.Run("set ActivityTypeIDs", func(t *testing.T) {
+		opt := backlog.ListActivitiesOptions{
+			ActivityTypeIDs: []int{1, 2, 3},
+		}
+		if len(opt.ActivityTypeIDs) != 3 {
+			t.Errorf("len(ActivityTypeIDs) = %d, want 3", len(opt.ActivityTypeIDs))
 		}
 	})
 }
@@ -110,18 +123,24 @@ func TestListActivitiesOptions(t *testing.T) {
 func TestListUserActivitiesOptions(t *testing.T) {
 	t.Run("zero value is valid", func(t *testing.T) {
 		var opt backlog.ListUserActivitiesOptions
-		if opt.Types != nil {
-			t.Error("zero value should have Types=nil")
+		if opt.ActivityTypeIDs != nil {
+			t.Error("zero value should have ActivityTypeIDs=nil")
+		}
+		if opt.Count != 0 || opt.MinId != 0 || opt.MaxId != 0 {
+			t.Error("zero value should have Count=0, MinId=0, MaxId=0")
 		}
 	})
 
-	t.Run("Types slice", func(t *testing.T) {
+	t.Run("set ActivityTypeIDs", func(t *testing.T) {
 		opt := backlog.ListUserActivitiesOptions{
-			Types:   []string{"issue_created", "issue_commented"},
-			Project: "PROJ",
+			ActivityTypeIDs: []int{1, 3},
+			Count:           50,
 		}
-		if len(opt.Types) != 2 {
-			t.Errorf("len(Types) = %d, want 2", len(opt.Types))
+		if len(opt.ActivityTypeIDs) != 2 {
+			t.Errorf("len(ActivityTypeIDs) = %d, want 2", len(opt.ActivityTypeIDs))
+		}
+		if opt.Count != 50 {
+			t.Errorf("Count = %d, want 50", opt.Count)
 		}
 	})
 }
