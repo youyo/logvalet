@@ -260,13 +260,13 @@ Phase 2 と同様、logvalet = 材料提供、SKILL = LLM 判断。
 
 ### Phase 3 完了条件
 
-- [ ] `issue timeline` が時系列データを構造化して返せる
-- [ ] `activity stats` がアクティビティ統計を返せる
-- [ ] `logvalet-decisions` SKILL が意思決定ログを抽出できる
-- [ ] `logvalet-intelligence` SKILL が異常・偏りを検出・解釈できる
-- [ ] `logvalet-risk` SKILL が統合リスク評価を生成できる
-- [ ] 全スキル最終更新
-- [ ] README 完全更新
+- [x] `issue timeline` が時系列データを構造化して返せる（M40-M41 完了）
+- [x] `activity stats` がアクティビティ統計を返せる（M42-M43 完了）
+- [x] `logvalet-decisions` SKILL が意思決定ログを抽出できる（M44 完了）
+- [x] `logvalet-intelligence` SKILL が異常・偏りを検出・解釈できる（M44 完了）
+- [x] `logvalet-risk` SKILL が統合リスク評価を生成できる（M44 完了）
+- [x] 全スキル最終更新（M45 完了）
+- [x] README 完全更新（M45 完了）
 
 ---
 

@@ -199,6 +199,35 @@ logvalet digest weekly -k PROJ
 logvalet digest daily -k PROJ
 ```
 
+## AI インテリジェンスコマンド（Phase 3）
+
+Phase 3 で、LLM 支援の意思決定・異常検知・リスク評価に向けた構造化された材料を提供するインテリジェンス向けコマンドが追加されました:
+
+| コマンド | 説明 |
+|---------|------|
+| `issue timeline <KEY>` | 課題のコメント・更新履歴を時系列で取得（意思決定ログの材料） |
+| `activity stats` | アクティビティ統計（タイプ別・アクター別・時間帯別・パターン）を集計 |
+
+### 設計方針
+
+logvalet は **deterministic な材料** を提供します。LLM による判断（意思決定の抽出・異常の解釈・リスク評価）は SKILL 側が担います。
+
+### 利用例
+
+```bash
+# 意思決定ログ抽出用に課題のタイムラインを取得
+logvalet issue timeline PROJ-123
+
+# 特定期間のタイムライン取得
+logvalet issue timeline PROJ-123 --since 2026-01-01 --until 2026-03-31
+
+# プロジェクトのアクティビティ統計を取得
+logvalet activity stats --scope project -k PROJ
+
+# 期間指定・上位件数指定でアクティビティ統計を取得
+logvalet activity stats --scope project -k PROJ --since 2026-01-01T00:00:00Z --until 2026-03-31T23:59:59Z --top-n 10
+```
+
 ---
 
 ## グローバルフラグ
@@ -445,7 +474,7 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-MCP サーバーは以下を含む 29 個以上のツールを提供します:
+MCP サーバーは以下を含む 31 個以上のツールを提供します:
 - `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
 - `logvalet_project_get`, `logvalet_project_list`
 - `logvalet_digest`
@@ -456,6 +485,10 @@ MCP サーバーは以下を含む 29 個以上のツールを提供します:
 - `logvalet_project_blockers` — ブロッカー検出
 - `logvalet_user_workload` — ユーザー負荷分析
 - `logvalet_project_health` — プロジェクト健全性統合ビュー
+- `logvalet_issue_triage_materials` — トリアージ材料収集
+- `logvalet_digest_weekly`, `logvalet_digest_daily` — 定期活動ダイジェスト
+- `logvalet_issue_timeline` — 課題コメント・更新履歴（時系列）
+- `logvalet_activity_stats` — アクティビティ統計・パターン分析
 - その他多数...
 
 Claude Desktop の設定または Claude Code のスキル設定で MCP サーバーを設定し、logvalet をツールとして使用できます。
@@ -501,6 +534,9 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet-draft` | 課題コンテキストをもとに LLM がコメント下書きを生成 |
 | `logvalet-digest-periodic` | 週次・日次ダイジェストの LLM サマリー生成 |
 | `logvalet-spec-to-issues` | spec.md を Backlog 課題に分解（SKILL 完結、CLI 不要） |
+| `logvalet-decisions` | 課題タイムライン履歴から意思決定ログを抽出・要約 |
+| `logvalet-intelligence` | アクティビティ統計を分析して偏り・異常・リスクを検出 |
+| `logvalet-risk` | プロジェクトの統合リスク評価・推奨アクションを生成 |
 
 インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
 

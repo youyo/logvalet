@@ -135,3 +135,20 @@ Use this when:
 - An upcoming issue looks ambiguous (no assignee, unclear priority, long stale)
 
 The `issue triage-materials` output includes issue attributes, comment history, and similar-issue statistics. Hand the JSON to the `logvalet-triage` skill for LLM-assisted priority and assignee suggestions.
+
+---
+
+## Optional: Issue decision history (Phase 3)
+
+When the user wants to understand the history of an upcoming issue before working on it:
+
+```bash
+# Get chronological timeline for an issue
+lv issue timeline ISSUE_KEY -f json
+```
+
+Use this when:
+- The user asks "この課題の経緯は？" or "なぜこの課題が作られた？"
+- An upcoming issue has a long or complex history worth reviewing before starting
+
+Hand the JSON to the `logvalet-decisions` skill for LLM-assisted decision log extraction and summary.

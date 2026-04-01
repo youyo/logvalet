@@ -238,6 +238,23 @@ Run these **in parallel** with activity fetching (Step 4).
 
 ---
 
+## Optional: Activity intelligence (Phase 3)
+
+When generating a project report and the user wants anomaly detection or contribution bias analysis:
+
+```bash
+# Activity stats for the report period
+lv activity stats --scope project -k PROJECT_KEY --since YYYY-MM-DDT00:00:00Z --until YYYY-MM-DDT23:59:59Z --top-n 10 -f json
+```
+
+Run **in parallel** with activity fetching (Step 4) to avoid extra latency.
+
+**When to include:** If the user asks for "アクティビティ分析", "貢献の偏り", or "リスク評価", use `activity stats` to supplement the activity report. Hand the JSON to the `logvalet-intelligence` skill for LLM interpretation.
+
+For integrated project risk assessment, use the `logvalet-risk` skill, which combines `project health`, `project blockers`, and `issue stale` data.
+
+---
+
 ## Anti-patterns
 
 - レポートフォーマットを勝手にアレンジしない

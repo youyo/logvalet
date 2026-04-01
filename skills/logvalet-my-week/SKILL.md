@@ -99,3 +99,20 @@ Use this when:
 - You want to provide a project-level view alongside the personal task list
 
 The `digest weekly` output includes completed, started, and blocked issues for the week. Hand the JSON to the `logvalet-digest-periodic` skill for an LLM-generated narrative summary.
+
+---
+
+## Optional: Activity intelligence (Phase 3)
+
+When the user wants to understand team activity patterns or detect unusual workload distribution this week:
+
+```bash
+# Get activity statistics for a project
+lv activity stats --scope project -k PROJECT_KEY --since 2026-04-01T00:00:00Z --until 2026-04-07T23:59:59Z -f json
+```
+
+Use this when:
+- The user asks "今週誰が一番動いた？" or "チームの活動に偏りがある？"
+- You want to surface contributors who may be overloaded or inactive
+
+Hand the JSON to the `logvalet-intelligence` skill for LLM-assisted anomaly detection and risk interpretation.

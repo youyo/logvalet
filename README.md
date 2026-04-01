@@ -200,6 +200,35 @@ logvalet digest weekly -k PROJ
 logvalet digest daily -k PROJ
 ```
 
+## AI Intelligence Commands (Phase 3)
+
+Phase 3 added intelligence-oriented commands that provide structured materials for LLM-assisted decision-making, anomaly detection, and risk assessment:
+
+| Command | Description |
+|---------|-------------|
+| `issue timeline <KEY>` | Fetch chronological comment and update history for an issue (decision log materials) |
+| `activity stats` | Aggregate activity statistics by type, actor, hour, and day-of-week patterns |
+
+### Design principle
+
+logvalet provides **deterministic materials**. LLM judgment (decision extraction, anomaly interpretation, risk assessment) is handled by Skills.
+
+### Examples
+
+```bash
+# Get issue timeline for decision log extraction
+logvalet issue timeline PROJ-123
+
+# Get timeline for a specific period
+logvalet issue timeline PROJ-123 --since 2026-01-01 --until 2026-03-31
+
+# Get activity stats for a project
+logvalet activity stats --scope project -k PROJ
+
+# Get activity stats with extended time range
+logvalet activity stats --scope project -k PROJ --since 2026-01-01T00:00:00Z --until 2026-03-31T23:59:59Z --top-n 10
+```
+
 ---
 
 ## Global Flags
@@ -446,7 +475,7 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server provides 29+ tools including:
+The MCP server provides 31+ tools including:
 - `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
 - `logvalet_project_get`, `logvalet_project_list`
 - `logvalet_digest`
@@ -457,6 +486,10 @@ The MCP server provides 29+ tools including:
 - `logvalet_project_blockers` — Project blocker detection
 - `logvalet_user_workload` — User workload analysis
 - `logvalet_project_health` — Integrated project health view
+- `logvalet_issue_triage_materials` — Issue triage materials collection
+- `logvalet_digest_weekly`, `logvalet_digest_daily` — Periodic activity digest
+- `logvalet_issue_timeline` — Issue comment and update history (chronological)
+- `logvalet_activity_stats` — Activity statistics and pattern analysis
 - And many more...
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
@@ -503,6 +536,9 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet-draft` | Draft issue comments using issue context and conversation history |
 | `logvalet-digest-periodic` | Generate weekly/daily digest summaries with LLM highlights |
 | `logvalet-spec-to-issues` | Decompose a spec document into Backlog issues (SKILL-only, no CLI needed) |
+| `logvalet-decisions` | Extract and summarize decision logs from issue timeline history |
+| `logvalet-intelligence` | Analyze activity statistics to detect anomalies, biases, and risks |
+| `logvalet-risk` | Generate integrated risk assessment and recommended actions for a project |
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 
