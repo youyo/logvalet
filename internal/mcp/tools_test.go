@@ -32,13 +32,13 @@ func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[st
 	return result
 }
 
-// MCP-1: NewServer で 28 ツールが登録されること
+// MCP-1: NewServer で 29 ツールが登録されること
 func TestNewServer_RegistersAllTools(t *testing.T) {
 	mock := backlog.NewMockClient()
 	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 28
+	expectedCount := 29
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {
@@ -209,5 +209,61 @@ func TestProjectBlockersHandler_MissingProjectKeys(t *testing.T) {
 
 	if !result.IsError {
 		t.Error("expected IsError=true for missing project_keys")
+	}
+}
+
+// MCP-30: logvalet_project_health ハンドラーが mock client から JSON を返すこと
+func TestProjectHealthHandler_Basic(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return &domain.Project{
+			ID:         100,
+			ProjectKey: projectKey,
+			Name:       "Test Project",
+		}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opts backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_project_health", map[string]any{"project_key": "PROJ"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected non-empty result content")
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	analysis, ok := envelope["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis field in envelope, got %T", envelope["analysis"])
+	}
+	if _, ok := analysis["health_score"]; !ok {
+		t.Error("expected health_score field in analysis")
+	}
+	if _, ok := analysis["health_level"]; !ok {
+		t.Error("expected health_level field in analysis")
+	}
+}
+
+// MCP-31: project_key 省略 → IsError: true
+func TestProjectHealthHandler_MissingProjectKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+
+	result := callTool(t, s, "logvalet_project_health", map[string]any{})
+
+	if !result.IsError {
+		t.Error("expected IsError=true for missing project_key")
 	}
 }

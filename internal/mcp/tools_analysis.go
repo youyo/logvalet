@@ -115,6 +115,62 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return detector.Detect(ctx, projectKeys, staleCfg)
 	})
 
+	// logvalet_project_health
+	r.Register(gomcp.NewTool("logvalet_project_health",
+		gomcp.WithDescription("Get project health summary (stale, blockers, workload, score)"),
+		gomcp.WithString("project_key",
+			gomcp.Required(),
+			gomcp.Description("Project key (e.g. PROJ)"),
+		),
+		gomcp.WithNumber("days",
+			gomcp.Description("Days threshold for stale/blocker detection (default 7)"),
+		),
+		gomcp.WithBoolean("include_comments",
+			gomcp.Description("Enable blocked-by-keyword detection via comments (default false)"),
+		),
+		gomcp.WithString("exclude_status",
+			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+
+		var excludeStatus []string
+		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
+			excludeStatus = strings.Split(excludeStatusStr, ",")
+		}
+
+		days := 0
+		if d, ok := intArg(args, "days"); ok && d > 0 {
+			days = d
+		}
+		includeComments := false
+		if ic, ok := boolArg(args, "include_comments"); ok {
+			includeComments = ic
+		}
+
+		healthCfg := analysis.ProjectHealthConfig{
+			StaleConfig: analysis.StaleConfig{
+				DefaultDays:   days,
+				ExcludeStatus: excludeStatus,
+			},
+			BlockerConfig: analysis.BlockerConfig{
+				InProgressDays:  days,
+				ExcludeStatus:   excludeStatus,
+				IncludeComments: includeComments,
+			},
+			WorkloadConfig: analysis.WorkloadConfig{
+				StaleDays:     days,
+				ExcludeStatus: excludeStatus,
+			},
+		}
+
+		builder := analysis.NewProjectHealthBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, projectKey, healthCfg)
+	})
+
 	// logvalet_user_workload
 	r.Register(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),
