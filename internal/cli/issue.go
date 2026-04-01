@@ -20,6 +20,7 @@ type IssueCmd struct {
 	Update     IssueUpdateCmd     `cmd:"" help:"update issue"`
 	Comment    IssueCommentCmd    `cmd:"" help:"manage comments"`
 	Attachment IssueAttachmentCmd `cmd:"" help:"manage attachments"`
+	Context    IssueContextCmd    `cmd:"" help:"get issue context for AI analysis"`
 }
 
 // IssueGetCmd は issue get コマンド。
