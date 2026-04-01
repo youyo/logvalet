@@ -35,10 +35,10 @@ func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[st
 // MCP-1: NewServer で 24 ツールが登録されること
 func TestNewServer_RegistersAllTools(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 24
+	expectedCount := 25
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {
@@ -61,7 +61,7 @@ func TestIssueGetHandler(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{"issue_key": "TEST-1"})
 
 	if result.IsError {
@@ -95,7 +95,7 @@ func TestProjectGetHandler(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_project_get", map[string]any{"project_key": "TESTPROJECT"})
 
 	if result.IsError {
@@ -123,7 +123,7 @@ func TestStarAddHandler(t *testing.T) {
 		return nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_star_add", map[string]any{"issue_id": float64(100)})
 
 	if result.IsError {
@@ -137,7 +137,7 @@ func TestStarAddHandler(t *testing.T) {
 // MCP-E2: 必須パラメータ欠落 → IsError: true
 func TestIssueGetHandler_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{})
 
@@ -151,7 +151,7 @@ func TestIssueGetHandler_NotFound(t *testing.T) {
 	mock := backlog.NewMockClient()
 	// GetIssueFunc が未設定の場合、MockClient は ErrNotFound を返す
 
-	s := mcpinternal.NewServer(mock, "test")
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{"issue_key": "NOTFOUND-999"})
 
 	if !result.IsError {

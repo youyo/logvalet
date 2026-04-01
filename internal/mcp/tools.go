@@ -54,6 +54,17 @@ func stringArg(args map[string]any, key string) (string, bool) {
 	return s, ok
 }
 
+// boolArg は args map から bool 引数を取り出すヘルパー。
+// ok=false の場合は false を返す。
+func boolArg(args map[string]any, key string) (bool, bool) {
+	v, ok := args[key]
+	if !ok {
+		return false, false
+	}
+	b, ok := v.(bool)
+	return b, ok
+}
+
 // intArg は args map から数値引数を取り出すヘルパー。
 // JSON number は float64 として渡されるため int に変換する。
 func intArg(args map[string]any, key string) (int, bool) {

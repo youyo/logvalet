@@ -25,7 +25,12 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	}
 
 	ver := version.NewInfo().Version
-	s := mcpinternal.NewServer(rc.Client, ver)
+	cfg := mcpinternal.ServerConfig{
+		Profile: rc.Config.Profile,
+		Space:   rc.Config.Space,
+		BaseURL: rc.Config.BaseURL,
+	}
+	s := mcpinternal.NewServer(rc.Client, ver, cfg)
 	h := mcpserver.NewStreamableHTTPServer(s, mcpserver.WithEndpointPath("/mcp"))
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)

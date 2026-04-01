@@ -10,7 +10,7 @@ import (
 // TestNewServer_ReturnsServer は NewServer が nil でないサーバーを返すことを確認する。
 func TestNewServer_ReturnsServer(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "1.0.0")
+	s := mcpinternal.NewServer(mock, "1.0.0", mcpinternal.ServerConfig{})
 	if s == nil {
 		t.Fatal("expected non-nil MCPServer")
 	}
@@ -21,12 +21,12 @@ func TestNewServer_ReturnsServer(t *testing.T) {
 func TestNewServer_VersionPassedThrough(t *testing.T) {
 	mock := backlog.NewMockClient()
 	// dev バージョン
-	s1 := mcpinternal.NewServer(mock, "dev")
+	s1 := mcpinternal.NewServer(mock, "dev", mcpinternal.ServerConfig{})
 	if s1 == nil {
 		t.Fatal("expected non-nil MCPServer for dev version")
 	}
 	// リリースバージョン
-	s2 := mcpinternal.NewServer(mock, "1.2.3")
+	s2 := mcpinternal.NewServer(mock, "1.2.3", mcpinternal.ServerConfig{})
 	if s2 == nil {
 		t.Fatal("expected non-nil MCPServer for release version")
 	}

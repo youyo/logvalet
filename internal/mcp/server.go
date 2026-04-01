@@ -5,9 +5,17 @@ import (
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
+// ServerConfig は MCP サーバーの設定。
+// analysis 系ツールが IssueContextBuilder に渡す情報を保持する。
+type ServerConfig struct {
+	Profile string
+	Space   string
+	BaseURL string
+}
+
 // NewServer は logvalet MCP サーバーを初期化して返す。
 // すべての tool を登録済みの MCPServer を返す。
-func NewServer(client backlog.Client, ver string) *mcpserver.MCPServer {
+func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.MCPServer {
 	s := mcpserver.NewMCPServer(
 		"logvalet",
 		ver,
@@ -25,6 +33,7 @@ func NewServer(client backlog.Client, ver string) *mcpserver.MCPServer {
 	RegisterMetaTools(reg)
 	RegisterSharedFileTools(reg)
 	RegisterStarTools(reg)
+	RegisterAnalysisTools(reg, cfg)
 
 	return s
 }
