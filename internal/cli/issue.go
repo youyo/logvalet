@@ -23,6 +23,7 @@ type IssueCmd struct {
 	Context         IssueContextCmd         `cmd:"" help:"get issue context for AI analysis"`
 	Stale           IssueStaleCmd           `cmd:"" help:"detect stale issues"`
 	TriageMaterials IssueTriageMaterialsCmd `cmd:"" name:"triage-materials" help:"get triage materials for an issue"`
+	Timeline        IssueTimelineCmd        `cmd:"" help:"get comment and update timeline for an issue"`
 }
 
 // IssueGetCmd は issue get コマンド。

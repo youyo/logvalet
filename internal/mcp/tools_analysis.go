@@ -327,6 +327,69 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, opts)
 	})
 
+	// logvalet_issue_timeline
+	r.Register(gomcp.NewTool("logvalet_issue_timeline",
+		gomcp.WithDescription("Get comment and update timeline for an issue (structured chronological events)"),
+		gomcp.WithString("issue_key",
+			gomcp.Required(),
+			gomcp.Description("Issue key (e.g. PROJ-123)"),
+		),
+		gomcp.WithNumber("max_comments",
+			gomcp.Description("Max number of comments to include (0 = all, default 0)"),
+		),
+		gomcp.WithBoolean("include_updates",
+			gomcp.Description("Include update history events (default true)"),
+		),
+		gomcp.WithNumber("max_activity_pages",
+			gomcp.Description("Max pages for activity pagination (default 5)"),
+		),
+		gomcp.WithString("since",
+			gomcp.Description("Filter events since date (YYYY-MM-DD)"),
+		),
+		gomcp.WithString("until",
+			gomcp.Description("Filter events until date (YYYY-MM-DD)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+
+		opts := analysis.CommentTimelineOptions{}
+
+		if maxComments, ok := intArg(args, "max_comments"); ok && maxComments > 0 {
+			opts.MaxComments = maxComments
+		}
+
+		// include_updates: デフォルト true（nil の場合は Builder 側で true とみなす）
+		if includeUpdates, ok := boolArg(args, "include_updates"); ok {
+			opts.IncludeUpdates = &includeUpdates
+		}
+
+		if maxActivityPages, ok := intArg(args, "max_activity_pages"); ok && maxActivityPages > 0 {
+			opts.MaxActivityPages = maxActivityPages
+		}
+
+		if since, ok := stringArg(args, "since"); ok && since != "" {
+			t, err := parseDateStr(since)
+			if err != nil {
+				return nil, fmt.Errorf("invalid since: %w", err)
+			}
+			opts.Since = &t
+		}
+
+		if until, ok := stringArg(args, "until"); ok && until != "" {
+			t, err := parseDateStr(until)
+			if err != nil {
+				return nil, fmt.Errorf("invalid until: %w", err)
+			}
+			opts.Until = &t
+		}
+
+		builder := analysis.NewCommentTimelineBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, issueKey, opts)
+	})
+
 	// logvalet_user_workload
 	r.Register(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),

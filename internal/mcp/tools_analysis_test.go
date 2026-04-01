@@ -489,3 +489,63 @@ func TestActivityStats_MCPTool_WithTopN(t *testing.T) {
 		t.Errorf("Resource = %q, want %q", envelope.Resource, "activity_stats")
 	}
 }
+
+// T_timeline_1: logvalet_issue_timeline が ToolRegistry に登録されていること
+func TestRegisterAnalysisTools_IssueTimelineRegistered(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	tool := s.GetTool("logvalet_issue_timeline")
+	if tool == nil {
+		t.Fatal("logvalet_issue_timeline tool not registered")
+	}
+}
+
+// T_timeline_2: logvalet_issue_timeline ハンドラーが正常に AnalysisEnvelope を返すこと
+func TestIssueTimelineHandler_Success(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return helperMCPIssue(), nil
+	}
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return helperMCPComments(3), nil
+	}
+	mock.ListProjectActivitiesFunc = func(ctx context.Context, projectKey string, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_issue_timeline", map[string]any{"issue_key": "PROJ-123"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "issue_timeline" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "issue_timeline")
+	}
+	if envelope.Profile != "default" {
+		t.Errorf("Profile = %q, want %q", envelope.Profile, "default")
+	}
+}
+
+// T_timeline_3: issue_key が空の場合にエラーを返すこと
+func TestIssueTimelineHandler_MissingIssueKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	result := callTool(t, s, "logvalet_issue_timeline", map[string]any{})
+
+	if !result.IsError {
+		t.Error("expected IsError=true for missing issue_key")
+	}
+}
