@@ -112,8 +112,13 @@ end
 | `issue attachment get <KEY> <ID>` | 添付ファイル情報の取得 |
 | `issue attachment download <KEY> <ID>` | 添付ファイルのダウンロード |
 | `issue attachment delete <KEY> <ID>` | 添付ファイルの削除 |
+| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル） |
+| `issue stale` | プロジェクトの停滞課題を検出 |
 | `project get <KEY>` | プロジェクトの取得 |
 | `project list` | プロジェクト一覧 |
+| `project blockers <KEY>` | プロジェクトのブロッカー検出（停滞・未アサイン・期限超過） |
+| `project health <KEY>` | プロジェクト健全性の統合ビュー |
+| `user workload <KEY>` | ユーザー負荷状況の分析 |
 | `activity list` | アクティビティ一覧 |
 | `user list` | スペースユーザー一覧 |
 | `user get <ID>` | ユーザーの取得 |
@@ -135,6 +140,39 @@ end
 | `shared-file download <FILE-ID>` | 共有ファイルのダウンロード |
 | `star add` | スター追加（課題、コメント、Wiki等） |
 | `mcp` | MCP サーバー起動（Streamable HTTP） |
+
+## AI 分析コマンド
+
+Phase 1 で、プロジェクトの洞察と意思決定支援のための AI 指向分析コマンドが追加されました:
+
+| コマンド | 説明 |
+|---------|------|
+| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル） |
+| `issue stale -k <PROJECT>` | N日以上更新のない停滞課題を検出 |
+| `project blockers <PROJECT>` | ブロッカー検出（停滞高優先度・未アサイン・期限超過） |
+| `user workload <PROJECT>` | ユーザーごとの未完了課題数・期限超過分布を分析 |
+| `project health <PROJECT>` | 停滞検出・ブロッカー・負荷を統合した健全性ビュー |
+
+### 利用例
+
+```bash
+# 課題のコンテキストを一括取得
+logvalet issue context PROJ-123
+
+# 7日以上更新のない停滞課題を検出
+logvalet issue stale -k PROJ --days 7
+
+# コメントを含むブロッカー検出
+logvalet project blockers PROJ --days 14 --include-comments
+
+# 完了済みステータスを除いたユーザー負荷分析
+logvalet user workload PROJ --exclude-status "完了,却下"
+
+# プロジェクト健全性の統合レポート
+logvalet project health PROJ --days 7
+```
+
+---
 
 ## グローバルフラグ
 
@@ -380,12 +418,17 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-MCP サーバーは以下を含む 24 個以上のツールを提供します:
+MCP サーバーは以下を含む 29 個以上のツールを提供します:
 - `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
 - `logvalet_project_get`, `logvalet_project_list`
 - `logvalet_digest`
 - `logvalet_shared_file_list`, `logvalet_shared_file_download`
 - `logvalet_star_add`
+- `logvalet_issue_context` — 課題コンテキスト分析
+- `logvalet_issue_stale` — 停滞課題検出
+- `logvalet_project_blockers` — ブロッカー検出
+- `logvalet_user_workload` — ユーザー負荷分析
+- `logvalet_project_health` — プロジェクト健全性統合ビュー
 - その他多数...
 
 Claude Desktop の設定または Claude Code のスキル設定で MCP サーバーを設定し、logvalet をツールとして使用できます。
@@ -420,11 +463,13 @@ npx skills add youyo/logvalet -a claude-code
 
 | スキル | 説明 |
 |--------|------|
-| `logvalet` | コア操作（課題、プロジェクト、ダイジェスト、ユーザー、チーム） |
-| `logvalet-report` | レポート生成・分析 |
-| `logvalet-my-week` | 週次サマリーとタスク管理 |
-| `logvalet-my-next` | 次のタスク・優先順位管理 |
+| `logvalet` | コア操作（課題、プロジェクト、ダイジェスト、ユーザー、チーム、AI分析コマンド） |
+| `logvalet-report` | レポート生成・分析（プロジェクト健全性統合対応） |
+| `logvalet-my-week` | 週次サマリーとタスク管理（停滞・期限超過シグナル対応） |
+| `logvalet-my-next` | 次のタスク・優先順位管理（負荷状況コンテキスト対応） |
 | `logvalet-issue-create` | 課題作成ワークフロー（テンプレート付き） |
+| `logvalet-health` | プロジェクト健全性チェック（停滞課題・ブロッカー・ユーザー負荷） |
+| `logvalet-context` | 課題コンテキスト分析（詳細・コメント・分析シグナル） |
 
 インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
 

@@ -642,6 +642,105 @@ logvalet issue comment update PROJ-123 999 --content "Updated note"
 
 ---
 
+## issue context
+
+課題の判断材料（詳細・コメント・関連情報）を一括取得する。
+
+```bash
+logvalet issue context PROJ-123
+```
+
+LLM エージェントが課題を理解・判断するために必要なコンテキストをまとめて返す。`digest --issue` よりも課題特化のリッチな出力を提供する。
+
+---
+
+## issue stale
+
+停滞課題（長期間更新のない課題）を検出する。
+
+```bash
+logvalet issue stale -k PROJECT
+logvalet issue stale -k PROJECT --days 7
+logvalet issue stale -k PROJECT --days 14 --exclude-status "完了,却下"
+```
+
+Flags:
+
+```text
+-k, --project-key <key>      対象プロジェクトキー（必須）
+--days <n>                   停滞とみなす日数（デフォルト: 7）
+--exclude-status <statuses>  除外するステータス（カンマ区切り）
+```
+
+Use this to identify issues that have not been updated for a specified number of days.
+
+---
+
+## project blockers
+
+プロジェクトの進行阻害要因（ブロッカー）を検出する。
+
+```bash
+logvalet project blockers PROJECT
+logvalet project blockers PROJECT --days 14 --include-comments
+logvalet project blockers PROJECT --days 14 --exclude-status "完了,却下"
+```
+
+Flags:
+
+```text
+--days <n>                   停滞とみなす日数（デフォルト: 14）
+--include-comments           コメントを含む分析
+--exclude-status <statuses>  除外するステータス（カンマ区切り）
+```
+
+Detects issues that may be blocking project progress: long-stale issues, high-priority unassigned issues, overdue items.
+
+---
+
+## user workload
+
+ユーザーの担当課題数・負荷状況を分析する。
+
+```bash
+logvalet user workload PROJECT
+logvalet user workload PROJECT --days 7
+logvalet user workload PROJECT --days 7 --exclude-status "完了,却下"
+```
+
+Flags:
+
+```text
+--days <n>                   集計対象日数（デフォルト: 7）
+--exclude-status <statuses>  除外するステータス（カンマ区切り）
+```
+
+Returns per-user open issue counts, overdue counts, and activity signals for the project.
+
+---
+
+## project health
+
+プロジェクト健全性の統合ビューを生成する。
+
+```bash
+logvalet project health PROJECT
+logvalet project health PROJECT --days 7 --include-comments
+logvalet project health PROJECT --days 14 --exclude-status "完了,却下"
+```
+
+Flags:
+
+```text
+--days <n>                   集計対象日数（デフォルト: 7）
+--include-comments           コメントを含む分析
+--exclude-status <statuses>  除外するステータス（カンマ区切り）
+```
+
+Combines stale issue detection, blocker analysis, and user workload into a single health report. Use this for project reviews or daily standup preparation.
+
+---
+
 ## project
 
 ### Get one project
@@ -972,6 +1071,11 @@ If you only remember a few commands, remember these:
 ```bash
 logvalet issue list --assignee me --status not-closed -f gantt
 logvalet digest --issue PROJ-123 --since 30d
+logvalet issue context PROJ-123
+logvalet issue stale -k PROJ --days 7
+logvalet project blockers PROJ --days 14
+logvalet user workload PROJ
+logvalet project health PROJ
 logvalet issue list --project-key PROJ
 logvalet issue create --project-key PROJ --summary "..."
 logvalet issue comment add PROJ-123 --content "..."

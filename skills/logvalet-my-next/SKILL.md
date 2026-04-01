@@ -100,3 +100,21 @@ This is a display-only skill. No questions, no writes.
 - `--due-date ${TODAY}:${END_DATE}` returns items within the computed date range
 - If either command returns no items, show "なし" in that section
 - Output is cross-project — no `--project-key` filter is used
+
+---
+
+## Optional: Workload context (Phase 1)
+
+When the user wants to understand team workload before picking the next task, use:
+
+```bash
+# Show workload distribution for a project
+lv user workload PROJECT_KEY -f md
+```
+
+Use this when:
+- The user is choosing what to work on next and wants to know if colleagues are overloaded
+- The user asks "誰かに頼める？" or "チームのキャパは？"
+- You want to recommend delegation targets based on workload balance
+
+**When to include automatically:** If the user's upcoming tasks include items blocked by others, run `lv user workload` for the relevant project and append a "チーム負荷サマリー" section below the upcoming task list.

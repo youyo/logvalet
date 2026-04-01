@@ -63,3 +63,22 @@ This is a display-only skill. No questions, no writes.
 - `--due-date this-week` returns items due Monday–Sunday of the current week
 - If either command returns no items, show "なし" in that section
 - Output is cross-project — no `--project-key` filter is used
+
+---
+
+## Optional: Stale & overdue signals (Phase 1)
+
+When the user wants deeper insight beyond the issue list, use stale detection to surface long-overdue items:
+
+```bash
+# Identify issues that haven't been updated in 7+ days across a specific project
+lv issue stale -k PROJECT_KEY --days 7 -f md
+```
+
+Use this when:
+- The user wants to know which overdue items are actually stuck (not just late)
+- You want to flag items that may need escalation
+
+If multiple projects are active, run `lv issue stale` per project in parallel.
+
+**Signal integration rule:** If any stale issues appear in the current week's items, annotate them in the output with a warning indicator (e.g., `⚠ 停滞中`) to help the user prioritize review.

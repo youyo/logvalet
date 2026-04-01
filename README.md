@@ -110,8 +110,13 @@ This enables completion for both `logvalet` and `lv`.
 | `issue attachment get <KEY> <ID>` | Get attachment info |
 | `issue attachment download <KEY> <ID>` | Download an attachment |
 | `issue attachment delete <KEY> <ID>` | Delete an attachment |
+| `issue context <KEY>` | Get full context for a single issue (details, comments, signals) |
+| `issue stale` | Detect stale issues in a project |
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
+| `project blockers <KEY>` | Detect project blockers (stale, unassigned, overdue) |
+| `project health <KEY>` | Integrated project health view |
+| `user workload <KEY>` | Analyze user workload distribution |
 | `activity list` | List activity events |
 | `user list` | List space users |
 | `user get <ID>` | Get a single user |
@@ -136,6 +141,39 @@ This enables completion for both `logvalet` and `lv`.
 | `config init` | Interactive configuration setup |
 | `configure` | Alias for config init |
 | `version` | Show version information |
+
+## AI Analysis Commands
+
+Phase 1 added a set of AI-oriented analysis commands for project insight and decision support:
+
+| Command | Description |
+|---------|-------------|
+| `issue context <KEY>` | Fetch full context for a single issue: details, comments, and analysis signals |
+| `issue stale -k <PROJECT>` | Detect issues that haven't been updated for N days |
+| `project blockers <PROJECT>` | Detect blockers: stale high-priority, unassigned, or overdue issues |
+| `user workload <PROJECT>` | Analyze per-user open issue counts and overdue distribution |
+| `project health <PROJECT>` | Integrated health view combining stale detection, blockers, and workload |
+
+### Examples
+
+```bash
+# Get full context for an issue
+logvalet issue context PROJ-123
+
+# Detect issues stale for 7+ days
+logvalet issue stale -k PROJ --days 7
+
+# Detect project blockers including comments
+logvalet project blockers PROJ --days 14 --include-comments
+
+# Analyze user workload, excluding closed statuses
+logvalet user workload PROJ --exclude-status "完了,却下"
+
+# Full project health report
+logvalet project health PROJ --days 7
+```
+
+---
 
 ## Global Flags
 
@@ -381,12 +419,17 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server provides 24+ tools including:
+The MCP server provides 29+ tools including:
 - `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
 - `logvalet_project_get`, `logvalet_project_list`
 - `logvalet_digest`
 - `logvalet_shared_file_list`, `logvalet_shared_file_download`
 - `logvalet_star_add`
+- `logvalet_issue_context` — Issue context analysis
+- `logvalet_issue_stale` — Stale issue detection
+- `logvalet_project_blockers` — Project blocker detection
+- `logvalet_user_workload` — User workload analysis
+- `logvalet_project_health` — Integrated project health view
 - And many more...
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
@@ -422,11 +465,13 @@ npx skills add youyo/logvalet -a claude-code
 
 | Skill | Description |
 |-------|-------------|
-| `logvalet` | Core operations (issue, project, digest, user, team) |
-| `logvalet-report` | Report generation and analysis |
-| `logvalet-my-week` | Weekly summary and task management |
-| `logvalet-my-next` | Next-up task and priority management |
+| `logvalet` | Core operations (issue, project, digest, user, team, and AI analysis commands) |
+| `logvalet-report` | Report generation and analysis (with project health integration) |
+| `logvalet-my-week` | Weekly summary and task management (with stale/overdue signals) |
+| `logvalet-my-next` | Next-up task and priority management (with workload context) |
 | `logvalet-issue-create` | Issue creation workflow with templates |
+| `logvalet-health` | Project health check: stale issues, blockers, and user workload |
+| `logvalet-context` | Full issue context: details, comments, and analysis signals |
 
 After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
 

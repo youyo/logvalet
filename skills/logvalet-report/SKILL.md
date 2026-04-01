@@ -179,8 +179,48 @@ YYYY年MM月DD日 〜 YYYY年MM月DD日
 - **並列実行推奨** — 複数メンバーの activity 取得は並列 Bash で効率化
 - **プロジェクト名の解決** — issue key のプレフィックス（例: `PROJ` from `PROJ-123`）がわかる場合、`lv project get PROJ -f json` でプロジェクト名を取得
 
+---
+
+## Optional: Project health integration (Phase 1)
+
+When the report target includes a project and the user wants a broader health view:
+
+```bash
+# Get project health snapshot
+lv project health PROJECT_KEY --days 7 -f json
+
+# Get blockers
+lv project blockers PROJECT_KEY --days 14 -f json
+```
+
+Run these **in parallel** with activity fetching (Step 4) to avoid extra latency.
+
+**When to include:** If the user asks for a "プロジェクトレポート", "健全性チェック", or includes project health as a report target, append a "## プロジェクト健全性" section after the アクティビティ統計 section with:
+
+```markdown
+## プロジェクト健全性
+
+### 停滞課題
+- 停滞課題数: N件（7日以上更新なし）
+- 主な停滞課題: PROJ-XXX, PROJ-YYY
+
+### ブロッカー
+- 未アサイン高優先度課題: N件
+- 期限超過課題: N件
+
+### ユーザー負荷
+| ユーザー | 担当課題数 | 期限超過 |
+|---------|----------|---------|
+| Name1   | X        | Y       |
+```
+
+**Important:** Only add this section when the user explicitly requests health/blockers data or asks for a project-level report. Do not add it to user activity reports.
+
+---
+
 ## Anti-patterns
 
 - レポートフォーマットを勝手にアレンジしない
 - Keep/Problem/Try を AI が推測で埋めない（プレースホルダーのまま出力する）
 - メンバーごとに1回ずつ質問しない — パラメータは一括で聞く
+- project health セクションを全レポートに無条件で追加しない — ユーザーの要求に応じてのみ追加する
