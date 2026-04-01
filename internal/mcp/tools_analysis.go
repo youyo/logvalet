@@ -171,6 +171,23 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, projectKey, healthCfg)
 	})
 
+	// logvalet_issue_triage_materials
+	r.Register(gomcp.NewTool("logvalet_issue_triage_materials",
+		gomcp.WithDescription("Get triage materials for an issue (stats, similar issues, history)"),
+		gomcp.WithString("issue_key",
+			gomcp.Required(),
+			gomcp.Description("Issue key (e.g. PROJ-123)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+
+		builder := analysis.NewTriageMaterialsBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, issueKey, analysis.TriageMaterialsOptions{})
+	})
+
 	// logvalet_user_workload
 	r.Register(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),
