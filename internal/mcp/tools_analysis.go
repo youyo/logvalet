@@ -262,6 +262,71 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, projectKey, opts)
 	})
 
+	// logvalet_activity_stats
+	r.Register(gomcp.NewTool("logvalet_activity_stats",
+		gomcp.WithDescription("Get activity statistics (by type, actor, date, hour, patterns)"),
+		gomcp.WithString("scope",
+			gomcp.Description("Activity scope: project, user, or space (default: space)"),
+		),
+		gomcp.WithString("project_key",
+			gomcp.Description("Project key (required when scope=project)"),
+		),
+		gomcp.WithString("user_id",
+			gomcp.Description("User ID (required when scope=user)"),
+		),
+		gomcp.WithString("since",
+			gomcp.Description("Start date in YYYY-MM-DD format (default: 7 days ago)"),
+		),
+		gomcp.WithString("until",
+			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
+		),
+		gomcp.WithNumber("top_n",
+			gomcp.Description("Number of top actors/types to include (default: 5)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		scope := "space"
+		if s, ok := stringArg(args, "scope"); ok && s != "" {
+			scope = s
+		}
+
+		scopeKey := ""
+		if scope == "project" {
+			if pk, ok := stringArg(args, "project_key"); ok {
+				scopeKey = pk
+			}
+		} else if scope == "user" {
+			if uid, ok := stringArg(args, "user_id"); ok {
+				scopeKey = uid
+			}
+		}
+
+		opts := analysis.ActivityStatsOptions{
+			Scope:    scope,
+			ScopeKey: scopeKey,
+		}
+
+		if since, ok := stringArg(args, "since"); ok && since != "" {
+			t, err := parseDateStr(since)
+			if err != nil {
+				return nil, fmt.Errorf("invalid since: %w", err)
+			}
+			opts.Since = &t
+		}
+		if until, ok := stringArg(args, "until"); ok && until != "" {
+			t, err := parseDateStr(until)
+			if err != nil {
+				return nil, fmt.Errorf("invalid until: %w", err)
+			}
+			opts.Until = &t
+		}
+		if topN, ok := intArg(args, "top_n"); ok && topN > 0 {
+			opts.TopN = topN
+		}
+
+		builder := analysis.NewActivityStatsBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, opts)
+	})
+
 	// logvalet_user_workload
 	r.Register(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),

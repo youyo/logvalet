@@ -376,3 +376,116 @@ func TestDigestDaily_MCPTool_MissingProjectKey(t *testing.T) {
 		t.Error("expected IsError=true for missing project_key")
 	}
 }
+
+// A1: logvalet_activity_stats が登録されていること
+func TestActivityStats_MCPTool_Registered(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	tool := s.GetTool("logvalet_activity_stats")
+	if tool == nil {
+		t.Fatal("logvalet_activity_stats tool not registered")
+	}
+}
+
+// A2: scope=space で正常に AnalysisEnvelope を返すこと
+func TestActivityStats_MCPTool_SpaceScope(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListSpaceActivitiesFunc = func(_ context.Context, _ backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_activity_stats", map[string]any{})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "activity_stats" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "activity_stats")
+	}
+}
+
+// A3: scope=project で正常に AnalysisEnvelope を返すこと
+func TestActivityStats_MCPTool_ProjectScope(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectActivitiesFunc = func(_ context.Context, projectKey string, _ backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
+		"scope":       "project",
+		"project_key": "PROJ",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "activity_stats" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "activity_stats")
+	}
+}
+
+// A4: 不正な since 日付でエラーになること
+func TestActivityStats_MCPTool_InvalidSince(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
+		"since": "not-a-date",
+	})
+	if !result.IsError {
+		t.Error("expected IsError=true for invalid since date")
+	}
+}
+
+// A5: top_n パラメータが正常に処理されること
+func TestActivityStats_MCPTool_WithTopN(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListSpaceActivitiesFunc = func(_ context.Context, _ backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
+		"top_n": float64(3),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "activity_stats" {
+		t.Errorf("Resource = %q, want %q", envelope.Resource, "activity_stats")
+	}
+}

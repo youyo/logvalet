@@ -13,6 +13,7 @@ import (
 type ActivityCmd struct {
 	List   ActivityListCmd   `cmd:"" help:"list activities"`
 	Digest ActivityDigestCmd `cmd:"" help:"generate activity digest"`
+	Stats  ActivityStatsCmd  `cmd:"" help:"show activity statistics (by type, actor, date, hour, patterns)"`
 }
 
 // ActivityListCmd は activity list コマンド（spec §14.12）。
