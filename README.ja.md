@@ -139,6 +139,13 @@ end
 | `shared-file get <FILE-ID>` | 共有ファイル情報の取得 |
 | `shared-file download <FILE-ID>` | 共有ファイルのダウンロード |
 | `star add` | スター追加（課題、コメント、Wiki等） |
+| `watching list <USER-ID>` | ウォッチ一覧取得（`me` 対応） |
+| `watching count <USER-ID>` | ウォッチ件数取得 |
+| `watching get <WATCHING-ID>` | ウォッチ詳細取得 |
+| `watching add <ISSUE-ID-OR-KEY>` | ウォッチ追加 |
+| `watching update <WATCHING-ID>` | ウォッチのメモ更新 |
+| `watching delete <WATCHING-ID>` | ウォッチ削除 |
+| `watching mark-as-read <WATCHING-ID>` | ウォッチ既読化 |
 | `mcp` | MCP サーバー起動（Streamable HTTP） |
 
 ## AI 分析コマンド
@@ -460,6 +467,33 @@ logvalet star add --pr-id pr456
 
 # プルリクエストコメントにスターを追加
 logvalet star add --pr-comment-id prcomment789
+```
+
+## ウォッチ
+
+課題のウォッチを管理 — 担当ではなくても気にかけている課題を追跡:
+
+```bash
+# 自分のウォッチ一覧（"me" は認証ユーザーに自動解決）
+logvalet watching list me
+
+# ウォッチ件数
+logvalet watching count me
+
+# ウォッチ詳細
+logvalet watching get 2997876
+
+# 課題をウォッチに追加
+logvalet watching add PROJ-123 --note "依存先の課題"
+
+# ウォッチのメモを更新
+logvalet watching update 2997876 --note "更新されたメモ"
+
+# ウォッチを削除
+logvalet watching delete 2997876
+
+# 既読にする
+logvalet watching mark-as-read 2997876
 ```
 
 ## MCP サーバー

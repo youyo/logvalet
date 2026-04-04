@@ -137,6 +137,13 @@ This enables completion for both `logvalet` and `lv`.
 | `shared-file get <FILE-ID>` | Get shared file info |
 | `shared-file download <FILE-ID>` | Download a shared file |
 | `star add` | Add a star (issue, comment, wiki, PR, etc.) |
+| `watching list <USER-ID>` | List watchings for a user (`me` supported) |
+| `watching count <USER-ID>` | Count watchings for a user |
+| `watching get <WATCHING-ID>` | Get watching detail |
+| `watching add <ISSUE-ID-OR-KEY>` | Add watching for an issue |
+| `watching update <WATCHING-ID>` | Update watching note |
+| `watching delete <WATCHING-ID>` | Delete watching |
+| `watching mark-as-read <WATCHING-ID>` | Mark watching as read |
 | `mcp` | Start MCP server (Streamable HTTP) |
 | `config init` | Interactive configuration setup |
 | `configure` | Alias for config init |
@@ -461,6 +468,33 @@ logvalet star add --pr-id pr456
 
 # Star a pull request comment
 logvalet star add --pr-comment-id prcomment789
+```
+
+## Watchings
+
+Manage issue watchings — track issues you care about even when you're not the assignee:
+
+```bash
+# List your watchings ("me" resolves to authenticated user)
+logvalet watching list me
+
+# Count your watchings
+logvalet watching count me
+
+# Get watching detail
+logvalet watching get 2997876
+
+# Add a watching for an issue
+logvalet watching add PROJ-123 --note "Tracking dependency"
+
+# Update watching note
+logvalet watching update 2997876 --note "Updated note"
+
+# Delete a watching
+logvalet watching delete 2997876
+
+# Mark as read
+logvalet watching mark-as-read 2997876
 ```
 
 ## MCP Server
