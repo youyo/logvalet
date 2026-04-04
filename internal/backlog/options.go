@@ -62,3 +62,14 @@ type ListSharedFilesOptions struct {
 	Limit  int
 	Offset int
 }
+
+// ListWatchingsOptions は ListWatchings リクエストのオプション。
+// Backlog API: GET /api/v2/users/{userId}/watchings
+type ListWatchingsOptions struct {
+	Order                    string // "asc" or "desc"（空文字 = API デフォルト）
+	Sort                     string // "created", "updated", "issueUpdated"
+	Count                    int    // 取得件数（最大100）
+	Offset                   int
+	ResourceAlreadyRead      *bool  // true=既読のみ、false=未読のみ、nil=全件
+	IssueID                  int    // 特定課題 ID でフィルタ（0=フィルタなし）
+}

@@ -332,3 +332,118 @@ func TestMockClientAllMethodsDefaultToErrNotFound(t *testing.T) {
 		}
 	})
 }
+
+// TestMockClientWatchings は Watching 系メソッドのモックテスト。
+func TestMockClientListWatchings(t *testing.T) {
+	t.Run("returns watchings from func", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		mock.ListWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) ([]domain.Watching, error) {
+			return []domain.Watching{{ID: 1, Type: "issue"}}, nil
+		}
+		got, err := mock.ListWatchings(context.Background(), 123, backlog.ListWatchingsOptions{})
+		if err != nil {
+			t.Fatalf("ListWatchings() error = %v", err)
+		}
+		if len(got) != 1 || got[0].ID != 1 {
+			t.Errorf("unexpected result: %+v", got)
+		}
+		if mock.GetCallCount("ListWatchings") != 1 {
+			t.Errorf("call count = %d, want 1", mock.GetCallCount("ListWatchings"))
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.ListWatchings(context.Background(), 123, backlog.ListWatchingsOptions{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientCountWatchings(t *testing.T) {
+	t.Run("returns count from func", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		mock.CountWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) (int, error) {
+			return 5, nil
+		}
+		count, err := mock.CountWatchings(context.Background(), 123, backlog.ListWatchingsOptions{})
+		if err != nil {
+			t.Fatalf("CountWatchings() error = %v", err)
+		}
+		if count != 5 {
+			t.Errorf("count = %d, want 5", count)
+		}
+	})
+}
+
+func TestMockClientGetWatching(t *testing.T) {
+	t.Run("returns watching from func", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		mock.GetWatchingFunc = func(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+			return &domain.Watching{ID: watchingID, Type: "issue"}, nil
+		}
+		got, err := mock.GetWatching(context.Background(), 42)
+		if err != nil {
+			t.Fatalf("GetWatching() error = %v", err)
+		}
+		if got.ID != 42 {
+			t.Errorf("ID = %d, want 42", got.ID)
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.GetWatching(context.Background(), 42)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+func TestMockClientAddWatching(t *testing.T) {
+	t.Run("calls func with request", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		var capturedReq backlog.AddWatchingRequest
+		mock.AddWatchingFunc = func(ctx context.Context, req backlog.AddWatchingRequest) (*domain.Watching, error) {
+			capturedReq = req
+			return &domain.Watching{ID: 100, Type: "issue"}, nil
+		}
+		got, err := mock.AddWatching(context.Background(), backlog.AddWatchingRequest{IssueIDOrKey: "PROJ-1", Note: "test"})
+		if err != nil {
+			t.Fatalf("AddWatching() error = %v", err)
+		}
+		if capturedReq.IssueIDOrKey != "PROJ-1" {
+			t.Errorf("IssueIDOrKey = %q, want PROJ-1", capturedReq.IssueIDOrKey)
+		}
+		if got.ID != 100 {
+			t.Errorf("ID = %d, want 100", got.ID)
+		}
+	})
+}
+
+func TestMockClientMarkWatchingAsRead(t *testing.T) {
+	t.Run("calls func and returns nil", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		var capturedID int64
+		mock.MarkWatchingAsReadFunc = func(ctx context.Context, watchingID int64) error {
+			capturedID = watchingID
+			return nil
+		}
+		err := mock.MarkWatchingAsRead(context.Background(), 42)
+		if err != nil {
+			t.Fatalf("MarkWatchingAsRead() error = %v", err)
+		}
+		if capturedID != 42 {
+			t.Errorf("watchingID = %d, want 42", capturedID)
+		}
+	})
+
+	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		err := mock.MarkWatchingAsRead(context.Background(), 42)
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("error = %v, want ErrNotFound", err)
+		}
+	})
+}

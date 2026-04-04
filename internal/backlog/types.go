@@ -73,6 +73,19 @@ type AddStarRequest struct {
 	PullRequestCommentID *int `json:"pullRequestCommentId,omitempty"`
 }
 
+// AddWatchingRequest は AddWatching リクエストのパラメータ。
+// issueIdOrKey は必須。note はオプション。
+type AddWatchingRequest struct {
+	IssueIDOrKey string
+	Note         string
+}
+
+// UpdateWatchingRequest は UpdateWatching リクエストのパラメータ。
+// note のみ更新可能。
+type UpdateWatchingRequest struct {
+	Note string
+}
+
 // ---- Response metadata ----
 
 // Pagination はリスト API のページネーション情報。

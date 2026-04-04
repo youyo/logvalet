@@ -17,6 +17,7 @@ type CLI struct {
 	Document    DocumentCmd    `cmd:"" help:"manage documents"`
 	SharedFile  SharedFileCmd  `cmd:"" help:"manage shared files"`
 	Star        StarCmd        `cmd:"" help:"manage stars"`
+	Watching    WatchingCmd    `cmd:"" help:"manage watchings"`
 	Meta        MetaCmd        `cmd:"" help:"get metadata (statuses, categories, etc.)"`
 	Team        TeamCmd        `cmd:"" help:"manage teams"`
 	Space       SpaceCmd       `cmd:"" help:"manage spaces"`

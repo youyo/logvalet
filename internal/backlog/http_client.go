@@ -927,6 +927,151 @@ func (c *HTTPClient) DownloadIssueAttachment(ctx context.Context, issueKey strin
 	return c.doDownload(req)
 }
 
+// ---- Watchings ----
+
+// ListWatchings は指定ユーザーのウォッチ一覧を返す。
+// GET /api/v2/users/{userId}/watchings
+func (c *HTTPClient) ListWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error) {
+	q := url.Values{}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
+	}
+	if opt.Sort != "" {
+		q.Set("sort", opt.Sort)
+	}
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
+	}
+	if opt.Offset > 0 {
+		q.Set("offset", strconv.Itoa(opt.Offset))
+	}
+	if opt.ResourceAlreadyRead != nil {
+		if *opt.ResourceAlreadyRead {
+			q.Set("resourceAlreadyRead", "true")
+		} else {
+			q.Set("resourceAlreadyRead", "false")
+		}
+	}
+	if opt.IssueID > 0 {
+		q.Set("issueId", strconv.Itoa(opt.IssueID))
+	}
+	apiPath := fmt.Sprintf("/api/v2/users/%d/watchings", userID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, q)
+	if err != nil {
+		return nil, err
+	}
+	var watchings []domain.Watching
+	if err := c.do(req, &watchings); err != nil {
+		return nil, err
+	}
+	return watchings, nil
+}
+
+// CountWatchings は指定ユーザーのウォッチ件数を返す。
+// GET /api/v2/users/{userId}/watchings/count
+func (c *HTTPClient) CountWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error) {
+	q := url.Values{}
+	if opt.ResourceAlreadyRead != nil {
+		if *opt.ResourceAlreadyRead {
+			q.Set("resourceAlreadyRead", "true")
+		} else {
+			q.Set("resourceAlreadyRead", "false")
+		}
+	}
+	if opt.IssueID > 0 {
+		q.Set("issueId", strconv.Itoa(opt.IssueID))
+	}
+	apiPath := fmt.Sprintf("/api/v2/users/%d/watchings/count", userID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, q)
+	if err != nil {
+		return 0, err
+	}
+	var result struct {
+		Count int `json:"count"`
+	}
+	if err := c.do(req, &result); err != nil {
+		return 0, err
+	}
+	return result.Count, nil
+}
+
+// GetWatching は指定ウォッチの詳細を返す。
+// GET /api/v2/watchings/{watchingId}
+func (c *HTTPClient) GetWatching(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+	apiPath := fmt.Sprintf("/api/v2/watchings/%d", watchingID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var watching domain.Watching
+	if err := c.do(req, &watching); err != nil {
+		return nil, err
+	}
+	return &watching, nil
+}
+
+// AddWatching は課題をウォッチ登録する。
+// POST /api/v2/watchings
+func (c *HTTPClient) AddWatching(ctx context.Context, reqBody AddWatchingRequest) (*domain.Watching, error) {
+	q := url.Values{}
+	q.Set("issueIdOrKey", reqBody.IssueIDOrKey)
+	if reqBody.Note != "" {
+		q.Set("note", reqBody.Note)
+	}
+	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/watchings", q)
+	if err != nil {
+		return nil, err
+	}
+	var watching domain.Watching
+	if err := c.do(req, &watching); err != nil {
+		return nil, err
+	}
+	return &watching, nil
+}
+
+// UpdateWatching はウォッチのノートを更新する。
+// PATCH /api/v2/watchings/{watchingId}
+func (c *HTTPClient) UpdateWatching(ctx context.Context, watchingID int64, reqBody UpdateWatchingRequest) (*domain.Watching, error) {
+	q := url.Values{}
+	q.Set("note", reqBody.Note)
+	apiPath := fmt.Sprintf("/api/v2/watchings/%d", watchingID)
+	req, err := c.newRequest(ctx, http.MethodPatch, apiPath, q)
+	if err != nil {
+		return nil, err
+	}
+	var watching domain.Watching
+	if err := c.do(req, &watching); err != nil {
+		return nil, err
+	}
+	return &watching, nil
+}
+
+// DeleteWatching は指定ウォッチを削除する。
+// DELETE /api/v2/watchings/{watchingId}
+func (c *HTTPClient) DeleteWatching(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+	apiPath := fmt.Sprintf("/api/v2/watchings/%d", watchingID)
+	req, err := c.newRequest(ctx, http.MethodDelete, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var watching domain.Watching
+	if err := c.do(req, &watching); err != nil {
+		return nil, err
+	}
+	return &watching, nil
+}
+
+// MarkWatchingAsRead は指定ウォッチを既読化する。
+// POST /api/v2/watchings/{watchingId}/markAsRead (レスポンス: 204 No Content)
+func (c *HTTPClient) MarkWatchingAsRead(ctx context.Context, watchingID int64) error {
+	apiPath := fmt.Sprintf("/api/v2/watchings/%d/markAsRead", watchingID)
+	req, err := c.newRequest(ctx, http.MethodPost, apiPath, nil)
+	if err != nil {
+		return err
+	}
+	return c.do(req, nil)
+}
+
 // ---- Stars ----
 
 // AddStar は課題・コメント・Wiki 等にスターを追加する。

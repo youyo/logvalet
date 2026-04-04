@@ -74,6 +74,15 @@ type MockClient struct {
 	// Stars
 	AddStarFunc func(ctx context.Context, req AddStarRequest) error
 
+	// Watchings
+	ListWatchingsFunc     func(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
+	CountWatchingsFunc    func(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
+	GetWatchingFunc       func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	AddWatchingFunc       func(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
+	UpdateWatchingFunc    func(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
+	DeleteWatchingFunc    func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	MarkWatchingAsReadFunc func(ctx context.Context, watchingID int64) error
+
 	mu         sync.Mutex
 	callCounts map[string]int
 }
@@ -393,6 +402,62 @@ func (m *MockClient) AddStar(ctx context.Context, req AddStarRequest) error {
 	m.increment("AddStar")
 	if m.AddStarFunc != nil {
 		return m.AddStarFunc(ctx, req)
+	}
+	return ErrNotFound
+}
+
+func (m *MockClient) ListWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error) {
+	m.increment("ListWatchings")
+	if m.ListWatchingsFunc != nil {
+		return m.ListWatchingsFunc(ctx, userID, opt)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) CountWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error) {
+	m.increment("CountWatchings")
+	if m.CountWatchingsFunc != nil {
+		return m.CountWatchingsFunc(ctx, userID, opt)
+	}
+	return 0, ErrNotFound
+}
+
+func (m *MockClient) GetWatching(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+	m.increment("GetWatching")
+	if m.GetWatchingFunc != nil {
+		return m.GetWatchingFunc(ctx, watchingID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddWatching(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error) {
+	m.increment("AddWatching")
+	if m.AddWatchingFunc != nil {
+		return m.AddWatchingFunc(ctx, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateWatching(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error) {
+	m.increment("UpdateWatching")
+	if m.UpdateWatchingFunc != nil {
+		return m.UpdateWatchingFunc(ctx, watchingID, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DeleteWatching(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+	m.increment("DeleteWatching")
+	if m.DeleteWatchingFunc != nil {
+		return m.DeleteWatchingFunc(ctx, watchingID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) MarkWatchingAsRead(ctx context.Context, watchingID int64) error {
+	m.increment("MarkWatchingAsRead")
+	if m.MarkWatchingAsReadFunc != nil {
+		return m.MarkWatchingAsReadFunc(ctx, watchingID)
 	}
 	return ErrNotFound
 }

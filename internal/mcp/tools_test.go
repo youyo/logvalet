@@ -38,7 +38,7 @@ func TestNewServer_RegistersAllTools(t *testing.T) {
 	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 34
+	expectedCount := 41
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {
@@ -265,5 +265,152 @@ func TestProjectHealthHandler_MissingProjectKey(t *testing.T) {
 
 	if !result.IsError {
 		t.Error("expected IsError=true for missing project_key")
+	}
+}
+
+// MCP-W1: logvalet_watching_list ハンドラーテスト
+func TestWatchingListHandler(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) ([]domain.Watching, error) {
+		if userID != 123 {
+			t.Errorf("unexpected userID: %d", userID)
+		}
+		return []domain.Watching{
+			{ID: 1, Type: "issue"},
+			{ID: 2, Type: "issue"},
+		}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": float64(123)})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var watchings []domain.Watching
+	if err := json.Unmarshal([]byte(textContent.Text), &watchings); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if len(watchings) != 2 {
+		t.Errorf("expected 2 watchings, got %d", len(watchings))
+	}
+}
+
+// MCP-W2: logvalet_watching_list の user_id 省略 → IsError: true
+func TestWatchingListHandler_MissingUserID(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+
+	result := callTool(t, s, "logvalet_watching_list", map[string]any{})
+	if !result.IsError {
+		t.Error("expected IsError=true for missing user_id")
+	}
+}
+
+// MCP-W3: logvalet_watching_count ハンドラーテスト
+func TestWatchingCountHandler(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.CountWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) (int, error) {
+		return 7, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_count", map[string]any{"user_id": float64(123)})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var out map[string]int
+	if err := json.Unmarshal([]byte(textContent.Text), &out); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if out["count"] != 7 {
+		t.Errorf("expected count=7, got %d", out["count"])
+	}
+}
+
+// MCP-W4: logvalet_watching_get ハンドラーテスト
+func TestWatchingGetHandler(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetWatchingFunc = func(ctx context.Context, watchingID int64) (*domain.Watching, error) {
+		if watchingID != 42 {
+			t.Errorf("unexpected watchingID: %d", watchingID)
+		}
+		return &domain.Watching{ID: 42, Type: "issue", Note: "my note"}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_get", map[string]any{"watching_id": float64(42)})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var watching domain.Watching
+	if err := json.Unmarshal([]byte(textContent.Text), &watching); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if watching.ID != 42 {
+		t.Errorf("expected ID=42, got %d", watching.ID)
+	}
+	if watching.Note != "my note" {
+		t.Errorf("expected note 'my note', got %q", watching.Note)
+	}
+}
+
+// MCP-W5: logvalet_watching_add ハンドラーテスト
+func TestWatchingAddHandler(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedReq backlog.AddWatchingRequest
+	mock.AddWatchingFunc = func(ctx context.Context, req backlog.AddWatchingRequest) (*domain.Watching, error) {
+		capturedReq = req
+		return &domain.Watching{ID: 100, Type: "issue"}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_add", map[string]any{
+		"issue_id_or_key": "PROJ-1",
+		"note":            "watch this",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedReq.IssueIDOrKey != "PROJ-1" {
+		t.Errorf("expected IssueIDOrKey=PROJ-1, got %q", capturedReq.IssueIDOrKey)
+	}
+	if capturedReq.Note != "watch this" {
+		t.Errorf("expected Note='watch this', got %q", capturedReq.Note)
+	}
+}
+
+// MCP-W6: logvalet_watching_mark_as_read ハンドラーテスト
+func TestWatchingMarkAsReadHandler(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedWatchingID int64
+	mock.MarkWatchingAsReadFunc = func(ctx context.Context, watchingID int64) error {
+		capturedWatchingID = watchingID
+		return nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_mark_as_read", map[string]any{"watching_id": float64(42)})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedWatchingID != 42 {
+		t.Errorf("expected watchingID=42, got %d", capturedWatchingID)
 	}
 }

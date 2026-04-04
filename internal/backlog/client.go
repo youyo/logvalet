@@ -188,4 +188,35 @@ type Client interface {
 	// レスポンスは 204 No Content。
 	// Backlog API: POST /api/v2/stars
 	AddStar(ctx context.Context, req AddStarRequest) error
+
+	// Watchings
+
+	// ListWatchings は指定ユーザーのウォッチ一覧を返す。
+	// Backlog API: GET /api/v2/users/{userId}/watchings
+	ListWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
+
+	// CountWatchings は指定ユーザーのウォッチ件数を返す。
+	// Backlog API: GET /api/v2/users/{userId}/watchings/count
+	CountWatchings(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
+
+	// GetWatching は指定ウォッチの詳細を返す。
+	// Backlog API: GET /api/v2/watchings/{watchingId}
+	GetWatching(ctx context.Context, watchingID int64) (*domain.Watching, error)
+
+	// AddWatching は課題をウォッチ登録する。
+	// Backlog API: POST /api/v2/watchings
+	AddWatching(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
+
+	// UpdateWatching はウォッチのノートを更新する。
+	// Backlog API: PATCH /api/v2/watchings/{watchingId}
+	UpdateWatching(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
+
+	// DeleteWatching は指定ウォッチを削除する。
+	// Backlog API: DELETE /api/v2/watchings/{watchingId}
+	DeleteWatching(ctx context.Context, watchingID int64) (*domain.Watching, error)
+
+	// MarkWatchingAsRead は指定ウォッチを既読化する。
+	// レスポンスは 204 No Content。
+	// Backlog API: POST /api/v2/watchings/{watchingId}/markAsRead
+	MarkWatchingAsRead(ctx context.Context, watchingID int64) error
 }

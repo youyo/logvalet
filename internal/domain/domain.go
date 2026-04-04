@@ -259,6 +259,24 @@ type ErrorEnvelope struct {
 	Error         ErrorDetail `json:"error"`
 }
 
+// Watching は Backlog のウォッチ情報。
+// Backlog API: GET /api/v2/watchings/{watchingId} に準拠。
+type Watching struct {
+	ID                    int64      `json:"id"`
+	ResourceAlreadyRead   bool       `json:"resourceAlreadyRead"`
+	Note                  string     `json:"note,omitempty"`
+	Type                  string     `json:"type"`
+	Issue                 *Issue     `json:"issue,omitempty"`
+	LastContentUpdated    *time.Time `json:"lastContentUpdated,omitempty"`
+	Created               *time.Time `json:"created,omitempty"`
+	Updated               *time.Time `json:"updated,omitempty"`
+}
+
+// WatchingCount はウォッチ件数。
+type WatchingCount struct {
+	Count int `json:"count"`
+}
+
 // DigestEnvelope はすべての digest コマンドの共通ラッパー（spec §10）。
 // Digest フィールドには各リソース固有の digest 構造体を格納する。
 type DigestEnvelope struct {

@@ -33,6 +33,7 @@ func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.M
 	RegisterMetaTools(reg)
 	RegisterSharedFileTools(reg)
 	RegisterStarTools(reg)
+	RegisterWatchingTools(reg)
 	RegisterAnalysisTools(reg, cfg)
 
 	return s

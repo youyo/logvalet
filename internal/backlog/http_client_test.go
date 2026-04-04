@@ -1141,6 +1141,216 @@ func TestHTTPClientAddStar(t *testing.T) {
 	})
 }
 
+// TestHTTPClientListWatchings は ListWatchings のテスト。
+func TestHTTPClientListWatchings(t *testing.T) {
+	t.Run("returns watchings list", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/users/123/watchings" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"id":1,"resourceAlreadyRead":false,"type":"issue"},{"id":2,"resourceAlreadyRead":true,"type":"issue"}]`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.ListWatchings(context.Background(), 123, backlog.ListWatchingsOptions{})
+		if err != nil {
+			t.Fatalf("ListWatchings() error = %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+		if got[0].ID != 1 {
+			t.Errorf("ID = %d, want 1", got[0].ID)
+		}
+	})
+
+	t.Run("sends count and order query params", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListWatchings(context.Background(), 123, backlog.ListWatchingsOptions{Count: 10, Order: "asc"})
+		if err != nil {
+			t.Fatalf("ListWatchings() error = %v", err)
+		}
+		if gotQuery.Get("count") != "10" {
+			t.Errorf("count = %q, want %q", gotQuery.Get("count"), "10")
+		}
+		if gotQuery.Get("order") != "asc" {
+			t.Errorf("order = %q, want %q", gotQuery.Get("order"), "asc")
+		}
+	})
+}
+
+// TestHTTPClientCountWatchings は CountWatchings のテスト。
+func TestHTTPClientCountWatchings(t *testing.T) {
+	t.Run("returns count", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/users/123/watchings/count" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"count":5}`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		count, err := client.CountWatchings(context.Background(), 123, backlog.ListWatchingsOptions{})
+		if err != nil {
+			t.Fatalf("CountWatchings() error = %v", err)
+		}
+		if count != 5 {
+			t.Errorf("count = %d, want 5", count)
+		}
+	})
+}
+
+// TestHTTPClientGetWatching は GetWatching のテスト。
+func TestHTTPClientGetWatching(t *testing.T) {
+	t.Run("returns watching detail", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/watchings/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":42,"resourceAlreadyRead":false,"type":"issue","note":"my note"}`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.GetWatching(context.Background(), 42)
+		if err != nil {
+			t.Fatalf("GetWatching() error = %v", err)
+		}
+		if got.ID != 42 {
+			t.Errorf("ID = %d, want 42", got.ID)
+		}
+		if got.Note != "my note" {
+			t.Errorf("Note = %q, want %q", got.Note, "my note")
+		}
+	})
+}
+
+// TestHTTPClientAddWatching は AddWatching のテスト。
+func TestHTTPClientAddWatching(t *testing.T) {
+	t.Run("posts issueIdOrKey and returns watching", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.URL.Path != "/api/v2/watchings" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":100,"resourceAlreadyRead":false,"type":"issue"}`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.AddWatching(context.Background(), backlog.AddWatchingRequest{IssueIDOrKey: "PROJ-1", Note: "watch this"})
+		if err != nil {
+			t.Fatalf("AddWatching() error = %v", err)
+		}
+		if got.ID != 100 {
+			t.Errorf("ID = %d, want 100", got.ID)
+		}
+		if gotQuery.Get("issueIdOrKey") != "PROJ-1" {
+			t.Errorf("issueIdOrKey = %q, want %q", gotQuery.Get("issueIdOrKey"), "PROJ-1")
+		}
+		if gotQuery.Get("note") != "watch this" {
+			t.Errorf("note = %q, want %q", gotQuery.Get("note"), "watch this")
+		}
+	})
+}
+
+// TestHTTPClientUpdateWatching は UpdateWatching のテスト。
+func TestHTTPClientUpdateWatching(t *testing.T) {
+	t.Run("patches note and returns updated watching", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPatch || r.URL.Path != "/api/v2/watchings/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":42,"resourceAlreadyRead":false,"type":"issue","note":"updated note"}`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.UpdateWatching(context.Background(), 42, backlog.UpdateWatchingRequest{Note: "updated note"})
+		if err != nil {
+			t.Fatalf("UpdateWatching() error = %v", err)
+		}
+		if got.Note != "updated note" {
+			t.Errorf("Note = %q, want %q", got.Note, "updated note")
+		}
+		if gotQuery.Get("note") != "updated note" {
+			t.Errorf("query note = %q, want %q", gotQuery.Get("note"), "updated note")
+		}
+	})
+}
+
+// TestHTTPClientDeleteWatching は DeleteWatching のテスト。
+func TestHTTPClientDeleteWatching(t *testing.T) {
+	t.Run("deletes and returns watching", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete || r.URL.Path != "/api/v2/watchings/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":42,"resourceAlreadyRead":false,"type":"issue"}`))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.DeleteWatching(context.Background(), 42)
+		if err != nil {
+			t.Fatalf("DeleteWatching() error = %v", err)
+		}
+		if got.ID != 42 {
+			t.Errorf("ID = %d, want 42", got.ID)
+		}
+	})
+}
+
+// TestHTTPClientMarkWatchingAsRead は MarkWatchingAsRead のテスト。
+func TestHTTPClientMarkWatchingAsRead(t *testing.T) {
+	t.Run("posts to markAsRead endpoint", func(t *testing.T) {
+		var gotPath string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			gotPath = r.URL.Path
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		err := client.MarkWatchingAsRead(context.Background(), 42)
+		if err != nil {
+			t.Fatalf("MarkWatchingAsRead() error = %v", err)
+		}
+		if gotPath != "/api/v2/watchings/42/markAsRead" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/watchings/42/markAsRead")
+		}
+	})
+}
+
 // TestHTTPClientGetMyselfParsesUserFields は GetMyself のレスポンスが正しく domain.User にマップされるかテスト。
 func TestHTTPClientGetMyselfParsesUserFields(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
