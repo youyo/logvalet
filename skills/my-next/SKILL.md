@@ -1,21 +1,25 @@
 ---
 name: logvalet:my-next
 description: >
-  Show near-term Backlog issues assigned to me: next few business days across all projects,
-  including overdue items — helps answer "what should I work on next?"
+  Show near-term Backlog issues assigned to me AND issues I'm watching:
+  next few business days across all projects, including overdue items —
+  helps answer "what should I work on next?" and "what should I keep an eye on?"
+  Watched issues are included because they represent work you care about even
+  without being the assignee — blocked dependencies, pending reviews, cross-team items.
   TRIGGER when: user says "直近のタスク", "upcoming tasks", "次にやること", "次やること",
   "明日以降のタスク", "backlogの直近", "coming up", "what's next",
   "明日何やる", "次の予定", "今日と明日のタスク", "直近の課題",
   "next tasks", "upcoming issues", "what should I do next",
   "明日の予定", "次のアクション", "今日やること", "today's tasks",
-  "直近やるべきこと", "tomorrow's tasks", "近日中のタスク".
+  "直近やるべきこと", "tomorrow's tasks", "近日中のタスク",
+  "ウォッチしてるやつどうなった", "watched issues status".
   DO NOT TRIGGER when: user wants a full week overview (use my-week)
   or wants a project-wide task list (use logvalet CLI directly).
 ---
 
 # logvalet-my-next
 
-直近数日（今日から4営業日先まで）の Backlog 課題一覧を表示する。週を跨ぐ。期限切れ含む。プロジェクト横断。
+直近数日（今日から4営業日先まで）の Backlog 課題 + ウォッチしている課題の一覧を表示する。週を跨ぐ。期限切れ含む。プロジェクト横断。
 
 > For full logvalet CLI documentation, see the `logvalet` skill.
 
@@ -62,7 +66,7 @@ echo "TODAY=${TODAY} END_DATE=${END_DATE}"
 
 ### Step 2: Fetch data
 
-Run these two commands **in parallel**:
+Run these three commands **in parallel**:
 
 ```bash
 lv issue list --assignee me --status not-closed --due-date overdue --sort dueDate --order asc -f md
@@ -72,9 +76,13 @@ lv issue list --assignee me --status not-closed --due-date overdue --sort dueDat
 lv issue list --assignee me --status not-closed --due-date ${TODAY}:${END_DATE} --sort dueDate --order asc -f md
 ```
 
+```bash
+lv watching list --user-id me -f md
+```
+
 ### Step 3: Format output
 
-Combine results into two sections. Deduplicate by issue key.
+Combine results into three sections. Deduplicate by issue key.
 
 **Output format:**
 
@@ -87,9 +95,20 @@ Combine results into two sections. Deduplicate by issue key.
 
 <upcoming issues in md format>
 
+## 👁 ウォッチ中 (N件)
+
+<watched issues — 自分担当ではないが注視している課題>
+
 ---
-期限切れ: X件 / 直近: Y件 / 合計: Z件
+担当（期限切れ）: X件 / 担当（直近）: Y件 / ウォッチ: W件 / 合計: Z件
 ```
+
+**Exclusion and enrichment logic for watched issues:**
+- Exclude watched issues that are also assigned to you (already shown in assigned sections)
+- Show only watched issues with `status: not-closed`
+- Mark overdue watched issues with ⚠ prefix
+- Add "停滞中" signal for watched issues with last update > 7 days ago
+- Display assignee name for each watched issue
 
 ### Step 4: No user interaction needed
 
@@ -103,8 +122,11 @@ This is a display-only skill. No questions, no writes.
 - `--status not-closed` includes Open (1), In Progress (2), Resolved (3)
 - `--due-date overdue` returns items with due date before today
 - `--due-date ${TODAY}:${END_DATE}` returns items within the computed date range
-- If either command returns no items, show "なし" in that section
+- If any command returns no items, show "なし" in that section
 - Output is cross-project — no `--project-key` filter is used
+- `lv watching list --user-id me` returns all watched issues regardless of status. The skill filters to `not-closed` only
+- Watched issues represent work you care about even without being the assignee — blocked dependencies, pending reviews, cross-team items
+- **If Watch CLI (M17) is not yet implemented**, skip the ウォッチ中 section and display only assigned issues
 
 ---
 

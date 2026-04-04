@@ -13,9 +13,9 @@
 | 前バージョン | plans/logvalet-roadmap.md (v1, 完了) |
 
 ## Current Focus
-- **マイルストーン**: 全マイルストーン完了
+- **マイルストーン**: M17 — Watch（ウォッチ）コマンド
 - **直近の完了**: M16 — `logvalet version` コマンド
-- **次のアクション**: リリース準備（git tag + GoReleaser）
+- **次のアクション**: M17 Phase 1（Watch CLI）+ Phase 2（スキル統合）
 
 ## 完了済みマイルストーン (v1)
 
@@ -151,6 +151,37 @@
 - [x] `internal/cli/issue.go`: IssueCreate/UpdateCmd.Version を name:"versions" にリネーム（--version 衝突回避）
 - [x] テスト: version.Info / VersionCmd / Kong パーサー統合テスト
 
+### M17: Watch（ウォッチ）コマンド + スキル統合
+Backlog API の watching エンドポイント7つに対応する CLI コマンド・ドメインモデルを実装し、
+既存スキルにウォッチ課題の観点を統合する。
+
+**設計思想**: 「自分に関係する課題 ＝ 担当課題 + ウォッチ課題」。
+ウォッチ課題は担当ではないが進捗や状態が自分の仕事に影響する課題（依存先、レビュー待ち、チーム横断案件など）。
+
+#### Phase 1: Watch CLI コマンド
+- [ ] `internal/domain/watching.go`: Watching ドメインモデル
+- [ ] `internal/backlog/client.go`: Client interface に Watching 系メソッド追加
+- [ ] `internal/backlog/watching.go`: API クライアント実装
+- [ ] `internal/cli/watching.go`: CLI コマンド定義
+  - `logvalet watching list` — ウォッチ一覧取得（`GET /api/v2/users/:userId/watchings`）
+  - `logvalet watching count` — ウォッチ件数取得（`GET /api/v2/users/:userId/watchings/count`）
+  - `logvalet watching get` — ウォッチ単体取得（`GET /api/v2/watchings/:watchingId`）
+  - `logvalet watching add` — ウォッチ追加（`POST /api/v2/watchings`）
+  - `logvalet watching update` — ウォッチ更新・note（`PATCH /api/v2/watchings/:watchingId`）
+  - `logvalet watching delete` — ウォッチ削除（`DELETE /api/v2/watchings/:watchingId`）
+  - `logvalet watching mark-as-read` — 既読化（`POST /api/v2/watchings/:watchingId/markAsRead`）
+- [ ] `internal/cli/root.go`: CLI struct に Watching コマンド追加
+- [ ] テスト: モックベースの単体テスト
+
+#### Phase 2: スキル統合（ウォッチ課題の観点を既存スキルに反映）
+- [ ] `skills/my-week/SKILL.md`: description + instructions 更新（ウォッチ課題セクション追加）
+- [ ] `skills/my-next/SKILL.md`: description + instructions 更新（同上）
+- [ ] `skills/health/SKILL.md`: instructions 更新（ウォッチ課題の停滞をシグナルに追加）
+- [ ] `skills/risk/SKILL.md`: instructions 更新（ウォッチ課題をリスク材料に追加）
+- [ ] `skills/triage/SKILL.md`: instructions 更新（ウォッチ情報を担当者提案シグナルに追加）
+- [ ] `skills/context/SKILL.md`: instructions 更新（ウォッチ情報をコンテキスト出力に追加）
+- 📄 詳細: plans/gentle-finding-frost.md
+
 ## Blockers
 なし
 
@@ -169,3 +200,5 @@
 |------|------|------|
 | 2026-03-18 | 作成 | roadmap v2 作成。v1 M01-M12 完了を反映、新 M13-M15 を追加 |
 | 2026-03-18 | 追加 | M15 `logvalet config init` を追加、旧 M15 version を M16 に繰り下げ |
+| 2026-04-03 | 追加 | M17 Watch（ウォッチ）コマンドを追加。Backlog Watching API 7エンドポイント対応 |
+| 2026-04-04 | 拡充 | M17 を Phase 1（CLI）+ Phase 2（スキル統合）に拡張。ウォッチ課題＝自分に影響する非担当課題という設計思想を追加 |

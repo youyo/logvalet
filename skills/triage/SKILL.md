@@ -70,6 +70,7 @@ Based on the triage materials, reason about each of the following:
 - Consider:
   - `project_stats.by_assignee`: current open issue counts per user (prefer users with fewer open issues)
   - `similar_issues.assignee_distribution`: who has handled similar issues in the past (domain familiarity)
+  - Watch signals: if the user has a watching list available (`lv watching list --user-id me -f json`), check whether any team member is already watching this issue — watching indicates interest or domain knowledge, which can be a positive signal for assignee selection
 - Propose the best candidate with reasoning
 
 **Category:**
@@ -96,6 +97,10 @@ Present the triage proposal in a structured format:
 ### 関連課題
 - PROJ-100: 類似バグ（解決済み）
 - PROJ-200: 同一コンポーネント（進行中）
+
+### ウォッチ情報
+- この課題をウォッチしているユーザーが特定できる場合、参考情報として表示する
+- ウォッチしている ＝ 関心や知識がある可能性 → 担当候補の補助シグナル
 
 ---
 適用しますか？ [優先度/担当者/カテゴリ/全て/キャンセル]
@@ -131,6 +136,9 @@ Always run `--dry-run` first before applying each change.
 - `similar_issues.assignee_distribution` shows who has handled similar issues — use it for domain familiarity signals
 - If triage materials return an empty `similar_issues` list, rely on `project_stats.by_assignee` alone for assignee proposals
 - Do not apply changes without explicit user confirmation
+- ウォッチ情報は担当者提案の補助シグナルとして使用する。ウォッチしている人は課題への関心や知識がある可能性が高い
+- Backlog API の制約で「特定課題をウォッチしているユーザー一覧」を直接取得できない場合がある。その場合はウォッチ情報をスキップし、既存のシグナル（project_stats.by_assignee、similar_issues）のみで提案する
+- Watch CLI（M17）が未実装の場合、ウォッチ関連の分析はスキップする
 
 ---
 

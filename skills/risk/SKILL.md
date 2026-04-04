@@ -74,6 +74,17 @@ lv project blockers PROJECT_KEY --days DAYS [--exclude-status "STATUS1,STATUS2"]
 lv issue stale -k PROJECT_KEY --days DAYS [--exclude-status "STATUS1,STATUS2"] -f json
 ```
 
+**Optional: ウォッチ課題データ**
+
+自分がウォッチしている課題にリスクがある場合、そのリスクは自分の仕事にも波及する。
+Watch CLI が利用可能な場合、以下も並列で取得する:
+
+```bash
+lv watching list --user-id me -f json
+```
+
+Watch CLI（M17）が未実装の場合、このステップはスキップする。
+
 The materials provide:
 
 **project health:**
@@ -171,6 +182,20 @@ Combine the three data sources to evaluate risk across dimensions:
 
 ---
 
+### 👁 ウォッチ課題に関連するリスク
+
+自分がウォッチしている課題のうち、上記リスク項目に該当するものがあれば個別に提示する。
+ウォッチ課題は担当ではないが、進捗や状態が自分の仕事に影響する（依存先、レビュー待ち等）。
+
+1. **[課題キー] <課題サマリー>**
+   - 担当者: <UserName>
+   - リスク種別: <スケジュール / リソース / 進捗>
+   - あなたへの影響: <なぜこの課題のリスクがあなたに影響するか>
+
+（ウォッチ課題にリスクがない場合は「ウォッチ課題にリスクなし」と表示）
+
+---
+
 ### 推奨アクション（優先順位付き）
 
 1. **[即時]** <最優先アクション> — 担当: <UserName or 未定>
@@ -205,6 +230,8 @@ After the user reviews the report, they can:
 - `project health` は統合ビューのため、それだけでも基本的なリスク評価には十分
 - `project blockers` と `issue stale` は詳細根拠として活用
 - リスクレベル評価は mechanical ではなく contextual — コメント数・期限までの残日数・プロジェクト規模を考慮する
+- ウォッチ課題のリスク評価は、ウォッチ一覧の課題キーを `project health` / `project blockers` / `issue stale` の結果と突合して行う
+- Watch CLI（M17）が未実装の場合、ウォッチ関連セクションはスキップし、プロジェクト全体のリスク評価のみ実施する
 
 ---
 

@@ -97,6 +97,9 @@ Present the context in a human-readable summary:
 - プロジェクト: PROJECT_NAME (PROJECT_KEY)
 - カテゴリ: CategoryName
 - マイルストーン: MilestoneName
+
+### ウォッチ情報
+- ウォッチ中: はい / いいえ（自分がこの課題をウォッチしているか）
 ```
 
 ### Step 5: Suggest next actions
@@ -106,6 +109,7 @@ Based on the context, suggest possible actions without executing them:
 - If stale: "停滞しています。担当者への確認コメントを追加しますか？"
 - If overdue: "期限を過ぎています。ステータス更新または期限変更を検討してください。"
 - If no assignee: "担当者が設定されていません。`logvalet issue update PROJ-123 --assignee USER` で設定できます。"
+- If not watching and the issue is relevant to the user's work: "この課題をウォッチしますか？ `logvalet watching add PROJ-123` でウォッチできます。"
 
 Always ask before writing.
 
@@ -117,6 +121,9 @@ Always ask before writing.
 - The output is optimized for LLM consumption and agent reasoning
 - If the issue key resolves to a 404, check for typos or confirm the project key is correct with `lv project list`
 - Use `--format md` for human-readable output, default JSON for agent pipelines
+- ウォッチ情報は `lv watching list --user-id me -f json` から取得し、対象課題キーが含まれているか確認する
+- 課題のコンテキストを把握する際に「自分がウォッチしているか」は関心度の指標になる
+- Watch CLI（M17）が未実装の場合、ウォッチ関連の表示はスキップする
 
 ---
 

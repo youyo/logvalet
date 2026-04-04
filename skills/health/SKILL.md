@@ -81,6 +81,18 @@ lv project blockers PROJECT_KEY --days DAYS [--include-comments] [--exclude-stat
 lv user workload PROJECT_KEY --days DAYS [--exclude-status "STATUS1,STATUS2"] -f md
 ```
 
+**Optional: ウォッチ課題データ**
+
+ウォッチされている課題が停滞していることは「多くの人が気にしているのに進んでいない」という強いシグナルになる。
+Watch CLI が利用可能な場合、以下も並列で取得する:
+
+```bash
+lv watching list --user-id me -f json
+```
+
+このデータは Step 4 で停滞課題と突合し、ウォッチされている停滞課題を特定するために使用する。
+Watch CLI（M17）が未実装の場合、このステップはスキップする。
+
 ### Step 4: Format output
 
 Combine results into a structured health report:
@@ -114,10 +126,17 @@ Combine results into a structured health report:
 
 ---
 
+### 👁 ウォッチ中の停滞課題 (N件)
+
+<ウォッチしている課題のうち停滞しているもの、または "なし">
+
+---
+
 **サマリー:**
 - 停滞課題: N件
 - ブロッカー候補: N件
 - 最多担当者: UserName (N件)
+- ウォッチ中の停滞課題: N件
 - 要対応アクション: <action items if any>
 ```
 
@@ -136,6 +155,8 @@ If the user wants to act on findings (update an issue, reassign, etc.), switch t
 - `--exclude-status "完了,却下"` is recommended to filter out resolved items
 - `--include-comments` adds comment analysis for deeper blocker detection but is slower
 - If any section returns no items, show "なし" in that section
+- ウォッチ課題の停滞チェックは、`watching list` と `issue stale` の結果を突合して行う。ウォッチ一覧に含まれる課題キーが停滞課題リストにも存在する場合、それはウォッチ中の停滞課題として報告する
+- Watch CLI（M17）が未実装の場合、ウォッチ関連セクションはスキップし、既存のヘルスチェックのみ実施する
 
 ---
 
