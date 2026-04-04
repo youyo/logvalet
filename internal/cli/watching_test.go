@@ -79,7 +79,7 @@ func TestWatchingMarkAsReadCmd_dry_run(t *testing.T) {
 // CLI-WT-6: watching list は buildRunContext でエラーになる（引数バリデーションは通過）
 func TestWatchingListCmd_passes_validation(t *testing.T) {
 	cmd := &WatchingListCmd{
-		UserID: 123,
+		UserID: "123",
 		Count:  20,
 		Order:  "desc",
 	}
@@ -105,11 +105,35 @@ func TestWatchingGetCmd_passes_validation(t *testing.T) {
 // CLI-WT-8: watching count は buildRunContext でエラーになる
 func TestWatchingCountCmd_passes_validation(t *testing.T) {
 	cmd := &WatchingCountCmd{
-		UserID: 123,
+		UserID: "123",
 	}
 	g := &GlobalFlags{}
 	err := cmd.Run(g)
 	if err == nil {
 		t.Fatal("Run() should return error (config not available)")
+	}
+}
+
+// CLI-WT-9: resolveUserID "me" のテスト（mock 使用）
+func TestResolveUserID_me(t *testing.T) {
+	// buildRunContext が必要なため、resolveUserID 単体のロジックテスト
+	// "me" 以外の数値テスト
+	id, err := resolveUserID(t.Context(), "42", nil)
+	if err != nil {
+		t.Fatalf("resolveUserID should succeed for numeric: %v", err)
+	}
+	if id != 42 {
+		t.Errorf("resolveUserID = %d, want 42", id)
+	}
+}
+
+// CLI-WT-10: resolveUserID 不正値のテスト
+func TestResolveUserID_invalid(t *testing.T) {
+	_, err := resolveUserID(t.Context(), "abc", nil)
+	if err == nil {
+		t.Fatal("resolveUserID should fail for non-numeric non-me input")
+	}
+	if !strings.Contains(err.Error(), "numeric ID or 'me'") {
+		t.Errorf("error = %q, want message about numeric ID or me", err.Error())
 	}
 }

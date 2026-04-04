@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/youyo/logvalet/internal/backlog"
 )
@@ -21,8 +22,9 @@ type WatchingCmd struct {
 
 // WatchingListCmd は watching list コマンド。
 // lv watching list USER-ID [options]
+// USER-ID は数値 ID または "me"（認証ユーザーに自動解決）。
 type WatchingListCmd struct {
-	UserID int    `arg:"" required:"" help:"user ID"`
+	UserID string `arg:"" required:"" help:"user ID or 'me' for authenticated user"`
 	Count  int    `help:"max number of items" default:"20"`
 	Offset int    `help:"offset" default:"0"`
 	Order  string `help:"sort order (asc|desc)" default:"desc"`
@@ -35,13 +37,17 @@ func (c *WatchingListCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
+	userID, err := resolveUserID(ctx, c.UserID, rc.Client)
+	if err != nil {
+		return err
+	}
 	opt := backlog.ListWatchingsOptions{
 		Count:  c.Count,
 		Offset: c.Offset,
 		Order:  c.Order,
 		Sort:   c.Sort,
 	}
-	watchings, err := rc.Client.ListWatchings(ctx, c.UserID, opt)
+	watchings, err := rc.Client.ListWatchings(ctx, userID, opt)
 	if err != nil {
 		return err
 	}
@@ -50,8 +56,9 @@ func (c *WatchingListCmd) Run(g *GlobalFlags) error {
 
 // WatchingCountCmd は watching count コマンド。
 // lv watching count USER-ID
+// USER-ID は数値 ID または "me"（認証ユーザーに自動解決）。
 type WatchingCountCmd struct {
-	UserID int `arg:"" required:"" help:"user ID"`
+	UserID string `arg:"" required:"" help:"user ID or 'me' for authenticated user"`
 }
 
 func (c *WatchingCountCmd) Run(g *GlobalFlags) error {
@@ -60,11 +67,31 @@ func (c *WatchingCountCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	count, err := rc.Client.CountWatchings(ctx, c.UserID, backlog.ListWatchingsOptions{})
+	userID, err := resolveUserID(ctx, c.UserID, rc.Client)
+	if err != nil {
+		return err
+	}
+	count, err := rc.Client.CountWatchings(ctx, userID, backlog.ListWatchingsOptions{})
 	if err != nil {
 		return err
 	}
 	return rc.Renderer.Render(os.Stdout, map[string]int{"count": count})
+}
+
+// resolveUserID は "me" を GetMyself で解決し、数値文字列はそのまま int に変換する。
+func resolveUserID(ctx context.Context, input string, client backlog.Client) (int, error) {
+	if input == "me" {
+		user, err := client.GetMyself(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to resolve 'me': %w", err)
+		}
+		return user.ID, nil
+	}
+	id, err := strconv.Atoi(input)
+	if err != nil {
+		return 0, fmt.Errorf("user-id must be a numeric ID or 'me': %q", input)
+	}
+	return id, nil
 }
 
 // WatchingGetCmd は watching get コマンド。
