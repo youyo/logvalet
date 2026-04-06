@@ -118,26 +118,8 @@ func TestGlobalFlags_NewFlags_EnvOverride(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:   "LOGVALET_BASE_URL で BaseURL を設定できる",
-			envKey: "LOGVALET_BASE_URL",
-			envVal: "https://env.backlog.com",
-			check: func(t *testing.T, g cli.GlobalFlags) {
-				if g.BaseURL != "https://env.backlog.com" {
-					t.Errorf("BaseURL = %q, want %q", g.BaseURL, "https://env.backlog.com")
-				}
-			},
-		},
-		{
-			name:   "LOGVALET_SPACE で Space を設定できる",
-			envKey: "LOGVALET_SPACE",
-			envVal: "env-space",
-			check: func(t *testing.T, g cli.GlobalFlags) {
-				if g.Space != "env-space" {
-					t.Errorf("Space = %q, want %q", g.Space, "env-space")
-				}
-			},
-		},
+		// LOGVALET_BASE_URL と LOGVALET_SPACE は Kong env タグから削除。
+		// config.Resolve() で処理する（プロファイル設定より低優先にするため）。
 		{
 			name:   "LOGVALET_CONFIG で Config を設定できる",
 			envKey: "LOGVALET_CONFIG",

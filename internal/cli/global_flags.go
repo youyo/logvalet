@@ -29,10 +29,12 @@ type GlobalFlags struct {
 	AccessToken string `help:"specify access token directly" env:"LOGVALET_ACCESS_TOKEN"`
 
 	// BaseURL は Backlog ベース URL の直接指定。
-	BaseURL string `help:"specify Backlog base URL directly" env:"LOGVALET_BASE_URL"`
+	// env 処理は config.Resolve() で行う（プロファイル設定より低優先）。
+	BaseURL string `help:"specify Backlog base URL directly (env: LOGVALET_BASE_URL)"`
 
 	// Space は Backlog スペース名の直接指定。
-	Space string `short:"s" help:"specify Backlog space name directly" env:"LOGVALET_SPACE"`
+	// env 処理は config.Resolve() で行う（プロファイル設定より低優先）。
+	Space string `short:"s" help:"specify Backlog space name directly (env: LOGVALET_SPACE)"`
 
 	// Verbose は詳細なデバッグ出力を有効にする (stderr)。
 	Verbose bool `short:"v" help:"enable verbose debug output" env:"LOGVALET_VERBOSE"`

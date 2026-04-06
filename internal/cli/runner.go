@@ -53,6 +53,9 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve config: %w", err)
 	}
+	for _, w := range resolved.Warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
 
 	// 3. 認証情報を解決（CLI flags > env > tokens.json）
 	tokensPath := credentials.DefaultTokensPath(os.Getenv)

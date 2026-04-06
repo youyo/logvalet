@@ -32,7 +32,8 @@ type ProfileConfig struct {
 }
 
 // ResolvedConfig は優先順位解決後の最終設定値。
-// CLI flags > env > config.toml > デフォルト の順で決定される。
+// グローバル設定: CLI flags > env > config.toml > デフォルト
+// プロファイル固有設定 (Space, BaseURL): CLI flags > profile config > env > デフォルト
 type ResolvedConfig struct {
 	Profile    string
 	Format     string
@@ -43,6 +44,7 @@ type ResolvedConfig struct {
 	Verbose    bool
 	NoColor    bool
 	ConfigPath string
+	Warnings   []string
 }
 
 // OverrideFlags はCLI flagsからの上書き値。
@@ -197,16 +199,33 @@ func Resolve(cfg *Config, flags OverrideFlags, getenv func(string) string) (*Res
 	}
 
 	// --- Space ---
-	// CLI flags.Space > env > profileCfg.Space
-	resolved.Space = resolveString(flags.Space, getenv("LOGVALET_SPACE"), profileCfg.Space, "")
+	// プロファイル固有: CLI flags.Space > profileCfg.Space > env > デフォルト
+	envSpace := getenv("LOGVALET_SPACE")
+	resolved.Space = resolveString(flags.Space, profileCfg.Space, envSpace, "")
 
 	// --- BaseURL ---
-	// CLI flags.BaseURL > env > profileCfg.BaseURL
-	resolved.BaseURL = resolveString(flags.BaseURL, getenv("LOGVALET_BASE_URL"), profileCfg.BaseURL, "")
+	// プロファイル固有: CLI flags.BaseURL > profileCfg.BaseURL > env > デフォルト
+	envBaseURL := getenv("LOGVALET_BASE_URL")
+	resolved.BaseURL = resolveString(flags.BaseURL, profileCfg.BaseURL, envBaseURL, "")
 
 	// --- AuthRef ---
 	// profileCfg からのみ（CLI/env での上書きは M03 で対応）
 	resolved.AuthRef = profileCfg.AuthRef
+
+	// --- Warnings ---
+	// 環境変数がプロファイル設定で上書きされた場合に警告
+	var warnings []string
+	if envBaseURL != "" && profileCfg.BaseURL != "" && normalizeURL(envBaseURL) != normalizeURL(profileCfg.BaseURL) && flags.BaseURL == "" {
+		warnings = append(warnings, fmt.Sprintf(
+			"LOGVALET_BASE_URL=%q is set but overridden by profile %q (base_url=%q)",
+			envBaseURL, profile, profileCfg.BaseURL))
+	}
+	if envSpace != "" && profileCfg.Space != "" && envSpace != profileCfg.Space && flags.Space == "" {
+		warnings = append(warnings, fmt.Sprintf(
+			"LOGVALET_SPACE=%q is set but overridden by profile %q (space=%q)",
+			envSpace, profile, profileCfg.Space))
+	}
+	resolved.Warnings = warnings
 
 	return resolved, nil
 }
@@ -224,6 +243,12 @@ func resolveString(override, envVal, cfgVal, defaultVal string) string {
 		return cfgVal
 	}
 	return defaultVal
+}
+
+// normalizeURL は末尾スラッシュを除去して URL を正規化する。
+// warning 比較時に "https://example.com/" と "https://example.com" を同一視するため。
+func normalizeURL(u string) string {
+	return strings.TrimRight(u, "/")
 }
 
 // resolveBool は優先順位付きでboolを解決する。

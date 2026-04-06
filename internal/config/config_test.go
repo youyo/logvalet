@@ -393,6 +393,150 @@ func TestResolve_EnvSpace(t *testing.T) {
 	}
 }
 
+// ---- Profile overrides env for profile-bound fields ----
+
+func TestResolve_ProfileOverridesEnvForBaseURL(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "dc",
+		Profiles: map[string]config.ProfileConfig{
+			"dc": {Space: "digitalcube", BaseURL: "https://megumilog.backlog.jp", AuthRef: "dc"},
+		},
+	}
+	getenv := func(key string) string {
+		if key == "LOGVALET_BASE_URL" {
+			return "https://heptagon.backlog.com"
+		}
+		return ""
+	}
+	resolved, err := config.Resolve(cfg, config.OverrideFlags{}, getenv)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	// Profile base_url should win over env
+	if resolved.BaseURL != "https://megumilog.backlog.jp" {
+		t.Errorf("resolved.BaseURL = %q, want https://megumilog.backlog.jp (profile wins over env)", resolved.BaseURL)
+	}
+}
+
+func TestResolve_ProfileOverridesEnvForSpace(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "dc",
+		Profiles: map[string]config.ProfileConfig{
+			"dc": {Space: "digitalcube", BaseURL: "https://megumilog.backlog.jp", AuthRef: "dc"},
+		},
+	}
+	getenv := func(key string) string {
+		if key == "LOGVALET_SPACE" {
+			return "heptagon"
+		}
+		return ""
+	}
+	resolved, err := config.Resolve(cfg, config.OverrideFlags{}, getenv)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if resolved.Space != "digitalcube" {
+		t.Errorf("resolved.Space = %q, want digitalcube (profile wins over env)", resolved.Space)
+	}
+}
+
+func TestResolve_EnvFallbackWhenProfileBaseURLEmpty(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "minimal",
+		Profiles: map[string]config.ProfileConfig{
+			"minimal": {Space: "", BaseURL: "", AuthRef: "minimal"},
+		},
+	}
+	getenv := func(key string) string {
+		if key == "LOGVALET_BASE_URL" {
+			return "https://fallback.backlog.com"
+		}
+		return ""
+	}
+	resolved, err := config.Resolve(cfg, config.OverrideFlags{}, getenv)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if resolved.BaseURL != "https://fallback.backlog.com" {
+		t.Errorf("resolved.BaseURL = %q, want https://fallback.backlog.com (env fallback)", resolved.BaseURL)
+	}
+}
+
+func TestResolve_WarningWhenEnvOverriddenByProfile(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "dc",
+		Profiles: map[string]config.ProfileConfig{
+			"dc": {Space: "digitalcube", BaseURL: "https://megumilog.backlog.jp", AuthRef: "dc"},
+		},
+	}
+	getenv := func(key string) string {
+		m := map[string]string{
+			"LOGVALET_BASE_URL": "https://heptagon.backlog.com",
+			"LOGVALET_SPACE":    "heptagon",
+		}
+		return m[key]
+	}
+	resolved, err := config.Resolve(cfg, config.OverrideFlags{}, getenv)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if len(resolved.Warnings) == 0 {
+		t.Fatal("expected warnings when env is overridden by profile, got none")
+	}
+	// Should have warnings for both BaseURL and Space
+	if len(resolved.Warnings) != 2 {
+		t.Errorf("len(resolved.Warnings) = %d, want 2", len(resolved.Warnings))
+	}
+}
+
+func TestResolve_NoWarningWhenEnvMatchesProfile(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "hep",
+		Profiles: map[string]config.ProfileConfig{
+			"hep": {Space: "heptagon", BaseURL: "https://heptagon.backlog.com", AuthRef: "hep"},
+		},
+	}
+	getenv := func(key string) string {
+		m := map[string]string{
+			"LOGVALET_BASE_URL": "https://heptagon.backlog.com",
+			"LOGVALET_SPACE":    "heptagon",
+		}
+		return m[key]
+	}
+	resolved, err := config.Resolve(cfg, config.OverrideFlags{}, getenv)
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if len(resolved.Warnings) != 0 {
+		t.Errorf("expected no warnings when env matches profile, got %v", resolved.Warnings)
+	}
+}
+
+func TestResolve_CLIFlagOverridesProfileBaseURL(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		DefaultProfile: "dc",
+		Profiles: map[string]config.ProfileConfig{
+			"dc": {Space: "digitalcube", BaseURL: "https://megumilog.backlog.jp", AuthRef: "dc"},
+		},
+	}
+	flags := config.OverrideFlags{
+		BaseURL: "https://override.example.com",
+	}
+	resolved, err := config.Resolve(cfg, flags, makeNoopGetenv())
+	if err != nil {
+		t.Fatalf("Resolve error: %v", err)
+	}
+	if resolved.BaseURL != "https://override.example.com" {
+		t.Errorf("resolved.BaseURL = %q, want https://override.example.com (CLI flag wins)", resolved.BaseURL)
+	}
+}
+
 // ---- DefaultLoader ----
 
 func TestDefaultLoader_LoadAndResolve(t *testing.T) {
