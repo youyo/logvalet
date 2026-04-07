@@ -184,9 +184,9 @@ func NewResolver(store Store) Resolver {
 // 優先順位（高い順）:
 //  1. flags.APIKey（--api-key フラグ）
 //  2. flags.AccessToken（--access-token フラグ）
-//  3. getenv("LOGVALET_API_KEY")
-//  4. getenv("LOGVALET_ACCESS_TOKEN")
-//  5. tokens.json の authRef エントリ
+//  3. tokens.json の authRef エントリ（プロファイル固有）
+//  4. getenv("LOGVALET_API_KEY")
+//  5. getenv("LOGVALET_ACCESS_TOKEN")
 //
 // いずれも存在しない場合はエラーを返す。
 func (r *credResolver) Resolve(authRef string, flags CredentialFlags, getenv func(string) string) (*ResolvedCredential, error) {
@@ -208,7 +208,25 @@ func (r *credResolver) Resolve(authRef string, flags CredentialFlags, getenv fun
 		}, nil
 	}
 
-	// 3. 環境変数 LOGVALET_API_KEY
+	// 3. tokens.json（プロファイル固有の認証情報）
+	if authRef != "" {
+		tokens, err := r.store.Load()
+		if err != nil {
+			return nil, fmt.Errorf("credentials: failed to load tokens: %w", err)
+		}
+		if entry, ok := tokens.Auth[authRef]; ok {
+			return &ResolvedCredential{
+				AuthType:     entry.AuthType,
+				AccessToken:  entry.AccessToken,
+				RefreshToken: entry.RefreshToken,
+				TokenExpiry:  entry.TokenExpiry,
+				APIKey:       entry.APIKey,
+				Source:       "tokens_json",
+			}, nil
+		}
+	}
+
+	// 4. 環境変数 LOGVALET_API_KEY
 	if apiKey := getenv("LOGVALET_API_KEY"); apiKey != "" {
 		return &ResolvedCredential{
 			AuthType: AuthTypeAPIKey,
@@ -217,7 +235,7 @@ func (r *credResolver) Resolve(authRef string, flags CredentialFlags, getenv fun
 		}, nil
 	}
 
-	// 4. 環境変数 LOGVALET_ACCESS_TOKEN
+	// 5. 環境変数 LOGVALET_ACCESS_TOKEN
 	if accessToken := getenv("LOGVALET_ACCESS_TOKEN"); accessToken != "" {
 		return &ResolvedCredential{
 			AuthType:    AuthTypeOAuth,
@@ -226,27 +244,9 @@ func (r *credResolver) Resolve(authRef string, flags CredentialFlags, getenv fun
 		}, nil
 	}
 
-	// 5. tokens.json
+	// いずれも見つからない
 	if authRef == "" {
 		return nil, fmt.Errorf("credentials: no credentials found (no flags, no env vars, no auth_ref configured)")
 	}
-
-	tokens, err := r.store.Load()
-	if err != nil {
-		return nil, fmt.Errorf("credentials: failed to load tokens: %w", err)
-	}
-
-	entry, ok := tokens.Auth[authRef]
-	if !ok {
-		return nil, fmt.Errorf("credentials: no credentials found for auth_ref %q in tokens.json", authRef)
-	}
-
-	return &ResolvedCredential{
-		AuthType:     entry.AuthType,
-		AccessToken:  entry.AccessToken,
-		RefreshToken: entry.RefreshToken,
-		TokenExpiry:  entry.TokenExpiry,
-		APIKey:       entry.APIKey,
-		Source:       "tokens_json",
-	}, nil
+	return nil, fmt.Errorf("credentials: no credentials found for auth_ref %q in tokens.json", authRef)
 }

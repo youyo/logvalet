@@ -23,10 +23,12 @@ type GlobalFlags struct {
 	Config string `short:"c" help:"specify config file path" type:"path" env:"LOGVALET_CONFIG"`
 
 	// APIKey は Backlog API キーの直接指定。
-	APIKey string `help:"specify API key directly" env:"LOGVALET_API_KEY"`
+	// env 処理は credentials.Resolve() で行う（tokens.json より低優先）。
+	APIKey string `help:"specify API key directly (env: LOGVALET_API_KEY)"`
 
 	// AccessToken は Backlog アクセストークンの直接指定。
-	AccessToken string `help:"specify access token directly" env:"LOGVALET_ACCESS_TOKEN"`
+	// env 処理は credentials.Resolve() で行う（tokens.json より低優先）。
+	AccessToken string `help:"specify access token directly (env: LOGVALET_ACCESS_TOKEN)"`
 
 	// BaseURL は Backlog ベース URL の直接指定。
 	// env 処理は config.Resolve() で行う（プロファイル設定より低優先）。

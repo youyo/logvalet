@@ -98,28 +98,9 @@ func TestGlobalFlags_NewFlags_EnvOverride(t *testing.T) {
 		envVal string
 		check  func(t *testing.T, g cli.GlobalFlags)
 	}{
-		{
-			name:   "LOGVALET_API_KEY で APIKey を設定できる",
-			envKey: "LOGVALET_API_KEY",
-			envVal: "env-api-key",
-			check: func(t *testing.T, g cli.GlobalFlags) {
-				if g.APIKey != "env-api-key" {
-					t.Errorf("APIKey = %q, want %q", g.APIKey, "env-api-key")
-				}
-			},
-		},
-		{
-			name:   "LOGVALET_ACCESS_TOKEN で AccessToken を設定できる",
-			envKey: "LOGVALET_ACCESS_TOKEN",
-			envVal: "env-token",
-			check: func(t *testing.T, g cli.GlobalFlags) {
-				if g.AccessToken != "env-token" {
-					t.Errorf("AccessToken = %q, want %q", g.AccessToken, "env-token")
-				}
-			},
-		},
-		// LOGVALET_BASE_URL と LOGVALET_SPACE は Kong env タグから削除。
-		// config.Resolve() で処理する（プロファイル設定より低優先にするため）。
+		// LOGVALET_API_KEY, LOGVALET_ACCESS_TOKEN, LOGVALET_BASE_URL, LOGVALET_SPACE は
+		// Kong env タグから削除。プロファイル固有設定（tokens.json / config.toml）より
+		// 低優先にするため、それぞれ credentials.Resolve() / config.Resolve() で処理する。
 		{
 			name:   "LOGVALET_CONFIG で Config を設定できる",
 			envKey: "LOGVALET_CONFIG",

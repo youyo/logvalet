@@ -378,6 +378,99 @@ func TestResolver_Resolve_EmptyAuthRef(t *testing.T) {
 	}
 }
 
+// ---- tokens.json overrides env when authRef exists ----
+
+func TestResolver_Resolve_TokensJSONOverridesEnvAPIKey(t *testing.T) {
+	t.Parallel()
+	store := credentials.NewStore("testdata/tokens_valid.json")
+	resolver := credentials.NewResolver(store)
+	flags := credentials.CredentialFlags{}
+	getenv := func(key string) string {
+		if key == "LOGVALET_API_KEY" {
+			return "ENV_API_KEY_SHOULD_LOSE"
+		}
+		return ""
+	}
+	// example-dev has api_key "API_KEY_VALID" in tokens_valid.json
+	cred, err := resolver.Resolve("example-dev", flags, getenv)
+	if err != nil {
+		t.Fatalf("Resolve() returned unexpected error: %v", err)
+	}
+	if cred.APIKey != "API_KEY_VALID" {
+		t.Errorf("cred.APIKey = %q, want %q (tokens.json should win over env)", cred.APIKey, "API_KEY_VALID")
+	}
+	if cred.Source != "tokens_json" {
+		t.Errorf("cred.Source = %q, want %q", cred.Source, "tokens_json")
+	}
+}
+
+func TestResolver_Resolve_TokensJSONOverridesEnvAccessToken(t *testing.T) {
+	t.Parallel()
+	store := credentials.NewStore("testdata/tokens_valid.json")
+	resolver := credentials.NewResolver(store)
+	flags := credentials.CredentialFlags{}
+	getenv := func(key string) string {
+		if key == "LOGVALET_ACCESS_TOKEN" {
+			return "ENV_TOKEN_SHOULD_LOSE"
+		}
+		return ""
+	}
+	// example-space has oauth access_token "ACCESS_TOKEN_VALID" in tokens_valid.json
+	cred, err := resolver.Resolve("example-space", flags, getenv)
+	if err != nil {
+		t.Fatalf("Resolve() returned unexpected error: %v", err)
+	}
+	if cred.AccessToken != "ACCESS_TOKEN_VALID" {
+		t.Errorf("cred.AccessToken = %q, want %q (tokens.json should win over env)", cred.AccessToken, "ACCESS_TOKEN_VALID")
+	}
+	if cred.Source != "tokens_json" {
+		t.Errorf("cred.Source = %q, want %q", cred.Source, "tokens_json")
+	}
+}
+
+func TestResolver_Resolve_EnvFallbackWhenAuthRefNotInTokens(t *testing.T) {
+	t.Parallel()
+	store := credentials.NewStore("testdata/tokens_valid.json")
+	resolver := credentials.NewResolver(store)
+	flags := credentials.CredentialFlags{}
+	getenv := func(key string) string {
+		if key == "LOGVALET_API_KEY" {
+			return "ENV_FALLBACK_KEY"
+		}
+		return ""
+	}
+	// "nonexistent" is not in tokens_valid.json, so env should be used
+	cred, err := resolver.Resolve("nonexistent", flags, getenv)
+	if err != nil {
+		t.Fatalf("Resolve() returned unexpected error: %v", err)
+	}
+	if cred.APIKey != "ENV_FALLBACK_KEY" {
+		t.Errorf("cred.APIKey = %q, want %q (env fallback)", cred.APIKey, "ENV_FALLBACK_KEY")
+	}
+	if cred.Source != "env" {
+		t.Errorf("cred.Source = %q, want %q", cred.Source, "env")
+	}
+}
+
+func TestResolver_Resolve_CLIFlagOverridesTokensJSON(t *testing.T) {
+	t.Parallel()
+	store := credentials.NewStore("testdata/tokens_valid.json")
+	resolver := credentials.NewResolver(store)
+	flags := credentials.CredentialFlags{
+		APIKey: "CLI_FLAG_KEY",
+	}
+	cred, err := resolver.Resolve("example-dev", flags, func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("Resolve() returned unexpected error: %v", err)
+	}
+	if cred.APIKey != "CLI_FLAG_KEY" {
+		t.Errorf("cred.APIKey = %q, want %q (CLI flag should always win)", cred.APIKey, "CLI_FLAG_KEY")
+	}
+	if cred.Source != "flag" {
+		t.Errorf("cred.Source = %q, want %q", cred.Source, "flag")
+	}
+}
+
 // ---- IsExpired ----
 
 func TestAuthEntry_IsExpired_NotOAuth(t *testing.T) {
