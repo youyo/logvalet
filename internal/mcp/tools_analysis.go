@@ -420,4 +420,25 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, cfg.Space, cfg.BaseURL)
 		return calculator.Calculate(ctx, projectKey, workloadCfg)
 	})
+	// logvalet_my_tasks
+	r.Register(gomcp.NewTool("logvalet_my_tasks",
+		gomcp.WithDescription("Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals"),
+		gomcp.WithString("mode",
+			gomcp.Description("View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)"),
+		),
+		gomcp.WithNumber("stale_days",
+			gomcp.Description("Days threshold for stale detection on watched issues (default 7)"),
+		),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		opts := analysis.MyTasksOptions{}
+		if mode, ok := stringArg(args, "mode"); ok && mode != "" {
+			opts.Mode = mode
+		}
+		if staleDays, ok := intArg(args, "stale_days"); ok && staleDays > 0 {
+			opts.StaleDays = staleDays
+		}
+
+		builder := analysis.NewMyTasksBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, opts)
+	})
 }

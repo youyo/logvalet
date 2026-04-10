@@ -549,3 +549,74 @@ func TestIssueTimelineHandler_MissingIssueKey(t *testing.T) {
 		t.Error("expected IsError=true for missing issue_key")
 	}
 }
+
+// ---- logvalet_my_tasks MCP ツールテスト ----
+
+// T2-9: MCPTool_Registered - logvalet_my_tasks ツールが登録されること
+func TestMyTasksHandler_ToolRegistered(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newTestServer(mock)
+
+	tool := s.GetTool("logvalet_my_tasks")
+	if tool == nil {
+		t.Fatal("logvalet_my_tasks tool not registered")
+	}
+}
+
+// T2-10: MCPTool_DefaultMode - 引数なし -> mode: "week" で動作すること
+func TestMyTasksHandler_DefaultMode(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {
+		return &domain.User{ID: 1, Name: "テストユーザー"}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mock.ListWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) ([]domain.Watching, error) {
+		return []domain.Watching{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_my_tasks", map[string]any{})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if envelope.Resource != "my_tasks" {
+		t.Errorf("Resource = %q, want my_tasks", envelope.Resource)
+	}
+
+	analysisMap, ok := envelope.Analysis.(map[string]any)
+	if !ok {
+		t.Fatalf("Analysis type = %T, want map[string]any", envelope.Analysis)
+	}
+	mode, _ := analysisMap["mode"].(string)
+	if mode != "week" {
+		t.Errorf("mode = %q, want week", mode)
+	}
+}
+
+// T2-11: MCPTool_GetMyselfError - GetMyself 失敗 -> IsError
+func TestMyTasksHandler_GetMyselfError(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {
+		return nil, errors.New("authentication failed")
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_my_tasks", map[string]any{})
+
+	if !result.IsError {
+		t.Error("expected IsError=true when GetMyself fails")
+	}
+}
