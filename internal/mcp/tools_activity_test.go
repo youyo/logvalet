@@ -222,3 +222,22 @@ func TestActivityListUserIdMeGetMyselfError(t *testing.T) {
 		t.Errorf("expected ListUserActivities not to be called, got %d calls", mock.GetCallCount("ListUserActivities"))
 	}
 }
+
+// T3-invalid: user_id が "me" でも数値でもない場合はバリデーションエラー
+func TestActivityListInvalidUserId(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_list", map[string]any{"user_id": "abc"})
+
+	if !result.IsError {
+		t.Fatal("expected tool error for invalid user_id, got success")
+	}
+
+	if mock.GetCallCount("GetMyself") != 0 {
+		t.Errorf("expected GetMyself not to be called, got %d calls", mock.GetCallCount("GetMyself"))
+	}
+	if mock.GetCallCount("ListUserActivities") != 0 {
+		t.Errorf("expected ListUserActivities not to be called, got %d calls", mock.GetCallCount("ListUserActivities"))
+	}
+}

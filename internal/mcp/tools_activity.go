@@ -36,6 +36,11 @@ func RegisterActivityTools(r *ToolRegistry) {
 
 		// ユーザー別アクティビティ
 		if hasUserID {
+			if userID != "me" {
+				if _, err := strconv.Atoi(userID); err != nil {
+					return nil, fmt.Errorf("user_id must be 'me' or a numeric ID, got: %s", userID)
+				}
+			}
 			actualUserID := userID
 			if userID == "me" {
 				myself, err := client.GetMyself(ctx)

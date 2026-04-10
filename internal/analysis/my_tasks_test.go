@@ -40,7 +40,11 @@ func helperWatching(issueKey string, statusName string, assigneeName string, due
 		Summary:  "ウォッチ課題 " + issueKey,
 	}
 	if statusName != "" {
-		issue.Status = &domain.IDName{ID: 1, Name: statusName}
+		statusID := 1
+		if statusName == "完了" {
+			statusID = 4
+		}
+		issue.Status = &domain.IDName{ID: statusID, Name: statusName}
 	}
 	if assigneeName != "" {
 		issue.Assignee = &domain.User{ID: 50, Name: assigneeName}

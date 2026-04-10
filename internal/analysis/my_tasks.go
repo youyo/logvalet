@@ -327,8 +327,9 @@ func buildWatchedItems(watchings []domain.Watching, assignedKeys map[string]stru
 			continue
 		}
 
-		// 完了は除外（Status.Name == "完了"）
-		if issue.Status != nil && issue.Status.Name == "完了" {
+		// 完了は除外（Status.ID == 4）
+		const closedStatusID = 4
+		if issue.Status != nil && issue.Status.ID == closedStatusID {
 			continue
 		}
 

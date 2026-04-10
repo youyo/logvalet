@@ -101,7 +101,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 
 		// due_date: keyword or date range
 		if dueDateStr, ok := stringArg(args, "due_date"); ok && dueDateStr != "" {
-			since, until, err := resolveDueDateForMCP(dueDateStr)
+			since, until, err := resolveDueDateForMCP(dueDateStr, time.Now())
 			if err != nil {
 				return nil, err
 			}
@@ -316,9 +316,8 @@ func resolveStatusIDsForMCP(input string) ([]int, error) {
 
 // resolveDueDateForMCP resolves due_date param to DueDateSince/DueDateUntil for MCP.
 // Keywords: overdue, this-week, today, this-month. Date: YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD.
-func resolveDueDateForMCP(input string) (*time.Time, *time.Time, error) {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+func resolveDueDateForMCP(input string, now time.Time) (*time.Time, *time.Time, error) {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	switch input {
 	case "today":
