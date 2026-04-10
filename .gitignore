@@ -8,6 +8,7 @@
 *.so
 *.dylib
 *.exe
+*.test
 .DS_Store
 .envrc
 .serena/
