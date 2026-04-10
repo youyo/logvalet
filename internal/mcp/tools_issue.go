@@ -3,6 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
@@ -29,11 +32,15 @@ func RegisterIssueTools(r *ToolRegistry) {
 	// logvalet_issue_list
 	r.Register(gomcp.NewTool("logvalet_issue_list",
 		gomcp.WithDescription("List issues with optional filters"),
-		gomcp.WithString("project_key", gomcp.Description("Filter by project key (looks up project ID)")),
+		gomcp.WithString("project_key", gomcp.Description("Filter by single project key (legacy; use project_keys for multiple)")),
+		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys (e.g. PROJ1,PROJ2)")),
 		gomcp.WithNumber("limit", gomcp.Description("Max number of issues (default 20, max 100)")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
 		gomcp.WithString("sort", gomcp.Description("Sort field (e.g. updated, created)")),
 		gomcp.WithString("order", gomcp.Description("Sort order (asc/desc)")),
+		gomcp.WithString("assignee_id", gomcp.Description("Assignee filter: me (resolved via GetMyself) or numeric user ID")),
+		gomcp.WithString("status_id", gomcp.Description("Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs")),
+		gomcp.WithString("due_date", gomcp.Description("Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
 
@@ -49,13 +56,57 @@ func RegisterIssueTools(r *ToolRegistry) {
 		if order, ok := stringArg(args, "order"); ok {
 			opt.Order = order
 		}
-		// project_key からプロジェクト ID を解決
+
+		// project_key from legacy param
 		if projectKey, ok := stringArg(args, "project_key"); ok && projectKey != "" {
 			proj, err := client.GetProject(ctx, projectKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get project %s: %w", projectKey, err)
 			}
-			opt.ProjectIDs = []int{proj.ID}
+			opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
+		}
+
+		// project_keys from comma-separated list
+		if projectKeys, ok := stringArg(args, "project_keys"); ok && projectKeys != "" {
+			for _, key := range strings.Split(projectKeys, ",") {
+				key = strings.TrimSpace(key)
+				if key == "" {
+					continue
+				}
+				proj, err := client.GetProject(ctx, key)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get project %s: %w", key, err)
+				}
+				opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
+			}
+		}
+
+		// assignee_id: "me" -> GetMyself, numeric -> use directly
+		if assigneeIDStr, ok := stringArg(args, "assignee_id"); ok && assigneeIDStr != "" {
+			ids, err := resolveAssigneeIDForMCP(ctx, assigneeIDStr, client)
+			if err != nil {
+				return nil, err
+			}
+			opt.AssigneeIDs = ids
+		}
+
+		// status_id: "not-closed" -> [1,2,3], comma-separated numeric IDs
+		if statusIDStr, ok := stringArg(args, "status_id"); ok && statusIDStr != "" {
+			ids, err := resolveStatusIDsForMCP(statusIDStr)
+			if err != nil {
+				return nil, err
+			}
+			opt.StatusIDs = ids
+		}
+
+		// due_date: keyword or date range
+		if dueDateStr, ok := stringArg(args, "due_date"); ok && dueDateStr != "" {
+			since, until, err := resolveDueDateForMCP(dueDateStr)
+			if err != nil {
+				return nil, err
+			}
+			opt.DueDateSince = since
+			opt.DueDateUntil = until
 		}
 
 		return client.ListIssues(ctx, opt)
@@ -219,4 +270,125 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		return client.ListIssueAttachments(ctx, issueKey)
 	})
+}
+
+// resolveAssigneeIDForMCP resolves assignee_id param to AssigneeIDs for MCP.
+// "me" -> GetMyself, numeric string -> ID directly, other -> error.
+func resolveAssigneeIDForMCP(ctx context.Context, input string, client backlog.Client) ([]int, error) {
+	if input == "me" {
+		user, err := client.GetMyself(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get myself: %w", err)
+		}
+		return []int{user.ID}, nil
+	}
+	id, err := strconv.Atoi(input)
+	if err != nil {
+		return nil, fmt.Errorf("assignee_id must be me or a numeric user ID, got %q", input)
+	}
+	return []int{id}, nil
+}
+
+// resolveStatusIDsForMCP resolves status_id param to StatusIDs for MCP.
+// "not-closed" -> [1,2,3], comma-separated numeric IDs -> parsed IDs.
+func resolveStatusIDsForMCP(input string) ([]int, error) {
+	if input == "not-closed" {
+		return []int{1, 2, 3}, nil
+	}
+	parts := strings.Split(input, ",")
+	ids := make([]int, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("status_id must be not-closed or comma-separated numeric IDs, got %q", input)
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("status_id must be not-closed or comma-separated numeric IDs, got %q", input)
+	}
+	return ids, nil
+}
+
+// resolveDueDateForMCP resolves due_date param to DueDateSince/DueDateUntil for MCP.
+// Keywords: overdue, this-week, today, this-month. Date: YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD.
+func resolveDueDateForMCP(input string) (*time.Time, *time.Time, error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+
+	switch input {
+	case "today":
+		return &today, &today, nil
+	case "overdue":
+		yesterday := today.AddDate(0, 0, -1)
+		return nil, &yesterday, nil
+	case "this-week":
+		monday := weekStartMCP(today)
+		sunday := monday.AddDate(0, 0, 6)
+		return &monday, &sunday, nil
+	case "this-month":
+		firstDay := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
+		return &firstDay, &lastDay, nil
+	}
+
+	if strings.Contains(input, ":") {
+		since, until, err := parseDateRangeMCP(input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("due_date must be one of: today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
+		}
+		return since, until, nil
+	}
+
+	t, err := time.Parse("2006-01-02", input)
+	if err != nil {
+		return nil, nil, fmt.Errorf("due_date must be one of: today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
+	}
+	return &t, &t, nil
+}
+
+// weekStartMCP returns the Monday of the week containing t.
+func weekStartMCP(t time.Time) time.Time {
+	weekday := t.Weekday()
+	var offset int
+	if weekday == time.Sunday {
+		offset = -6
+	} else {
+		offset = -int(weekday - time.Monday)
+	}
+	return t.AddDate(0, 0, offset)
+}
+
+// parseDateRangeMCP parses a colon-separated date range.
+// "A:B" -> Since=A, Until=B; "A:" -> Since=A, Until=nil; ":B" -> Since=nil, Until=B.
+func parseDateRangeMCP(input string) (*time.Time, *time.Time, error) {
+	parts := strings.SplitN(input, ":", 2)
+	if len(parts) != 2 {
+		return nil, nil, fmt.Errorf("invalid colon-separated range: %q", input)
+	}
+	left := strings.TrimSpace(parts[0])
+	right := strings.TrimSpace(parts[1])
+	if left == "" && right == "" {
+		return nil, nil, fmt.Errorf("range ':' has both sides empty")
+	}
+	var since, until *time.Time
+	if left != "" {
+		t, err := time.Parse("2006-01-02", left)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid date format (must be YYYY-MM-DD): %q", left)
+		}
+		since = &t
+	}
+	if right != "" {
+		t, err := time.Parse("2006-01-02", right)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid date format (must be YYYY-MM-DD): %q", right)
+		}
+		until = &t
+	}
+	return since, until, nil
 }
