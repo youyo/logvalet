@@ -1,9 +1,14 @@
-FROM golang:1.26.1-alpine AS builder
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=$BUILDPLATFORM golang:1.26.1-alpine AS builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /logvalet ./cmd/logvalet/
+ARG TARGETOS=linux
+ARG TARGETARCH=arm64
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w" -o /logvalet ./cmd/logvalet/
 
 FROM gcr.io/distroless/base-debian12:nonroot
 COPY --from=builder /logvalet /logvalet
