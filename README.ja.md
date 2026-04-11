@@ -527,6 +527,64 @@ MCP サーバーは以下を含む 31 個以上のツールを提供します:
 
 Claude Desktop の設定または Claude Code のスキル設定で MCP サーバーを設定し、logvalet をツールとして使用できます。
 
+### 認証（オプション）
+
+リモートデプロイ向けに OIDC/OAuth 2.1 認証を有効化できます:
+
+```bash
+logvalet mcp --auth \
+  --external-url https://logvalet.example.com \
+  --oidc-issuer https://accounts.google.com \
+  --oidc-client-id YOUR_CLIENT_ID \
+  --cookie-secret $(openssl rand -hex 32)
+```
+
+すべての認証フラグは環境変数でも設定可能です（例: `LOGVALET_MCP_AUTH=true`）。詳細は [AgentCore デプロイガイド](docs/agentcore-deployment.md) を参照してください。
+
+認証有効時:
+- `/mcp` は Bearer トークンが必要（OAuth 2.1 + PKCE）
+- `/healthz` は常に認証なしでアクセス可能
+- OAuth エンドポイント（`/register`, `/authorize`, `/token`, `/.well-known/*`）は自動的に処理されます
+
+### Docker / AgentCore デプロイ
+
+```bash
+# ビルド
+docker build -t logvalet .
+
+# 実行（認証なし）
+docker run -p 8080:8080 \
+  -e LOGVALET_API_KEY=your-api-key \
+  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
+  logvalet
+
+# 実行（認証あり）
+docker run -p 8080:8080 \
+  -e LOGVALET_MCP_AUTH=true \
+  -e LOGVALET_MCP_EXTERNAL_URL=https://logvalet.example.com \
+  -e LOGVALET_MCP_OIDC_ISSUER=https://accounts.google.com \
+  -e LOGVALET_MCP_OIDC_CLIENT_ID=your-client-id \
+  -e LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32) \
+  -e LOGVALET_API_KEY=your-api-key \
+  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
+  logvalet
+```
+
+AWS Bedrock AgentCore Runtime へのデプロイ方法は [docs/agentcore-deployment.md](docs/agentcore-deployment.md) を参照してください。
+
+### タスクランナー（mise）
+
+```bash
+mise run build              # バイナリビルド
+mise run test               # 全テスト実行
+mise run test:integration   # 統合テスト実行
+mise run vet                # go vet 実行
+mise run lint               # vet + test 実行
+mise run mcp:start          # MCP サーバー起動（ローカル）
+mise run mcp:start-auth     # MCP サーバー起動（認証あり）
+mise run docker:build       # Docker イメージビルド
+```
+
 ## 安全性
 
 書き込み操作は `--dry-run` でリクエストペイロードを確認してから実行できます:

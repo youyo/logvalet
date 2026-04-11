@@ -528,6 +528,64 @@ The MCP server provides 31+ tools including:
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
 
+### Authentication (Optional)
+
+Enable OIDC/OAuth 2.1 authentication for remote deployments:
+
+```bash
+logvalet mcp --auth \
+  --external-url https://logvalet.example.com \
+  --oidc-issuer https://accounts.google.com \
+  --oidc-client-id YOUR_CLIENT_ID \
+  --cookie-secret $(openssl rand -hex 32)
+```
+
+All auth flags can also be set via environment variables (e.g. `LOGVALET_MCP_AUTH=true`). See [AgentCore Deployment Guide](docs/agentcore-deployment.md) for details.
+
+When auth is enabled:
+- `/mcp` requires a Bearer token (OAuth 2.1 with PKCE)
+- `/healthz` is always accessible without authentication
+- OAuth endpoints (`/register`, `/authorize`, `/token`, `/.well-known/*`) are handled automatically
+
+### Docker / AgentCore Deployment
+
+```bash
+# Build
+docker build -t logvalet .
+
+# Run (no auth)
+docker run -p 8080:8080 \
+  -e LOGVALET_API_KEY=your-api-key \
+  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
+  logvalet
+
+# Run (with auth)
+docker run -p 8080:8080 \
+  -e LOGVALET_MCP_AUTH=true \
+  -e LOGVALET_MCP_EXTERNAL_URL=https://logvalet.example.com \
+  -e LOGVALET_MCP_OIDC_ISSUER=https://accounts.google.com \
+  -e LOGVALET_MCP_OIDC_CLIENT_ID=your-client-id \
+  -e LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32) \
+  -e LOGVALET_API_KEY=your-api-key \
+  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
+  logvalet
+```
+
+For AWS Bedrock AgentCore Runtime deployment, see [docs/agentcore-deployment.md](docs/agentcore-deployment.md).
+
+### Task Runner (mise)
+
+```bash
+mise run build              # Build binary
+mise run test               # Run all tests
+mise run test:integration   # Run integration tests
+mise run vet                # Run go vet
+mise run lint               # Run vet + test
+mise run mcp:start          # Start MCP server (local)
+mise run mcp:start-auth     # Start MCP server with auth
+mise run docker:build       # Build Docker image
+```
+
 ## Safety
 
 Write operations support `--dry-run` to preview the request payload before executing:

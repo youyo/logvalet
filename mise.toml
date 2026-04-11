@@ -1,2 +1,42 @@
 [tools]
 go = "1.26.1"
+
+[tasks.build]
+description = "Build logvalet binary"
+run = "go build -o logvalet ./cmd/logvalet/"
+
+[tasks.test]
+description = "Run all tests"
+run = "go test ./..."
+
+[tasks."test:integration"]
+description = "Run integration tests (requires idproxy testutil)"
+run = "go test -tags=integration ./internal/cli/... -run TestIntegration -v"
+
+[tasks.vet]
+description = "Run go vet"
+run = "go vet ./..."
+
+[tasks.lint]
+description = "Run vet and test"
+run = ["mise run vet", "mise run test"]
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -f logvalet"
+
+[tasks."mcp:start"]
+description = "Start MCP server (local, no auth)"
+run = "go run ./cmd/logvalet/ mcp"
+
+[tasks."mcp:start-auth"]
+description = "Start MCP server with authentication"
+run = "go run ./cmd/logvalet/ mcp --auth"
+
+[tasks."docker:build"]
+description = "Build Docker image"
+run = "docker build -t logvalet ."
+
+[tasks."docker:run"]
+description = "Run Docker container (requires env vars)"
+run = "docker run -p 8080:8080 logvalet"
