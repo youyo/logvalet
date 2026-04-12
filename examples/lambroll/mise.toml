@@ -19,7 +19,7 @@ rm -f "${ARCHIVE}"
 description = "Package logvalet + bootstrap into function.zip"
 depends = ["download"]
 run = """
-chmod +x bootstrap logvalet
+chmod +x logvalet
 zip -j function.zip bootstrap logvalet
 """
 
