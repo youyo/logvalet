@@ -1,10 +1,16 @@
+[env]
+# Default values (override via .env or shell environment)
+AWS_REGION = "ap-northeast-1"
+LOGVALET_VERSION = "0.9.1"
+LAMBDA_ARCH = "arm64"
+# Load secrets from .env (ROLE_ARN, LOGVALET_API_KEY, LOGVALET_BASE_URL)
+_.file = ".env"
+
 [tasks.download]
 description = "Download logvalet binary from GitHub Release"
 run = """
-VERSION=${LOGVALET_VERSION:-0.9.1}
-ARCH=${LAMBDA_ARCH:-arm64}
-ARCHIVE="logvalet_${VERSION}_Linux_${ARCH}.tar.gz"
-curl -fsSL -o "${ARCHIVE}" "https://github.com/youyo/logvalet/releases/download/v${VERSION}/${ARCHIVE}"
+ARCHIVE="logvalet_${LOGVALET_VERSION}_Linux_${LAMBDA_ARCH}.tar.gz"
+curl -fsSL -o "${ARCHIVE}" "https://github.com/youyo/logvalet/releases/download/v${LOGVALET_VERSION}/${ARCHIVE}"
 tar xzf "${ARCHIVE}" logvalet
 rm -f "${ARCHIVE}"
 """

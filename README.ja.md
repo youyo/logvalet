@@ -575,18 +575,7 @@ AWS Bedrock AgentCore Runtime へのデプロイ方法は [docs/agentcore-deploy
 ### Lambda Function URL (lambroll)
 
 [lambroll](https://github.com/fujiwara/lambroll) と [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) を使用して logvalet を Lambda Function URL にデプロイできます。
-テンプレート一式は [examples/lambroll/](examples/lambroll/) を参照してください。
-
-```bash
-cd examples/lambroll
-
-export AWS_REGION=ap-northeast-1
-export ROLE_ARN=arn:aws:iam::123456789012:role/logvalet-lambda-role
-export LOGVALET_API_KEY=your-api-key
-export LOGVALET_BASE_URL=https://your-space.backlog.com
-
-mise run deploy      # バイナリダウンロード・パッケージ・デプロイ・Function URL 作成
-```
+セットアップ手順は [examples/lambroll/](examples/lambroll/) を参照してください。
 
 ### タスクランナー（mise）
 

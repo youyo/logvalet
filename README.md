@@ -576,18 +576,7 @@ For AWS Bedrock AgentCore Runtime deployment, see [docs/agentcore-deployment.md]
 ### Lambda Function URL (lambroll)
 
 Deploy logvalet as a Lambda Function URL using [lambroll](https://github.com/fujiwara/lambroll) and [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter).
-See [examples/lambroll/](examples/lambroll/) for the template.
-
-```bash
-cd examples/lambroll
-
-export AWS_REGION=ap-northeast-1
-export ROLE_ARN=arn:aws:iam::123456789012:role/logvalet-lambda-role
-export LOGVALET_API_KEY=your-api-key
-export LOGVALET_BASE_URL=https://your-space.backlog.com
-
-mise run deploy      # Download binary, package, deploy, and create Function URL
-```
+See [examples/lambroll/](examples/lambroll/) for setup instructions.
 
 ### Task Runner (mise)
 
