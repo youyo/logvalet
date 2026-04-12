@@ -1,124 +1,121 @@
 ---
-title: Lambda Function URL + lambroll デプロイ雛形
+title: examples/lambroll の改善（README + 環境変数管理）
 project: logvalet
 author: planning-agent
-created: 2026-04-12
+created: 2026-04-13
 status: Draft
-complexity: M
+complexity: L
 ---
 
-# Lambda Function URL + lambroll デプロイ雛形
+# examples/lambroll の改善（README + 環境変数管理）
 
 ## Context
 
-AgentCore デプロイから Lambda Function URL デプロイに切り替えるため、`examples/lambroll/` にすぐ使える雛形セットを作成する。
-GitHub Release のバイナリ + bootstrap シェルスクリプトを zip にまとめ、Lambda Web Adapter (LWA) Layer 経由で HTTP リクエストを logvalet MCP サーバーに中継する構成。
-
-## スコープ
-
-### 実装範囲
-- `examples/lambroll/` ディレクトリ（bootstrap, function.json, Makefile）
-- README.md / README.ja.md にデプロイ手順セクション追加
-
-### スコープ外
-- IAM Role / Function URL の自動作成（Makefile の手動ターゲットとして提供）
-- CI/CD パイプライン統合
-- 認証設定（OIDC）のテンプレート化（コメントで案内のみ）
-
-## アーキテクチャ
-
-```
-Lambda Function URL
-  → Lambda Web Adapter (Layer)
-    → bootstrap (shell script)
-      → logvalet mcp --host 0.0.0.0 (port 8080)
-```
-
-LWA がデフォルトでポート 8080 に中継 → logvalet のデフォルトポートと一致するため追加設定不要。
+前タスクで作成した雛形を改善する:
+1. メイン README の Lambda 手順を `examples/lambroll/README.md` に移し、リンクのみ残す
+2. mise.toml に `[env]` セクションと `.env` 読み込みを追加
+3. IAM Role 作成手順を README に含める（lambroll は IAM Role を管理しない）
 
 ## 変更対象ファイル
 
 | ファイル | 操作 | 内容 |
 |---------|------|------|
-| `examples/lambroll/bootstrap` | 新規作成 | logvalet 起動スクリプト（3行） |
-| `examples/lambroll/function.json` | 新規作成 | lambroll 関数定義 |
-| `examples/lambroll/function_url.json` | 新規作成 | Function URL 定義（AuthType: NONE） |
-| `examples/lambroll/mise.toml` | 新規作成 | download / package / deploy タスク定義 |
-| `README.md` | 編集 (L574後) | Lambda デプロイセクション追加 |
-| `README.ja.md` | 編集 (L573後) | Lambda デプロイセクション追加（日本語） |
+| `examples/lambroll/README.md` | 新規作成 | 詳細デプロイ手順（IAM Role 作成 + mise run deploy） |
+| `examples/lambroll/mise.toml` | 編集 | `[env]` セクション追加 + シェル展開を簡略化 |
+| `examples/lambroll/.env.example` | 新規作成 | 必須シークレット変数の雛形 |
+| `README.md` | 編集 | Lambda セクションをリンクのみに差し替え |
+| `README.ja.md` | 編集 | 同上（日本語） |
+| `.gitignore` | 編集 | `examples/lambroll/.env` を追加 |
 
-## 実装手順
+## 実装内容
 
-### Step 1: `examples/lambroll/bootstrap`
+### examples/lambroll/README.md（新規）
 
-```sh
-#!/bin/sh
-set -eu
-exec ./logvalet mcp --host 0.0.0.0 --port "${PORT:-8080}"
+```markdown
+# logvalet on Lambda Function URL
+
+lambroll + Lambda Web Adapter (LWA) を使って logvalet MCP サーバーを Lambda Function URL にデプロイします。
+
+## Prerequisites
+
+- [lambroll](https://github.com/fujiwara/lambroll) (`brew install fujiwara/tap/lambroll`)
+- [mise](https://mise.jdx.dev/)
+- AWS CLI（認証済み）
+
+## 1. IAM Role の作成
+
+Lambda 実行ロールを作成します（初回のみ）:
+
+```bash
+aws iam create-role \
+  --role-name logvalet-lambda-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": { "Service": "lambda.amazonaws.com" },
+      "Action": "sts:AssumeRole"
+    }]
+  }'
+
+aws iam attach-role-policy \
+  --role-name logvalet-lambda-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 ```
 
-- `/bin/sh` を使用（`provided.al2023` で保証）
-- `exec` で logvalet に PID 1 を渡し、SIGTERM を直接受信させる
-- `PORT` 環境変数でポートを制御（デフォルト 8080、LWA の `AWS_LWA_PORT` と合わせる）
+## 2. 環境変数の設定
 
-### Step 2: `examples/lambroll/function.json`
-
-```json
-{
-  "FunctionName": "logvalet-mcp",
-  "Description": "logvalet MCP server on Lambda Function URL",
-  "Runtime": "provided.al2023",
-  "Handler": "bootstrap",
-  "Architectures": ["arm64"],
-  "MemorySize": 256,
-  "Timeout": 900,
-  "Role": "{{ must_env `ROLE_ARN` }}",
-  "Layers": [
-    "arn:aws:lambda:{{ must_env `AWS_REGION` }}:753240598075:layer:LambdaAdapterLayerArm64:27"
-  ],
-  "Environment": {
-    "Variables": {
-      "LOGVALET_API_KEY": "{{ must_env `LOGVALET_API_KEY` }}",
-      "LOGVALET_BASE_URL": "{{ must_env `LOGVALET_BASE_URL` }}"
-    }
-  }
-}
+```bash
+cp .env.example .env
+# .env を編集して実際の値を入力
 ```
 
-設計判断:
-- `provided.al2023`: カスタムランタイム（LWA が Runtime API を処理）
-- `arm64`: Graviton、コスト最適
-- `Timeout: 900`: Function URL のストリーミング MCP セッション用に最大値
-- `MemorySize: 256`: Go バイナリの Cold Start を考慮（128 だと遅い）
-- `must_env`: lambroll のテンプレート関数でデプロイ時に環境変数を解決
-- LWA Layer バージョン `27`（v1.0.0 GA）が 2026 年時点の最新
+## 3. デプロイ
 
-### Step 2.5: `examples/lambroll/function_url.json`
-
-```json
-{
-  "Config": {
-    "AuthType": "NONE"
-  }
-}
+```bash
+mise run deploy
 ```
 
-- lambroll の `--function-url` オプションで Function URL をデプロイ時に同時管理
-- `AuthType: NONE` で公開エンドポイント（IAM 認証が必要な場合は `AWS_IAM` に変更）
-- `Permissions` は `NONE` の場合自動で `Principal: *` が設定される
+初回は Lambda 関数と Function URL が同時に作成されます。
+2回目以降は関数コードと設定のみ更新されます。
 
-### Step 3: `examples/lambroll/mise.toml` 新規作成
+## 4. Function URL の確認
 
-`examples/lambroll/` にローカル `mise.toml` を配置し、lambroll デプロイ用タスクを定義する。
+```bash
+aws lambda get-function-url-config --function-name logvalet-mcp \
+  --query 'FunctionUrl' --output text
+```
+
+## 設定のカスタマイズ
+
+| 変数 | デフォルト | 説明 |
+|------|-----------|------|
+| `AWS_REGION` | `ap-northeast-1` | デプロイ先リージョン |
+| `LOGVALET_VERSION` | `0.9.1` | GitHub Release のバージョン |
+| `LAMBDA_ARCH` | `arm64` | `arm64` または `x86_64` |
+| `ROLE_ARN` | — | Lambda 実行ロール ARN（必須） |
+| `LOGVALET_API_KEY` | — | Backlog API キー（必須） |
+| `LOGVALET_BASE_URL` | — | Backlog スペース URL（必須） |
+```
+
+### examples/lambroll/mise.toml（編集）
+
+`[env]` セクションを先頭に追加し、タスクのシェル展開を簡略化:
 
 ```toml
+[env]
+# Default values (override via .env or shell environment)
+AWS_REGION = "ap-northeast-1"
+LOGVALET_VERSION = "0.9.1"
+LAMBDA_ARCH = "arm64"
+# Load secrets from .env (ROLE_ARN, LOGVALET_API_KEY, LOGVALET_BASE_URL)
+_.file = ".env"
+
 [tasks.download]
 description = "Download logvalet binary from GitHub Release"
 run = """
-VERSION=${LOGVALET_VERSION:-0.9.1}
-ARCH=${LAMBDA_ARCH:-arm64}
-ARCHIVE="logvalet_${VERSION}_Linux_${ARCH}.tar.gz"
-curl -fsSL -o "${ARCHIVE}" "https://github.com/youyo/logvalet/releases/download/v${VERSION}/${ARCHIVE}"
+ARCHIVE="logvalet_${LOGVALET_VERSION}_Linux_${LAMBDA_ARCH}.tar.gz"
+curl -fsSL -o "${ARCHIVE}" "https://github.com/youyo/logvalet/releases/download/v${LOGVALET_VERSION}/${ARCHIVE}"
 tar xzf "${ARCHIVE}" logvalet
 rm -f "${ARCHIVE}"
 """
@@ -141,87 +138,54 @@ description = "Remove packaging artifacts"
 run = "rm -f logvalet function.zip"
 ```
 
-設計判断:
-- `examples/lambroll/mise.toml` にローカル配置（`cd examples/lambroll && mise run deploy`）
-- タスク名は `lambda:` プレフィックス不要（ディレクトリスコープで自明）
-- `depends` で download → package → deploy の依存チェーン
-- 環境変数 `LOGVALET_VERSION`, `LAMBDA_ARCH` でバージョン・アーキテクチャを指定
-- `zip -j`: フラットアーカイブ（Lambda は `/var/task/` にルート展開）
-- `chmod +x`: zip 内のパーミッション保持（これがないと Permission denied）
-- Function URL は `--function-url function_url.json` で lambroll が管理（別途 AWS CLI 不要）
+### examples/lambroll/.env.example（新規）
 
-### Step 4: README.md 編集
+```
+# Required: copy to .env and fill in your values
+ROLE_ARN=arn:aws:iam::123456789012:role/logvalet-lambda-role
+LOGVALET_API_KEY=your-api-key
+LOGVALET_BASE_URL=https://your-space.backlog.com
 
-L574（AgentCore 参照行）の後に挿入:
+# Optional: override defaults defined in mise.toml [env]
+# AWS_REGION=ap-northeast-1
+# LOGVALET_VERSION=0.9.1
+# LAMBDA_ARCH=arm64
+```
 
+### README.md / README.ja.md（編集）
+
+現在の Lambda セクション（`mise run deploy` のコードブロックを含む複数行）を以下に差し替え:
+
+**README.md:**
 ```markdown
-
 ### Lambda Function URL (lambroll)
 
 Deploy logvalet as a Lambda Function URL using [lambroll](https://github.com/fujiwara/lambroll) and [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter).
-See [examples/lambroll/](examples/lambroll/) for the template.
-
-```bash
-cd examples/lambroll
-
-export AWS_REGION=ap-northeast-1
-export ROLE_ARN=arn:aws:iam::123456789012:role/logvalet-lambda-role
-export LOGVALET_API_KEY=your-api-key
-export LOGVALET_BASE_URL=https://your-space.backlog.com
-
-mise run deploy      # Download binary, package, deploy, and create Function URL
-```
+See [examples/lambroll/](examples/lambroll/) for setup instructions.
 ```
 
-### Step 5: README.ja.md 編集
-
-L573（AgentCore 参照行）の後に挿入:
-
+**README.ja.md:**
 ```markdown
-
 ### Lambda Function URL (lambroll)
 
 [lambroll](https://github.com/fujiwara/lambroll) と [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) を使用して logvalet を Lambda Function URL にデプロイできます。
-テンプレート一式は [examples/lambroll/](examples/lambroll/) を参照してください。
-
-```bash
-cd examples/lambroll
-
-export AWS_REGION=ap-northeast-1
-export ROLE_ARN=arn:aws:iam::123456789012:role/logvalet-lambda-role
-export LOGVALET_API_KEY=your-api-key
-export LOGVALET_BASE_URL=https://your-space.backlog.com
-
-mise run deploy      # バイナリダウンロード・パッケージ・デプロイ・Function URL 作成
-```
+セットアップ手順は [examples/lambroll/](examples/lambroll/) を参照してください。
 ```
 
-## テスト設計書
+### .gitignore（編集）
 
-テスト対象はテンプレートファイル（静的設定ファイル）のため、自動テストは N/A。
+既存の `.envrc` 行の近くに追加:
+```
+examples/lambroll/.env
+```
 
-### 検証方法
-1. `examples/lambroll/` の 3 ファイルが存在すること
-2. `bootstrap` が `#!/bin/sh` で始まり実行可能フラグを持つこと
-3. `function.json` が有効な JSON であること（`jq . function.json`）
-4. `examples/lambroll/mise.toml` のタスクが正しく定義されていること（`cd examples/lambroll && mise tasks` で確認）
-5. README.md / README.ja.md に Lambda セクションが追加されていること
+## 検証方法
 
-## リスク評価
-
-| リスク | 重大度 | 対策 |
-|--------|--------|------|
-| LWA Layer バージョン陳腐化 | 低 | v27 (1.0.0 GA) を使用。[awslabs/aws-lambda-web-adapter](https://github.com/awslabs/aws-lambda-web-adapter) で最新を確認 |
-| bootstrap の exec 忘れ | 中 | `exec` を明記、コメントで理由を説明 |
-| zip パーミッション不足 | 中 | Makefile で `chmod +x` を明示 |
-
-## チェックリスト
-
-- [x] 観点1: 実装実現可能性 — 5ステップ、全ファイル名明記、依存関係なし
-- [x] 観点2: TDD — N/A（静的テンプレート）
-- [x] 観点3: アーキテクチャ整合性 — 既存 Dockerfile/README パターンに準拠
-- [x] 観点4: リスク評価 — 3件特定、対策明記
-- [x] 観点5: シーケンス図 — アーキテクチャ図で代替（単純な直列フロー）
+1. `examples/lambroll/README.md` が存在し、IAM Role 作成〜デプロイの手順が揃っていること
+2. `examples/lambroll/.env.example` に必要変数が揃っていること
+3. `cd examples/lambroll && mise tasks` でタスク一覧が表示されること
+4. メイン README にリンクのみ残っていること
+5. `.gitignore` に `examples/lambroll/.env` が含まれること
 
 ---
 
