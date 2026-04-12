@@ -1,0 +1,27 @@
+[tasks.download]
+description = "Download logvalet binary from GitHub Release"
+run = """
+VERSION=${LOGVALET_VERSION:-0.9.1}
+ARCH=${LAMBDA_ARCH:-arm64}
+ARCHIVE="logvalet_${VERSION}_Linux_${ARCH}.tar.gz"
+curl -fsSL -o "${ARCHIVE}" "https://github.com/youyo/logvalet/releases/download/v${VERSION}/${ARCHIVE}"
+tar xzf "${ARCHIVE}" logvalet
+rm -f "${ARCHIVE}"
+"""
+
+[tasks.package]
+description = "Package logvalet + bootstrap into function.zip"
+depends = ["download"]
+run = """
+chmod +x bootstrap logvalet
+zip -j function.zip bootstrap logvalet
+"""
+
+[tasks.deploy]
+description = "Deploy logvalet to Lambda via lambroll (with Function URL)"
+depends = ["package"]
+run = "lambroll deploy --function function.json --function-url function_url.json"
+
+[tasks.clean]
+description = "Remove packaging artifacts"
+run = "rm -f logvalet function.zip"

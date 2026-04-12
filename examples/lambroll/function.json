@@ -1,0 +1,19 @@
+{
+  "FunctionName": "logvalet-mcp",
+  "Description": "logvalet MCP server on Lambda Function URL",
+  "Runtime": "provided.al2023",
+  "Handler": "bootstrap",
+  "Architectures": ["arm64"],
+  "MemorySize": 256,
+  "Timeout": 900,
+  "Role": "{{ must_env `ROLE_ARN` }}",
+  "Layers": [
+    "arn:aws:lambda:{{ must_env `AWS_REGION` }}:753240598075:layer:LambdaAdapterLayerArm64:27"
+  ],
+  "Environment": {
+    "Variables": {
+      "LOGVALET_API_KEY": "{{ must_env `LOGVALET_API_KEY` }}",
+      "LOGVALET_BASE_URL": "{{ must_env `LOGVALET_BASE_URL` }}"
+    }
+  }
+}
