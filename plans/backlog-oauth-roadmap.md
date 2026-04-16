@@ -118,10 +118,10 @@ if c.Auth && oauthCfg != nil {
 - [x] ユーザー隔離テスト
 - 詳細: plans/backlog-oauth-m02-memory-store.md
 
-#### M05: OAuthProvider interface と Backlog 実装
-- [ ] OAuthProvider interface 定義
-- [ ] BacklogOAuthProvider (BuildAuthorizationURL, ExchangeCode, RefreshToken, GetCurrentUser)
-- [ ] credentials パッケージの既存関数をラップ
+#### M05: OAuthProvider interface と Backlog 実装 ✓
+- [x] OAuthProvider interface 定義
+- [x] BacklogOAuthProvider (BuildAuthorizationURL, ExchangeCode, RefreshToken, GetCurrentUser)
+- [x] credentials パッケージの既存関数をラップ
 - 詳細: plans/backlog-oauth-m05-backlog-provider.md
 
 ### Phase 3: マネージャー & ファクトリー（M02+M05完了後）
