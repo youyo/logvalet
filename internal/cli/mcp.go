@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	idproxy "github.com/youyo/idproxy"
+	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/version"
 )
@@ -78,13 +80,45 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		Space:   rc.Config.Space,
 		BaseURL: rc.Config.BaseURL,
 	}
-	s := mcpinternal.NewServer(rc.Client, ver, cfg)
+
+	// OAuth モード判定（--auth かつ LOGVALET_BACKLOG_CLIENT_ID 設定時のみ有効）。
+	// 既存 CLI / 既存 MCP パスは一切変更しない。
+	var oauthDeps *OAuthDeps
+	if c.Auth {
+		oauthCfg, err := auth.LoadOAuthEnvConfig(os.Getenv)
+		if err != nil {
+			return fmt.Errorf("load oauth config: %w", err)
+		}
+		if oauthCfg.OAuthEnabled() {
+			if err := oauthCfg.Validate(); err != nil {
+				return fmt.Errorf("validate oauth config: %w", err)
+			}
+			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, slog.Default())
+			if err != nil {
+				return err
+			}
+			oauthDeps = deps
+			defer func() { _ = oauthDeps.Close() }()
+		}
+	}
+
+	// MCP サーバー構築（OAuth 有無で分岐）
+	var s *mcpserver.MCPServer
+	if oauthDeps != nil {
+		s = mcpinternal.NewServerWithFactory(oauthDeps.Factory, ver, cfg)
+	} else {
+		s = mcpinternal.NewServer(rc.Client, ver, cfg)
+	}
 	h := mcpserver.NewStreamableHTTPServer(s, mcpserver.WithEndpointPath("/mcp"))
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
 
-	mcpMux := http.NewServeMux()
-	mcpMux.Handle("/mcp", h)
+	// innerMux: MCP + OAuth ルートを同居させる（OAuth モード時のみ OAuth ルート登録）
+	innerMux := http.NewServeMux()
+	innerMux.Handle("/mcp", h)
+	if oauthDeps != nil {
+		InstallOAuthRoutes(innerMux, oauthDeps.Handler)
+	}
 
 	var handler http.Handler
 
@@ -94,20 +128,28 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 			return err
 		}
 
-		auth, err := idproxy.New(context.Background(), authCfg)
+		authMW, err := idproxy.New(context.Background(), authCfg)
 		if err != nil {
 			return err
 		}
 
 		topMux := http.NewServeMux()
 		topMux.HandleFunc("/healthz", healthHandler)
-		topMux.Handle("/", auth.Wrap(mcpMux))
+		// idproxy.Wrap の内側に userID bridge を挟む（順序: auth.Wrap → bridge → innerMux）。
+		// bridge を外側に置くと idproxy が context に注入する前に動き、userID が取れない。
+		bridge := newUserIDBridge()
+		topMux.Handle("/", authMW.Wrap(bridge(innerMux)))
 		handler = topMux
 
-		fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)
+		if oauthDeps != nil {
+			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth + OAuth) listening on %s/mcp\n", addr)
+			fmt.Fprintln(os.Stderr, "  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}")
+		} else {
+			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)
+		}
 	} else {
-		mcpMux.HandleFunc("/healthz", healthHandler)
-		handler = mcpMux
+		innerMux.HandleFunc("/healthz", healthHandler)
+		handler = innerMux
 
 		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 	}

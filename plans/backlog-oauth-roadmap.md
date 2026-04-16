@@ -16,7 +16,7 @@ logvalet の remote MCP 構成において、ユーザーごとに異なる Back
 | 制約 | Zero config file（全て環境変数）、Lambda/VPC不要、idproxy の責務を崩さない |
 | 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvalet |
 | 作成日 | 2026-04-16 |
-| 最終更新 | 2026-04-17 (M15 完了) |
+| 最終更新 | 2026-04-17 (M16 完了) |
 | ステータス | 未着手 |
 
 ## 設計決定
@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M16 (MCP サーバーへの OAuth ルート統合)
-- **直近の完了**: M15 OAuth ステータス & 切断ハンドラー
-- **次のアクション**: M16 → M17
+- **マイルストーン**: M17 (E2E 統合テストとデプロイ設定更新)
+- **直近の完了**: M16 MCP サーバーへの OAuth ルート統合
+- **次のアクション**: M17
 
 ---
 
@@ -192,11 +192,11 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 7: MCP 統合（M12+M14+M15完了後）
 
-#### M16: MCP サーバーへの OAuth ルート統合
-- [ ] mcp.go の mux に OAuth ハンドラー追加
-- [ ] --auth 有効 + LOGVALET_BACKLOG_CLIENT_ID 設定時のみ有効化
-- [ ] NewServerWithFactory で per-user MCP サーバー構築
-- [ ] idproxy 認証ミドルウェアを OAuth ルートにも適用
+#### M16: MCP サーバーへの OAuth ルート統合 ✓
+- [x] mcp.go の mux に OAuth ハンドラー追加
+- [x] --auth 有効 + LOGVALET_BACKLOG_CLIENT_ID 設定時のみ有効化
+- [x] NewServerWithFactory で per-user MCP サーバー構築
+- [x] idproxy 認証ミドルウェアを OAuth ルートにも適用（auth.Wrap → userID bridge → innerMux の順序）
 - 詳細: plans/backlog-oauth-m16-mcp-integration.md
 
 ### Phase 8: E2E テスト & デプロイ設定（M16完了後）
@@ -330,6 +330,7 @@ internal/
 | 2026-04-17 | 完了 | M12 NewServer Per-User 対応完了。Current Focus を M14 に更新 |
 | 2026-04-17 | 完了 | M14 OAuth HTTP ハンドラー（コールバック）完了。Current Focus を M15 に更新 |
 | 2026-04-17 | 完了 | M15 OAuth ステータス & 切断ハンドラー完了。Current Focus を M16 に更新 |
+| 2026-04-17 | 完了 | M16 MCP サーバーへの OAuth ルート統合完了。Current Focus を M17 に更新 |
 
 ---
 
