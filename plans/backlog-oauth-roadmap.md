@@ -16,7 +16,7 @@ logvalet の remote MCP 構成において、ユーザーごとに異なる Back
 | 制約 | Zero config file（全て環境変数）、Lambda/VPC不要、idproxy の責務を崩さない |
 | 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvalet |
 | 作成日 | 2026-04-16 |
-| 最終更新 | 2026-04-17 |
+| 最終更新 | 2026-04-17 (M12 完了) |
 | ステータス | 未着手 |
 
 ## 設計決定
@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M12 (NewServer Per-User 対応)
-- **直近の完了**: M13 OAuth HTTP ハンドラー（認可開始）
-- **次のアクション**: M12 → M14 → M15 → M16 → M17
+- **マイルストーン**: M14 (OAuth HTTP ハンドラー（コールバック）)
+- **直近の完了**: M12 NewServer Per-User 対応
+- **次のアクション**: M14 → M15 → M16 → M17
 
 ---
 
@@ -165,9 +165,9 @@ if c.Auth && oauthCfg != nil {
 - [x] 既存 NewToolRegistry 後方互換維持
 - 詳細: plans/backlog-oauth-m11-registry-factory.md
 
-#### M12: NewServer Per-User 対応
-- [ ] NewServerWithFactory(factory, ver, cfg)
-- [ ] 既存 NewServer 後方互換維持
+#### M12: NewServer Per-User 対応 ✓
+- [x] NewServerWithFactory(factory, ver, cfg)
+- [x] 既存 NewServer 後方互換維持
 - 詳細: plans/backlog-oauth-m12-server-factory.md
 
 ### Phase 6: OAuth HTTP ハンドラー（M04+M05+M10完了後）
@@ -326,6 +326,7 @@ internal/
 |------|------|------|
 | 2026-04-16 22:50 | 作成 | ロードマップ初版作成（17マイルストーン、TDD、zero config file） |
 | 2026-04-17 | 完了 | M13 OAuth HTTP ハンドラー（認可開始）完了。Current Focus を M12 に更新 |
+| 2026-04-17 | 完了 | M12 NewServer Per-User 対応完了。Current Focus を M14 に更新 |
 
 ---
 
