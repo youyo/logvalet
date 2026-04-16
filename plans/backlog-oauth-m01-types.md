@@ -4,7 +4,7 @@
 
 | 項目 | 値 |
 |------|---|
-| ステータス | 未着手 |
+| ステータス | 完了 |
 | 依存 | なし |
 | 対象ファイル | `internal/auth/types.go`, `internal/auth/types_test.go`, `internal/auth/errors.go`, `internal/auth/errors_test.go` |
 
@@ -110,12 +110,53 @@ type ProviderUser struct {
 - マスキングヘルパーを `maskToken(s string) string` として抽出
 - テストの重複を削減
 
+## Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Test as go test
+    participant Errors as errors.go
+    participant Types as types.go
+
+    Note over Dev: Phase 1: Red — テスト先行
+    Dev->>Test: errors_test.go 作成
+    Test->>Test: 6 sentinel errors の存在確認テスト
+    Test-->>Dev: FAIL (errors.go 未作成)
+
+    Dev->>Test: types_test.go 作成
+    Test->>Test: TokenRecord 初期化テスト
+    Test->>Test: String() マスキングテスト
+    Test->>Test: IsExpired() テスト
+    Test->>Test: NeedsRefresh() テスト
+    Test-->>Dev: FAIL (types.go 未作成)
+
+    Note over Dev: Phase 2: Green — 最小実装
+    Dev->>Errors: sentinel errors 定義
+    Dev->>Test: go test ./internal/auth/...
+    Test-->>Dev: errors_test PASS
+
+    Dev->>Types: TokenRecord struct 定義
+    Dev->>Types: ProviderUser struct 定義
+    Dev->>Types: String(), maskToken(), IsExpired(), NeedsRefresh() 実装
+    Dev->>Test: go test ./internal/auth/...
+    Test-->>Dev: ALL PASS
+
+    Note over Dev: Phase 3: Refactor
+    Dev->>Types: maskToken() をヘルパー関数に抽出
+    Dev->>Test: go test ./internal/auth/... -cover
+    Test-->>Dev: ALL PASS + coverage report
+```
+
 ## Risks
 
-| リスク | 影響度 | 対策 |
-|--------|--------|------|
-| String() を使わず直接 %+v でログ出力される | 中 | slog.LogValuer の実装を検討（ただし M01 スコープ外、TODO で記録） |
-| ProviderUser の構造が Backlog API レスポンスと合わない | 低 | M05 で Backlog `/users/myself` のレスポンス構造に合わせて調整 |
+| リスク | 影響度 | 発生確率 | 対策 |
+|--------|--------|----------|------|
+| String() を使わず直接 %+v でログ出力される | 中 | 中 | slog.LogValuer の実装を TODO で記録。M01 では String() + maskToken() で基盤確立 |
+| ProviderUser の構造が Backlog API レスポンスと合わない | 低 | 低 | M05 で Backlog `/users/myself` のレスポンス構造に合わせて調整。M01 では汎用構造 |
+| IsExpired()/NeedsRefresh() がテスト時の時刻に依存 | 低 | 中 | time.Now() を直接使用するが、テストでは十分なマージン（1時間等）を設定して flaky を回避 |
+| sentinel error のメッセージが将来の i18n で問題になる | 低 | 低 | 英語メッセージは内部用。MCP tool 側で actionable なメッセージに変換する設計（M06以降） |
+| internal/auth パッケージが既存の internal/credentials と責務重複 | 中 | 低 | 明確に分離: credentials は CLI profile/API key 用、auth は OAuth per-user token 用。CLAUDE.md で記録 |
 
 ## Verification
 
