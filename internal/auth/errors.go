@@ -22,4 +22,10 @@ var (
 
 	// ErrInvalidTenant はテナントが無効または未指定の場合に返される。
 	ErrInvalidTenant = errors.New("auth: invalid or missing tenant")
+
+	// ErrStateExpired は OAuth state トークンが期限切れの場合に返される。
+	ErrStateExpired = errors.New("auth: state token expired")
+
+	// ErrStateInvalid は OAuth state トークンが不正（署名不正・改竄等）の場合に返される。
+	ErrStateInvalid = errors.New("auth: state token invalid")
 )
