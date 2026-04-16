@@ -106,7 +106,7 @@ func TestNewTokenStore_SQLite(t *testing.T) {
 	}
 }
 
-func TestNewTokenStore_DynamoDB_NotImplemented(t *testing.T) {
+func TestNewTokenStore_DynamoDB(t *testing.T) {
 	cfg := &auth.OAuthEnvConfig{
 		TokenStoreType: auth.StoreTypeDynamoDB,
 		DynamoDBTable:  "test-table",
@@ -114,11 +114,14 @@ func TestNewTokenStore_DynamoDB_NotImplemented(t *testing.T) {
 	}
 
 	store, err := NewTokenStore(cfg)
-	if store != nil {
-		t.Errorf("expected nil store, got %v", store)
+	if err != nil {
+		t.Fatalf("NewTokenStore(dynamodb): unexpected error: %v", err)
 	}
-	if !errors.Is(err, auth.ErrNotImplemented) {
-		t.Errorf("expected ErrNotImplemented, got: %v", err)
+	defer store.Close()
+
+	// DynamoDBStore が返されたことを型アサーションで確認
+	if _, ok := store.(*DynamoDBStore); !ok {
+		t.Errorf("expected *DynamoDBStore, got %T", store)
 	}
 }
 

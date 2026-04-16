@@ -145,10 +145,10 @@ if c.Auth && oauthCfg != nil {
 - [x] ファクトリー統合
 - 詳細: plans/backlog-oauth-m08-sqlite-store.md
 
-#### M09: DynamoDB TokenStore
-- [ ] DynamoDBStore 実装 (aws-sdk-go-v2)
-- [ ] PK = userID#provider#tenant
-- [ ] ファクトリー統合
+#### M09: DynamoDB TokenStore ✓
+- [x] DynamoDBStore 実装 (aws-sdk-go-v2)
+- [x] PK = USER#userID#provider#tenant（単一 PK、SK なし）
+- [x] ファクトリー統合
 - 詳細: plans/backlog-oauth-m09-dynamodb-store.md
 
 ### Phase 5: Per-User クライアント（M06完了後）
