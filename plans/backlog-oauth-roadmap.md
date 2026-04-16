@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M01 (TokenRecord 型定義とセキュリティ基盤)
-- **直近の完了**: ロードマップ作成
-- **次のアクション**: M01 の TDD 開始
+- **マイルストーン**: M11 (ToolRegistry Per-User 対応)
+- **直近の完了**: M10 Per-User ClientFactory
+- **次のアクション**: M11 → M13 → M12 → M14 → M15 → M16 → M17
 
 ---
 
