@@ -39,19 +39,43 @@ type BacklogOAuthProvider struct {
 	httpClient   *http.Client // RefreshToken / GetCurrentUser で使用（ExchangeCode は credentials 内部で独自 Client を使用）
 }
 
+// ProviderOption は BacklogOAuthProvider の構築時オプション。
+type ProviderOption func(*BacklogOAuthProvider)
+
+// WithBaseURL は Backlog API のベース URL を上書きするオプションを返す。
+// デフォルトは https://{space}.backlog.com。
+//
+// 用途:
+//   - 統合テストで httptest サーバーを指す
+//   - 将来の on-prem Backlog / staging 環境への対応
+//
+// 空文字列を指定した場合は無視される（デフォルト URL を保持）。
+func WithBaseURL(url string) ProviderOption {
+	return func(p *BacklogOAuthProvider) {
+		if url != "" {
+			p.baseURL = url
+		}
+	}
+}
+
 // NewBacklogOAuthProvider は BacklogOAuthProvider を構築する。
 // space が空の場合は auth.ErrInvalidTenant を返す。
-func NewBacklogOAuthProvider(space, clientID, clientSecret string) (*BacklogOAuthProvider, error) {
+// opts で baseURL 上書きなどのオプションを指定できる。
+func NewBacklogOAuthProvider(space, clientID, clientSecret string, opts ...ProviderOption) (*BacklogOAuthProvider, error) {
 	if space == "" {
 		return nil, auth.ErrInvalidTenant
 	}
-	return &BacklogOAuthProvider{
+	p := &BacklogOAuthProvider{
 		space:        space,
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		baseURL:      "https://" + space + ".backlog.com",
 		httpClient:   &http.Client{Timeout: defaultHTTPTimeout},
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p, nil
 }
 
 // Name はプロバイダー名 "backlog" を返す。

@@ -36,6 +36,41 @@ func TestBacklogProvider_NewWithEmptySpace(t *testing.T) {
 	}
 }
 
+func TestBacklogProvider_WithBaseURL(t *testing.T) {
+	t.Run("override", func(t *testing.T) {
+		override := "http://127.0.0.1:12345"
+		p, err := NewBacklogOAuthProvider("my-space", "client-id", "client-secret", WithBaseURL(override))
+		if err != nil {
+			t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+		}
+		if p.baseURL != override {
+			t.Errorf("baseURL = %q, want %q", p.baseURL, override)
+		}
+	})
+
+	t.Run("empty string keeps default", func(t *testing.T) {
+		p, err := NewBacklogOAuthProvider("my-space", "client-id", "client-secret", WithBaseURL(""))
+		if err != nil {
+			t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+		}
+		want := "https://my-space.backlog.com"
+		if p.baseURL != want {
+			t.Errorf("baseURL = %q, want %q", p.baseURL, want)
+		}
+	})
+
+	t.Run("no option keeps default", func(t *testing.T) {
+		p, err := NewBacklogOAuthProvider("my-space", "client-id", "client-secret")
+		if err != nil {
+			t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+		}
+		want := "https://my-space.backlog.com"
+		if p.baseURL != want {
+			t.Errorf("baseURL = %q, want %q", p.baseURL, want)
+		}
+	})
+}
+
 func TestBacklogProvider_BuildAuthorizationURL(t *testing.T) {
 	p, err := NewBacklogOAuthProvider("my-space", "my-client-id", "my-secret")
 	if err != nil {
