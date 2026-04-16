@@ -98,10 +98,10 @@ if c.Auth && oauthCfg != nil {
 - [x] センチネルエラー 6種定義
 - 詳細: plans/backlog-oauth-m01-types.md
 
-#### M03: OAuthConfig 環境変数ローダー
-- [ ] OAuthEnvConfig struct + LoadOAuthEnvConfig()
-- [ ] Validate() — 必須項目チェック
-- [ ] TokenStore type / SQLite path / DynamoDB 設定の環境変数
+#### M03: OAuthConfig 環境変数ローダー ✓
+- [x] OAuthEnvConfig struct + LoadOAuthEnvConfig()
+- [x] Validate() — 必須項目チェック
+- [x] TokenStore type / SQLite path / DynamoDB 設定の環境変数
 - 詳細: plans/backlog-oauth-m03-env-config.md
 
 #### M04: Signed State (JWT ベース)
