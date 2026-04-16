@@ -153,10 +153,10 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 5: Per-User クライアント（M06完了後）
 
-#### M10: Per-User ClientFactory
-- [ ] UserIDFromContext / ContextWithUserID ヘルパー
-- [ ] ClientFactory — TokenManager からトークン取得 → backlog.HTTPClient 生成
-- [ ] ユーザー隔離テスト
+#### M10: Per-User ClientFactory ✓
+- [x] UserIDFromContext / ContextWithUserID ヘルパー
+- [x] ClientFactory — TokenManager からトークン取得 → backlog.HTTPClient 生成
+- [x] ユーザー隔離テスト
 - 詳細: plans/backlog-oauth-m10-client-factory.md
 
 #### M11: ToolRegistry Per-User 対応
