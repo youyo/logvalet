@@ -23,6 +23,9 @@ var (
 	// ErrInvalidTenant はテナントが無効または未指定の場合に返される。
 	ErrInvalidTenant = errors.New("auth: invalid or missing tenant")
 
+	// ErrInvalidRedirectURI は OAuth リダイレクト URI が無効または未指定の場合に返される。
+	ErrInvalidRedirectURI = errors.New("auth: invalid or missing redirect URI")
+
 	// ErrStateExpired は OAuth state トークンが期限切れの場合に返される。
 	ErrStateExpired = errors.New("auth: state token expired")
 
