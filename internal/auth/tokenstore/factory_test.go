@@ -3,6 +3,7 @@ package tokenstore
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -64,18 +65,44 @@ func TestNewTokenStore_MemoryDefault(t *testing.T) {
 	}
 }
 
-func TestNewTokenStore_SQLite_NotImplemented(t *testing.T) {
+func TestNewTokenStore_SQLite(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "factory-test.db")
 	cfg := &auth.OAuthEnvConfig{
 		TokenStoreType: auth.StoreTypeSQLite,
-		SQLitePath:     "/tmp/test.db",
+		SQLitePath:     dbPath,
 	}
 
 	store, err := NewTokenStore(cfg)
-	if store != nil {
-		t.Errorf("expected nil store, got %v", store)
+	if err != nil {
+		t.Fatalf("NewTokenStore(sqlite): unexpected error: %v", err)
 	}
-	if !errors.Is(err, auth.ErrNotImplemented) {
-		t.Errorf("expected ErrNotImplemented, got: %v", err)
+	defer store.Close()
+
+	// SQLiteStore が返されたことを Put/Get ラウンドトリップで検証
+	ctx := context.Background()
+	rec := &auth.TokenRecord{
+		UserID:      "user1",
+		Provider:    "backlog",
+		Tenant:      "example",
+		AccessToken: "access-token-123",
+		Expiry:      time.Now().UTC().Add(1 * time.Hour),
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+
+	if err := store.Put(ctx, rec); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	got, err := store.Get(ctx, "user1", "backlog", "example")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got == nil {
+		t.Fatal("Get: expected record, got nil")
+	}
+	if got.AccessToken != "access-token-123" {
+		t.Errorf("AccessToken: want %q, got %q", "access-token-123", got.AccessToken)
 	}
 }
 

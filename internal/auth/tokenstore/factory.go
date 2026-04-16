@@ -23,7 +23,7 @@ func NewTokenStore(cfg *auth.OAuthEnvConfig) (auth.TokenStore, error) {
 	case auth.StoreTypeMemory, "":
 		return NewMemoryStore(), nil
 	case auth.StoreTypeSQLite:
-		return nil, fmt.Errorf("sqlite token store: %w", auth.ErrNotImplemented)
+		return NewSQLiteStore(cfg.SQLitePath)
 	case auth.StoreTypeDynamoDB:
 		return nil, fmt.Errorf("dynamodb token store: %w", auth.ErrNotImplemented)
 	default:

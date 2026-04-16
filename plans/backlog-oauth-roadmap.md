@@ -139,10 +139,10 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 4: 追加 TokenStore（M07完了後、並列実行可能）
 
-#### M08: SQLite TokenStore
-- [ ] SQLiteStore 実装 (modernc.org/sqlite, pure Go)
-- [ ] UPSERT + UTC 保存 + auto migration
-- [ ] ファクトリー統合
+#### M08: SQLite TokenStore ✓
+- [x] SQLiteStore 実装 (modernc.org/sqlite, pure Go)
+- [x] UPSERT + UTC 保存 + auto migration
+- [x] ファクトリー統合
 - 詳細: plans/backlog-oauth-m08-sqlite-store.md
 
 #### M09: DynamoDB TokenStore
