@@ -92,10 +92,10 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 1: 基盤型定義（並列実行可能: M01, M03, M04）
 
-#### M01: TokenRecord 型定義とセキュリティ基盤
-- [ ] TokenRecord struct + String() マスキング
-- [ ] IsExpired() / NeedsRefresh(margin) メソッド
-- [ ] センチネルエラー 6種定義
+#### M01: TokenRecord 型定義とセキュリティ基盤 ✓
+- [x] TokenRecord struct + String() マスキング
+- [x] IsExpired() / NeedsRefresh(margin) メソッド
+- [x] センチネルエラー 6種定義
 - 詳細: plans/backlog-oauth-m01-types.md
 
 #### M03: OAuthConfig 環境変数ローダー
