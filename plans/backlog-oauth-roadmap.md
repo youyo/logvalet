@@ -16,7 +16,7 @@ logvalet の remote MCP 構成において、ユーザーごとに異なる Back
 | 制約 | Zero config file（全て環境変数）、Lambda/VPC不要、idproxy の責務を崩さない |
 | 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvalet |
 | 作成日 | 2026-04-16 |
-| 最終更新 | 2026-04-17 (M12 完了) |
+| 最終更新 | 2026-04-17 (M14 完了) |
 | ステータス | 未着手 |
 
 ## 設計決定
@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M14 (OAuth HTTP ハンドラー（コールバック）)
-- **直近の完了**: M12 NewServer Per-User 対応
-- **次のアクション**: M14 → M15 → M16 → M17
+- **マイルストーン**: M15 (OAuth ステータス & 切断ハンドラー)
+- **直近の完了**: M14 OAuth HTTP ハンドラー（コールバック）
+- **次のアクション**: M15 → M16 → M17
 
 ---
 
@@ -178,10 +178,10 @@ if c.Auth && oauthCfg != nil {
 - [x] Observability: 認可開始ログ
 - 詳細: plans/backlog-oauth-m13-authorize-handler.md
 
-#### M14: OAuth HTTP ハンドラー（コールバック）
-- [ ] /oauth/backlog/callback — state 検証 → code exchange → GetCurrentUser → SaveToken
-- [ ] エラーハンドリング (state 不正、code 空、exchange 失敗)
-- [ ] Observability: コールバック成功/失敗ログ
+#### M14: OAuth HTTP ハンドラー（コールバック） ✓
+- [x] /oauth/backlog/callback — state 検証 → code exchange → GetCurrentUser → SaveToken
+- [x] エラーハンドリング (state 不正、code 空、exchange 失敗、tenant/user mismatch)
+- [x] Observability: コールバック成功/失敗ログ（機微値漏洩ゼロ保証テスト付き）
 - 詳細: plans/backlog-oauth-m14-callback-handler.md
 
 #### M15: OAuth ステータス & 切断ハンドラー
@@ -327,6 +327,7 @@ internal/
 | 2026-04-16 22:50 | 作成 | ロードマップ初版作成（17マイルストーン、TDD、zero config file） |
 | 2026-04-17 | 完了 | M13 OAuth HTTP ハンドラー（認可開始）完了。Current Focus を M12 に更新 |
 | 2026-04-17 | 完了 | M12 NewServer Per-User 対応完了。Current Focus を M14 に更新 |
+| 2026-04-17 | 完了 | M14 OAuth HTTP ハンドラー（コールバック）完了。Current Focus を M15 に更新 |
 
 ---
 
