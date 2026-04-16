@@ -34,6 +34,22 @@ type McpCmd struct {
 	AllowedEmails    string `help:"comma-separated allowed email addresses" group:"auth" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
 }
 
+// ValidateEnv は環境変数との整合性を検証する。
+// LOGVALET_BACKLOG_CLIENT_ID が設定されているが --auth が無効な場合、
+// OAuth モードは OIDC 認証（idproxy）を必須とするため fast-fail する。
+// 詳細は README の "Supported Modes" を参照。
+func (c *McpCmd) ValidateEnv(getenv func(string) string) error {
+	if !c.Auth && getenv("LOGVALET_BACKLOG_CLIENT_ID") != "" {
+		return fmt.Errorf(
+			"LOGVALET_BACKLOG_CLIENT_ID is set but --auth is disabled. " +
+				"OAuth requires client authentication (OIDC). " +
+				"Either enable --auth or unset LOGVALET_BACKLOG_CLIENT_ID. " +
+				"See README \"Supported Modes\".",
+		)
+	}
+	return nil
+}
+
 // Validate は認証フラグが有効な場合に必須フィールドをチェックする。
 func (c *McpCmd) Validate() error {
 	if !c.Auth {
@@ -69,6 +85,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // Run は MCP サーバーを起動する。
 func (c *McpCmd) Run(g *GlobalFlags) error {
+	if err := c.ValidateEnv(os.Getenv); err != nil {
+		return err
+	}
+
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
