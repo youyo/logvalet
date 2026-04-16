@@ -28,4 +28,8 @@ var (
 
 	// ErrStateInvalid は OAuth state トークンが不正（署名不正・改竄等）の場合に返される。
 	ErrStateInvalid = errors.New("auth: state token invalid")
+
+	// ErrNotImplemented は未実装の TokenStore 種別が指定された場合に返される。
+	// SQLite (M08) / DynamoDB (M09) の実装が完了するまでスタブとして使用する。
+	ErrNotImplemented = errors.New("auth: token store not implemented")
 )

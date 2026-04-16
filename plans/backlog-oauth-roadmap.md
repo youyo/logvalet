@@ -132,9 +132,9 @@ if c.Auth && oauthCfg != nil {
 - [x] Observability: リフレッシュ成功/失敗ログ
 - 詳細: plans/backlog-oauth-m06-token-manager.md
 
-#### M07: TokenStore ファクトリー
-- [ ] NewTokenStore(storeType, cfg) — 環境変数ベースで切り替え
-- [ ] memory のみ実装、sqlite/dynamodb は ErrNotImplemented スタブ
+#### M07: TokenStore ファクトリー ✓
+- [x] NewTokenStore(storeType, cfg) — 環境変数ベースで切り替え
+- [x] memory のみ実装、sqlite/dynamodb は ErrNotImplemented スタブ
 - 詳細: plans/backlog-oauth-m07-store-factory.md
 
 ### Phase 4: 追加 TokenStore（M07完了後、並列実行可能）
