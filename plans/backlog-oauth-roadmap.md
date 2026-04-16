@@ -104,10 +104,10 @@ if c.Auth && oauthCfg != nil {
 - [x] TokenStore type / SQLite path / DynamoDB 設定の環境変数
 - 詳細: plans/backlog-oauth-m03-env-config.md
 
-#### M04: Signed State (JWT ベース)
-- [ ] StateClaims struct + GenerateState()
-- [ ] ValidateState() — HMAC-SHA256 検証
-- [ ] TTL + 改竄検知テスト
+#### M04: Signed State (JWT ベース) ✓
+- [x] StateClaims struct + GenerateState()
+- [x] ValidateState() — HMAC-SHA256 検証
+- [x] TTL + 改竄検知テスト
 - 詳細: plans/backlog-oauth-m04-signed-state.md
 
 ### Phase 2: コアストア & プロバイダー（M01完了後）
