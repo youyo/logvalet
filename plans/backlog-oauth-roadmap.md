@@ -126,10 +126,10 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 3: マネージャー & ファクトリー（M02+M05完了後）
 
-#### M06: TokenManager 実装
-- [ ] TokenManager interface (GetValidToken/SaveToken/RevokeToken)
-- [ ] 有効期限判定 + 自動リフレッシュ (margin: 5min)
-- [ ] Observability: リフレッシュ成功/失敗ログ
+#### M06: TokenManager 実装 ✓
+- [x] TokenManager interface (GetValidToken/SaveToken/RevokeToken)
+- [x] 有効期限判定 + 自動リフレッシュ (margin: 5min)
+- [x] Observability: リフレッシュ成功/失敗ログ
 - 詳細: plans/backlog-oauth-m06-token-manager.md
 
 #### M07: TokenStore ファクトリー
