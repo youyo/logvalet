@@ -16,8 +16,8 @@ logvalet の remote MCP 構成において、ユーザーごとに異なる Back
 | 制約 | Zero config file（全て環境変数）、Lambda/VPC不要、idproxy の責務を崩さない |
 | 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvalet |
 | 作成日 | 2026-04-16 |
-| 最終更新 | 2026-04-17 (M16 完了) |
-| ステータス | 未着手 |
+| 最終更新 | 2026-04-17 (M17 完了、全マイルストーン完了) |
+| ステータス | 完了 |
 
 ## 設計決定
 
@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M17 (E2E 統合テストとデプロイ設定更新)
-- **直近の完了**: M16 MCP サーバーへの OAuth ルート統合
-- **次のアクション**: M17
+- **ステータス**: **全マイルストーン完了** 🎉
+- **直近の完了**: M17 E2E 統合テストとデプロイ設定更新
+- **次のアクション**: なし（次のトピック候補は M17 計画ファイルの「M18 以降への引き継ぎ情報」参照）
 
 ---
 
@@ -201,11 +201,12 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 8: E2E テスト & デプロイ設定（M16完了後）
 
-#### M17: E2E 統合テストとデプロイ設定更新
-- [ ] OAuth フロー全体の E2E テスト (//go:build integration)
-- [ ] 2ユーザー同時接続テスト（ユーザー隔離証明）
-- [ ] examples/lambroll 環境変数追加
-- [ ] README 更新（AuthN vs AuthZ, Token Store, 初回接続フロー）
+#### M17: E2E 統合テストとデプロイ設定更新 ✓
+- [x] OAuth フロー全体の E2E テスト (//go:build integration)
+- [x] 2ユーザー同時接続テスト（ユーザー隔離証明、observedBearers による load-bearing assertion）
+- [x] examples/lambroll 環境変数追加（コメントアウトオプショナル形式）
+- [x] README 更新（AuthN vs AuthZ, Token Store, 初回接続フロー）
+- [x] BacklogOAuthProvider に WithBaseURL オプション追加（E2E テスト enable + 将来の on-prem 対応）
 - 詳細: plans/backlog-oauth-m17-e2e-docs.md
 
 ---
@@ -331,6 +332,7 @@ internal/
 | 2026-04-17 | 完了 | M14 OAuth HTTP ハンドラー（コールバック）完了。Current Focus を M15 に更新 |
 | 2026-04-17 | 完了 | M15 OAuth ステータス & 切断ハンドラー完了。Current Focus を M16 に更新 |
 | 2026-04-17 | 完了 | M16 MCP サーバーへの OAuth ルート統合完了。Current Focus を M17 に更新 |
+| 2026-04-17 | 完了 | M17 E2E 統合テストとデプロイ設定更新完了。**全マイルストーン完了**。ステータスを「完了」に変更 |
 
 ---
 
