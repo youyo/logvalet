@@ -547,6 +547,86 @@ When auth is enabled:
 - `/healthz` is always accessible without authentication
 - OAuth endpoints (`/register`, `/authorize`, `/token`, `/.well-known/*`) are handled automatically
 
+### Backlog OAuth (Per-User)
+
+For remote MCP deployments, logvalet can additionally use **Backlog OAuth 2.0** so that every Backlog API call runs with the **calling user's Backlog permissions**. This is layered on top of the optional OIDC authentication described above.
+
+- **Authentication (AuthN)**: `idproxy` verifies the user via OIDC (Entra ID, Google, etc.)
+- **Authorization (AuthZ)**: a per-user Backlog OAuth access token is used for Backlog API calls
+
+Both layers are independent: the OIDC token is never used for Backlog API calls, and the Backlog token is never used for MCP authentication.
+
+Backlog OAuth mode activates only when **both** of the following are set:
+1. `--auth` (or `LOGVALET_MCP_AUTH=true`) is enabled
+2. `LOGVALET_BACKLOG_CLIENT_ID` is set
+
+#### Token Store
+
+Backlog tokens are persisted via a pluggable token store. Pick one based on your deployment:
+
+| Store | Recommended for | Notes |
+|-------|----------------|-------|
+| `memory` | local dev / single-instance Lambda | default; tokens are lost on restart |
+| `sqlite` | self-hosted server / local CLI | pure-Go (`modernc.org/sqlite`), no CGO required |
+| `dynamodb` | Lambda / multi-instance remote MCP | no VPC required, AWS-managed durability |
+
+#### First-Time Connection Flow
+
+1. User invokes a Backlog tool in Claude — logvalet returns `provider_not_connected` with a link to the connection URL.
+2. User opens `GET /oauth/backlog/authorize` in the browser — logvalet redirects to the Backlog consent screen.
+3. User approves on Backlog — Backlog redirects back to `/oauth/backlog/callback`.
+4. logvalet exchanges the code, stores the token keyed by the user's OIDC subject, and returns `{"status":"connected"}`.
+5. Subsequent tool calls automatically use the stored token for that user.
+6. The user can check state with `GET /oauth/backlog/status` or revoke with `DELETE /oauth/backlog/disconnect`.
+
+#### Environment Variables
+
+All OAuth configuration is via environment variables (no config file required):
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LOGVALET_BACKLOG_CLIENT_ID` | yes | — | Backlog OAuth client ID |
+| `LOGVALET_BACKLOG_CLIENT_SECRET` | yes | — | Backlog OAuth client secret |
+| `LOGVALET_BACKLOG_REDIRECT_URL` | yes | — | OAuth callback URL (`https://<your-host>/oauth/backlog/callback`) |
+| `LOGVALET_OAUTH_STATE_SECRET` | yes | — | HMAC-SHA256 signing key for state JWT (hex, 64+ chars) |
+| `LOGVALET_TOKEN_STORE` | no | `memory` | `memory` / `sqlite` / `dynamodb` |
+| `LOGVALET_TOKEN_STORE_SQLITE_PATH` | sqlite only | `./logvalet.db` | SQLite DB file path |
+| `LOGVALET_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb only | — | DynamoDB table name |
+| `LOGVALET_TOKEN_STORE_DYNAMODB_REGION` | dynamodb only | — | AWS region for the DynamoDB table |
+
+#### Example
+
+```bash
+# Base idproxy (OIDC) config — see "Authentication (Optional)" above
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+# Token store (DynamoDB recommended for Lambda)
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+# Backlog OAuth client (created in your Backlog space)
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+
+logvalet mcp --auth
+```
+
+On startup you will see something like:
+
+```
+logvalet MCP server (auth + OAuth) listening on 127.0.0.1:8080/mcp
+  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}
+```
+
 ### Docker / AgentCore Deployment
 
 ```bash

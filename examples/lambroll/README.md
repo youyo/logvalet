@@ -68,3 +68,18 @@ aws lambda get-function-url-config --function-name logvalet-mcp \
 | `ROLE_ARN` | — | Lambda 実行ロール ARN（必須） |
 | `LOGVALET_API_KEY` | — | Backlog API キー（必須） |
 | `LOGVALET_BASE_URL` | — | Backlog スペース URL（必須） |
+
+## 5. OAuth モード（オプション）
+
+リモート MCP としてユーザーごとの Backlog 権限で API 実行したい場合、Backlog OAuth モードを有効化できます。
+デフォルトの lambroll デプロイは API キーによるシングルテナント構成なので、OAuth モードは明示的にオプトインする必要があります。
+
+セットアップ手順:
+
+1. Backlog スペース上で OAuth クライアントを作成（`redirect_uri` は Function URL + `/oauth/backlog/callback`）
+2. DynamoDB テーブル `logvalet-oauth-tokens` を作成（PK: `pk` 文字列）
+3. Lambda 実行ロールに `dynamodb:GetItem/PutItem/DeleteItem` 権限を追加
+4. `.env` のコメントアウト部分（`LOGVALET_MCP_AUTH` や `LOGVALET_BACKLOG_*` 等）を有効化
+5. `mise run deploy` で再デプロイ
+
+詳細は本体 README の [Backlog OAuth (Per-User) セクション](../../README.md#backlog-oauth-per-user) を参照してください。

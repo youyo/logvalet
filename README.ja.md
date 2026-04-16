@@ -546,6 +546,86 @@ logvalet mcp --auth \
 - `/healthz` は常に認証なしでアクセス可能
 - OAuth エンドポイント（`/register`, `/authorize`, `/token`, `/.well-known/*`）は自動的に処理されます
 
+### Backlog OAuth（ユーザーごとの認可）
+
+リモート MCP 構成では **Backlog OAuth 2.0** を上乗せして、各 Backlog API 呼び出しを **呼び出しユーザー自身の Backlog 権限** で実行できます。上記の OIDC 認証とは責務を分離しています。
+
+- **認証 (AuthN)**: `idproxy` が OIDC (Entra ID / Google 等) でユーザーを確認
+- **認可 (AuthZ)**: ユーザーごとの Backlog OAuth access token で Backlog API を呼び出す
+
+両者は独立しています。OIDC トークンが Backlog API に流用されることはなく、Backlog トークンが MCP 認証に使われることもありません。
+
+Backlog OAuth モードは次の **両方** が設定されている場合のみ有効化されます:
+1. `--auth`（または `LOGVALET_MCP_AUTH=true`）が有効
+2. `LOGVALET_BACKLOG_CLIENT_ID` が設定されている
+
+#### Token Store
+
+Backlog のトークンはプラガブルな Token Store に保存します。用途に応じて選択してください:
+
+| Store | 推奨用途 | 補足 |
+|-------|---------|------|
+| `memory` | ローカル開発 / 単一インスタンス Lambda | デフォルト。プロセス再起動で消失 |
+| `sqlite` | セルフホスト / ローカル CLI | pure-Go（`modernc.org/sqlite`）、CGO 不要 |
+| `dynamodb` | Lambda / マルチインスタンス | VPC 不要、AWS マネージド |
+
+#### 初回接続フロー
+
+1. Claude 上で Backlog ツールを呼び出す → 未接続なら logvalet が `provider_not_connected` と接続 URL を返す。
+2. ブラウザで `GET /oauth/backlog/authorize` にアクセス → logvalet が Backlog の同意画面へリダイレクト。
+3. Backlog 上で同意 → Backlog が `/oauth/backlog/callback` にリダイレクト。
+4. logvalet が code を交換し、OIDC subject をキーに token を保存して `{"status":"connected"}` を返す。
+5. 以降、そのユーザーのツール呼び出しは保存済みトークンで自動実行される。
+6. `GET /oauth/backlog/status` で状態確認、`DELETE /oauth/backlog/disconnect` で切断が可能。
+
+#### 環境変数
+
+OAuth 設定はすべて環境変数で行います（設定ファイル不要）:
+
+| 環境変数 | 必須 | デフォルト | 説明 |
+|---------|------|-----------|------|
+| `LOGVALET_BACKLOG_CLIENT_ID` | Yes | — | Backlog OAuth クライアント ID |
+| `LOGVALET_BACKLOG_CLIENT_SECRET` | Yes | — | Backlog OAuth クライアントシークレット |
+| `LOGVALET_BACKLOG_REDIRECT_URL` | Yes | — | OAuth コールバック URL（`https://<ホスト>/oauth/backlog/callback`） |
+| `LOGVALET_OAUTH_STATE_SECRET` | Yes | — | state JWT の HMAC-SHA256 署名鍵（hex、64 文字以上） |
+| `LOGVALET_TOKEN_STORE` | No | `memory` | `memory` / `sqlite` / `dynamodb` |
+| `LOGVALET_TOKEN_STORE_SQLITE_PATH` | sqlite 時 | `./logvalet.db` | SQLite DB のパス |
+| `LOGVALET_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb 時 | — | DynamoDB テーブル名 |
+| `LOGVALET_TOKEN_STORE_DYNAMODB_REGION` | dynamodb 時 | — | DynamoDB のリージョン |
+
+#### 起動例
+
+```bash
+# idproxy (OIDC) 設定 — 上記「認証（オプション）」参照
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+# Token Store（Lambda では DynamoDB 推奨）
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+# Backlog OAuth クライアント（Backlog スペースで作成）
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+
+logvalet mcp --auth
+```
+
+起動すると次のようなログが出力されます:
+
+```
+logvalet MCP server (auth + OAuth) listening on 127.0.0.1:8080/mcp
+  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}
+```
+
 ### Docker / AgentCore デプロイ
 
 ```bash
