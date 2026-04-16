@@ -112,10 +112,10 @@ if c.Auth && oauthCfg != nil {
 
 ### Phase 2: コアストア & プロバイダー（M01完了後）
 
-#### M02: MemoryTokenStore 実装
-- [ ] TokenStore interface 定義 (Get/Put/Delete/Close)
-- [ ] MemoryStore 実装 (sync.RWMutex + map)
-- [ ] ユーザー隔離テスト
+#### M02: MemoryTokenStore 実装 ✓
+- [x] TokenStore interface 定義 (Get/Put/Delete/Close)
+- [x] MemoryStore 実装 (sync.RWMutex + map)
+- [x] ユーザー隔離テスト
 - 詳細: plans/backlog-oauth-m02-memory-store.md
 
 #### M05: OAuthProvider interface と Backlog 実装
