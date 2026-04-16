@@ -16,7 +16,7 @@ logvalet の remote MCP 構成において、ユーザーごとに異なる Back
 | 制約 | Zero config file（全て環境変数）、Lambda/VPC不要、idproxy の責務を崩さない |
 | 対象リポジトリ | /Users/youyo/src/github.com/youyo/logvalet |
 | 作成日 | 2026-04-16 |
-| 最終更新 | 2026-04-17 (M14 完了) |
+| 最終更新 | 2026-04-17 (M15 完了) |
 | ステータス | 未着手 |
 
 ## 設計決定
@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M15 (OAuth ステータス & 切断ハンドラー)
-- **直近の完了**: M14 OAuth HTTP ハンドラー（コールバック）
-- **次のアクション**: M15 → M16 → M17
+- **マイルストーン**: M16 (MCP サーバーへの OAuth ルート統合)
+- **直近の完了**: M15 OAuth ステータス & 切断ハンドラー
+- **次のアクション**: M16 → M17
 
 ---
 
@@ -184,9 +184,10 @@ if c.Auth && oauthCfg != nil {
 - [x] Observability: コールバック成功/失敗ログ（機微値漏洩ゼロ保証テスト付き）
 - 詳細: plans/backlog-oauth-m14-callback-handler.md
 
-#### M15: OAuth ステータス & 切断ハンドラー
-- [ ] /oauth/backlog/status — 接続状態確認
-- [ ] /oauth/backlog/disconnect — トークン削除
+#### M15: OAuth ステータス & 切断ハンドラー ✓
+- [x] /oauth/backlog/status — 接続状態確認（connected/not_connected/needs_reauth）
+- [x] /oauth/backlog/disconnect — トークン削除（DELETE・冪等）
+- [x] Observability: 成功/失敗の構造化ログ（err.Error() 生値非出力）
 - 詳細: plans/backlog-oauth-m15-status-handler.md
 
 ### Phase 7: MCP 統合（M12+M14+M15完了後）
@@ -328,6 +329,7 @@ internal/
 | 2026-04-17 | 完了 | M13 OAuth HTTP ハンドラー（認可開始）完了。Current Focus を M12 に更新 |
 | 2026-04-17 | 完了 | M12 NewServer Per-User 対応完了。Current Focus を M14 に更新 |
 | 2026-04-17 | 完了 | M14 OAuth HTTP ハンドラー（コールバック）完了。Current Focus を M15 に更新 |
+| 2026-04-17 | 完了 | M15 OAuth ステータス & 切断ハンドラー完了。Current Focus を M16 に更新 |
 
 ---
 

@@ -62,7 +62,30 @@ const (
 	errMsgUserFetchFailed   = "failed to fetch current user"
 	errMsgSaveFailed        = "failed to save token"
 	errMsgCallbackInternal  = "failed to complete OAuth callback"
+
+	// メッセージ定数（M15 — ステータス / 切断）
+	errMsgStatusInternal   = "failed to fetch connection status"
+	errMsgDisconnectFailed = "failed to disconnect"
+	errMsgStatusUnauth     = "user ID is required to check connection status"
+	errMsgDisconnectUnauth = "user ID is required to disconnect"
 )
+
+// statusResponse は /oauth/backlog/status のレスポンス形式。
+// connected のみ常時出力、その他は omitempty。
+type statusResponse struct {
+	Connected      bool   `json:"connected"`
+	NeedsReauth    bool   `json:"needs_reauth,omitempty"`
+	Provider       string `json:"provider,omitempty"`
+	Tenant         string `json:"tenant,omitempty"`
+	ProviderUserID string `json:"provider_user_id,omitempty"`
+}
+
+// disconnectResponse は /oauth/backlog/disconnect のレスポンス形式。
+type disconnectResponse struct {
+	Status   string `json:"status"`
+	Provider string `json:"provider"`
+	Tenant   string `json:"tenant"`
+}
 
 // OAuthHandler は Backlog OAuth フロー用の HTTP ハンドラーを提供する。
 // ハンドラーは MCP サーバーに組み込まれる想定で、ルーティングは M16 で行う。
@@ -392,4 +415,180 @@ func writeJSONSuccess(w stdhttp.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+// HandleStatus は /oauth/backlog/status の GET ハンドラー。
+//
+// 処理フロー:
+//  1. HTTP メソッドが GET であることを確認（それ以外は 405）
+//  2. context から userID を取得（なければ 401）
+//  3. tokenManager.GetValidToken で接続状態を判定
+//     - ErrProviderNotConnected → 200 {"connected": false}
+//     - ErrTokenRefreshFailed / ErrTokenExpired → 200 {"connected": true, "needs_reauth": true, ...}
+//     - その他エラー → 500 internal_error
+//     - 成功 (record, nil) → 200 {"connected": true, ..., "provider_user_id": "..."}
+//
+// セキュリティ: access_token / refresh_token を一切レスポンス・ログに出さない。
+// ログに出すのは user_id / provider / tenant / provider_user_id / outcome / reason / err_type のみ。
+func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	ctx := r.Context()
+
+	// 1. メソッドチェック
+	if r.Method != stdhttp.MethodGet {
+		writeJSONError(w, stdhttp.StatusMethodNotAllowed, errCodeMethodNotAllowed, errMsgMethodNotAllowed)
+		return
+	}
+
+	// 2. userID 取得
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		h.logger.WarnContext(ctx, "oauth status rejected",
+			slog.String("reason", errCodeUnauthenticated),
+		)
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, errMsgStatusUnauth)
+		return
+	}
+
+	providerName := h.provider.Name()
+
+	// 3. GetValidToken で接続状態を判定
+	record, err := h.tokenManager.GetValidToken(ctx, userID, providerName, h.tenant)
+	switch {
+	case err == nil:
+		// 接続済み・有効
+		h.logStatusResult(ctx, "connected", userID, providerName)
+		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
+			Connected:      true,
+			Provider:       providerName,
+			Tenant:         h.tenant,
+			ProviderUserID: record.ProviderUserID,
+		})
+		return
+
+	case errors.Is(err, auth.ErrProviderNotConnected):
+		// 未接続
+		h.logStatusResult(ctx, "not_connected", userID, providerName)
+		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
+			Connected: false,
+		})
+		return
+
+	case errors.Is(err, auth.ErrTokenRefreshFailed), errors.Is(err, auth.ErrTokenExpired):
+		// 再認可が必要
+		h.logStatusResult(ctx, "needs_reauth", userID, providerName)
+		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
+			Connected:   true,
+			NeedsReauth: true,
+			Provider:    providerName,
+			Tenant:      h.tenant,
+		})
+		return
+
+	default:
+		// その他の内部エラー。err.Error() は upstream token を echo する可能性があるため出さない。
+		h.logStatusFailed(ctx, "store_error", err, userID, providerName)
+		writeJSONError(w, stdhttp.StatusInternalServerError, errCodeInternalError, errMsgStatusInternal)
+		return
+	}
+}
+
+// HandleDisconnect は /oauth/backlog/disconnect の DELETE ハンドラー。
+//
+// 処理フロー:
+//  1. HTTP メソッドが DELETE であることを確認（それ以外は 405）
+//  2. context から userID を取得（なければ 401）
+//  3. tokenManager.RevokeToken を実行
+//     - 成功 → 200 {"status":"disconnected", ...}
+//     - ErrProviderNotConnected → 200 {"status":"disconnected", ...}（冪等扱い）
+//     - その他エラー → 500 internal_error
+//
+// セキュリティ: access_token / refresh_token を一切レスポンス・ログに出さない。
+func (h *OAuthHandler) HandleDisconnect(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	ctx := r.Context()
+
+	// 1. メソッドチェック
+	if r.Method != stdhttp.MethodDelete {
+		writeJSONError(w, stdhttp.StatusMethodNotAllowed, errCodeMethodNotAllowed, errMsgMethodNotAllowed)
+		return
+	}
+
+	// 2. userID 取得
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		h.logger.WarnContext(ctx, "oauth disconnect rejected",
+			slog.String("reason", errCodeUnauthenticated),
+		)
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, errMsgDisconnectUnauth)
+		return
+	}
+
+	providerName := h.provider.Name()
+
+	// 3. RevokeToken を実行
+	if err := h.tokenManager.RevokeToken(ctx, userID, providerName, h.tenant); err != nil {
+		// 存在しないレコードの削除は冪等として成功扱い
+		if !errors.Is(err, auth.ErrProviderNotConnected) {
+			h.logDisconnectFailed(ctx, "revoke_failed", err, userID, providerName)
+			writeJSONError(w, stdhttp.StatusInternalServerError, errCodeInternalError, errMsgDisconnectFailed)
+			return
+		}
+	}
+
+	// 4. 成功ログ → 200 JSON
+	h.logDisconnectSuccess(ctx, userID, providerName)
+	writeJSONSuccess(w, stdhttp.StatusOK, disconnectResponse{
+		Status:   "disconnected",
+		Provider: providerName,
+		Tenant:   h.tenant,
+	})
+}
+
+// logStatusResult は /status の成功系ログを統一フォーマットで出力する。
+// outcome は "connected" / "not_connected" / "needs_reauth" のいずれか。
+func (h *OAuthHandler) logStatusResult(ctx context.Context, outcome string, userID, providerName string) {
+	h.logger.InfoContext(ctx, "oauth status checked",
+		slog.String("outcome", outcome),
+		slog.String("user_id", userID),
+		slog.String("provider", providerName),
+		slog.String("tenant", h.tenant),
+	)
+}
+
+// logStatusFailed は /status の失敗ログを出力する。
+// err.Error() の生値は出力せず、型情報 (err_type) のみを出す（M14 の方針を継承）。
+func (h *OAuthHandler) logStatusFailed(ctx context.Context, reason string, err error, userID, providerName string) {
+	attrs := []any{
+		slog.String("reason", reason),
+		slog.String("user_id", userID),
+		slog.String("provider", providerName),
+		slog.String("tenant", h.tenant),
+	}
+	if err != nil {
+		attrs = append(attrs, slog.String("err_type", fmt.Sprintf("%T", err)))
+	}
+	h.logger.ErrorContext(ctx, "oauth status failed", attrs...)
+}
+
+// logDisconnectSuccess は /disconnect の成功ログを出力する。
+func (h *OAuthHandler) logDisconnectSuccess(ctx context.Context, userID, providerName string) {
+	h.logger.InfoContext(ctx, "oauth disconnect success",
+		slog.String("user_id", userID),
+		slog.String("provider", providerName),
+		slog.String("tenant", h.tenant),
+	)
+}
+
+// logDisconnectFailed は /disconnect の失敗ログを出力する。
+// err.Error() の生値は出力せず、型情報 (err_type) のみを出す。
+func (h *OAuthHandler) logDisconnectFailed(ctx context.Context, reason string, err error, userID, providerName string) {
+	attrs := []any{
+		slog.String("reason", reason),
+		slog.String("user_id", userID),
+		slog.String("provider", providerName),
+		slog.String("tenant", h.tenant),
+	}
+	if err != nil {
+		attrs = append(attrs, slog.String("err_type", fmt.Sprintf("%T", err)))
+	}
+	h.logger.ErrorContext(ctx, "oauth disconnect failed", attrs...)
 }

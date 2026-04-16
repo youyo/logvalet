@@ -1254,6 +1254,773 @@ func TestHandleCallback_Success_ContentTypeJSON(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// HandleStatus / HandleDisconnect のテスト（M15 新規）
+// ============================================================================
+
+// newStatusRequest は userID context 付きで GET /oauth/backlog/status リクエストを作成する。
+func newStatusRequest(userID string) *stdhttp.Request {
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/status", nil)
+	if userID != "" {
+		req = req.WithContext(auth.ContextWithUserID(req.Context(), userID))
+	}
+	return req
+}
+
+// newDisconnectRequest は userID context 付きで DELETE /oauth/backlog/disconnect リクエストを作成する。
+func newDisconnectRequest(userID string) *stdhttp.Request {
+	req := httptest.NewRequest(stdhttp.MethodDelete, "/oauth/backlog/disconnect", nil)
+	if userID != "" {
+		req = req.WithContext(auth.ContextWithUserID(req.Context(), userID))
+	}
+	return req
+}
+
+// ---- 1. HandleStatus メソッドチェック ----
+func TestHandleStatus_MethodNotAllowed(t *testing.T) {
+	methods := []string{stdhttp.MethodPost, stdhttp.MethodPut, stdhttp.MethodDelete, stdhttp.MethodPatch}
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			h := newTestHandler(t, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+			req := httptest.NewRequest(method, "/oauth/backlog/status", nil)
+			req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+			rec := httptest.NewRecorder()
+
+			h.HandleStatus(rec, req)
+
+			if rec.Code != stdhttp.StatusMethodNotAllowed {
+				t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusMethodNotAllowed)
+			}
+			var body map[string]string
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("body unmarshal: %v", err)
+			}
+			if body["error"] != "method_not_allowed" {
+				t.Errorf("error = %q, want method_not_allowed", body["error"])
+			}
+		})
+	}
+}
+
+// ---- 2. HandleStatus 未認証 ----
+func TestHandleStatus_Unauthenticated(t *testing.T) {
+	h := newTestHandler(t, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	req := newStatusRequest("")
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusUnauthorized)
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "unauthenticated" {
+		t.Errorf("error = %q, want unauthenticated", body["error"])
+	}
+}
+
+// ---- 3. HandleStatus 未接続 ----
+func TestHandleStatus_NotConnected(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrProviderNotConnected
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body unmarshal: %v", err)
+	}
+	if connected, ok := body["connected"].(bool); !ok || connected != false {
+		t.Errorf("connected = %v (ok=%v), want false", body["connected"], ok)
+	}
+	if _, ok := body["needs_reauth"]; ok {
+		t.Errorf("needs_reauth should be omitted when not connected; got %v", body["needs_reauth"])
+	}
+	if _, ok := body["provider"]; ok {
+		t.Errorf("provider should be omitted when not connected; got %v", body["provider"])
+	}
+	if _, ok := body["tenant"]; ok {
+		t.Errorf("tenant should be omitted when not connected; got %v", body["tenant"])
+	}
+	if _, ok := body["provider_user_id"]; ok {
+		t.Errorf("provider_user_id should be omitted when not connected; got %v", body["provider_user_id"])
+	}
+}
+
+// ---- 4. HandleStatus refresh 失敗 → needs_reauth ----
+func TestHandleStatus_NeedsReauth_RefreshFailed(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrTokenRefreshFailed
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body unmarshal: %v", err)
+	}
+	if connected, ok := body["connected"].(bool); !ok || connected != true {
+		t.Errorf("connected = %v (ok=%v), want true", body["connected"], ok)
+	}
+	if needs, ok := body["needs_reauth"].(bool); !ok || needs != true {
+		t.Errorf("needs_reauth = %v (ok=%v), want true", body["needs_reauth"], ok)
+	}
+	if body["provider"] != "backlog" {
+		t.Errorf("provider = %v, want backlog", body["provider"])
+	}
+	if body["tenant"] != testTenant {
+		t.Errorf("tenant = %v, want %q", body["tenant"], testTenant)
+	}
+	if _, ok := body["provider_user_id"]; ok {
+		t.Errorf("provider_user_id should be omitted on needs_reauth; got %v", body["provider_user_id"])
+	}
+}
+
+// ---- 5. HandleStatus token expired (防御テスト) ----
+func TestHandleStatus_NeedsReauth_TokenExpired(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrTokenExpired
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if connected, _ := body["connected"].(bool); connected != true {
+		t.Errorf("connected = %v, want true", body["connected"])
+	}
+	if needs, _ := body["needs_reauth"].(bool); needs != true {
+		t.Errorf("needs_reauth = %v, want true", body["needs_reauth"])
+	}
+}
+
+// ---- 6. HandleStatus 正常接続 ----
+func TestHandleStatus_Connected(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return &auth.TokenRecord{
+				UserID:         userID,
+				Provider:       "backlog",
+				Tenant:         tenant,
+				AccessToken:    "at-secret",
+				RefreshToken:   "rt-secret",
+				TokenType:      "Bearer",
+				Expiry:         time.Now().Add(time.Hour),
+				ProviderUserID: "12345",
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}, nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body unmarshal: %v", err)
+	}
+	if connected, _ := body["connected"].(bool); connected != true {
+		t.Errorf("connected = %v, want true", body["connected"])
+	}
+	if _, ok := body["needs_reauth"]; ok {
+		t.Errorf("needs_reauth should be omitted on healthy connection; got %v", body["needs_reauth"])
+	}
+	if body["provider"] != "backlog" {
+		t.Errorf("provider = %v, want backlog", body["provider"])
+	}
+	if body["tenant"] != testTenant {
+		t.Errorf("tenant = %v, want %q", body["tenant"], testTenant)
+	}
+	if body["provider_user_id"] != "12345" {
+		t.Errorf("provider_user_id = %v, want 12345", body["provider_user_id"])
+	}
+}
+
+// ---- 7. HandleStatus 内部エラー ----
+func TestHandleStatus_InternalError(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, errors.New("store down")
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusInternalServerError)
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "internal_error" {
+		t.Errorf("error = %q, want internal_error", body["error"])
+	}
+}
+
+// ---- 8. HandleStatus Content-Type ----
+func TestHandleStatus_ContentTypeJSON(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrProviderNotConnected
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	ct := rec.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+}
+
+// ---- 9. HandleStatus トークン漏洩なし ----
+func TestHandleStatus_DoesNotLeakToken(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return &auth.TokenRecord{
+				UserID: userID, Provider: "backlog", Tenant: tenant,
+				AccessToken: "super-secret-access-TOKEN",
+				RefreshToken: "super-secret-refresh-TOKEN",
+				Expiry: time.Now().Add(time.Hour),
+				ProviderUserID: "12345",
+			}, nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	// レスポンスボディにトークンが含まれない
+	bodyStr := rec.Body.String()
+	for _, secret := range []string{"super-secret-access-TOKEN", "super-secret-refresh-TOKEN", "access_token", "refresh_token"} {
+		if strings.Contains(bodyStr, secret) {
+			t.Errorf("response body contains sensitive value %q; body=%s", secret, bodyStr)
+		}
+	}
+
+	// ログにトークンが含まれない
+	logs := buf.String()
+	for _, secret := range []string{"super-secret-access-TOKEN", "super-secret-refresh-TOKEN"} {
+		if strings.Contains(logs, secret) {
+			t.Errorf("logs contain sensitive value %q; logs=%s", secret, logs)
+		}
+	}
+}
+
+// ---- 10. HandleStatus GetValidToken 引数 ----
+func TestHandleStatus_PassesCorrectArgsToGetValidToken(t *testing.T) {
+	var gotUserID, gotProvider, gotTenant string
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			gotUserID = userID
+			gotProvider = providerName
+			gotTenant = tenant
+			return nil, auth.ErrProviderNotConnected
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if gotUserID != testUserID {
+		t.Errorf("userID passed = %q, want %q", gotUserID, testUserID)
+	}
+	if gotProvider != "backlog" {
+		t.Errorf("provider passed = %q, want backlog", gotProvider)
+	}
+	if gotTenant != testTenant {
+		t.Errorf("tenant passed = %q, want %q", gotTenant, testTenant)
+	}
+}
+
+// ---- 11. HandleStatus Connected ログ ----
+func TestHandleStatus_LogsConnected(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return &auth.TokenRecord{
+				UserID: userID, Provider: "backlog", Tenant: tenant,
+				AccessToken: "at", RefreshToken: "rt",
+				Expiry: time.Now().Add(time.Hour), ProviderUserID: "12345",
+			}, nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth status checked" && entry["outcome"] == "connected" {
+			found = true
+			if entry["user_id"] != testUserID {
+				t.Errorf("log user_id = %v, want %q", entry["user_id"], testUserID)
+			}
+			if entry["provider"] != "backlog" {
+				t.Errorf("log provider = %v, want backlog", entry["provider"])
+			}
+			if entry["tenant"] != testTenant {
+				t.Errorf("log tenant = %v, want %q", entry["tenant"], testTenant)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("log with outcome=connected not found; logs=%s", buf.String())
+	}
+}
+
+// ---- 12. HandleStatus NotConnected ログ ----
+func TestHandleStatus_LogsNotConnected(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrProviderNotConnected
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth status checked" && entry["outcome"] == "not_connected" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("log with outcome=not_connected not found; logs=%s", buf.String())
+	}
+}
+
+// ---- 13. HandleStatus NeedsReauth ログ ----
+func TestHandleStatus_LogsNeedsReauth(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, auth.ErrTokenRefreshFailed
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth status checked" && entry["outcome"] == "needs_reauth" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("log with outcome=needs_reauth not found; logs=%s", buf.String())
+	}
+}
+
+// ---- 14. HandleStatus InternalError ログ（err.Error() 生値漏れなし） ----
+func TestHandleStatus_LogsInternalError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	secretErrMsg := "upstream: access_token=leaky-AAAA code=real-CCCC"
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, errors.New(secretErrMsg)
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, stdhttp.StatusInternalServerError)
+	}
+
+	logs := buf.String()
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth status failed" {
+			found = true
+			if entry["reason"] != "store_error" {
+				t.Errorf("log reason = %v, want store_error", entry["reason"])
+			}
+			if _, ok := entry["err_type"]; !ok {
+				t.Errorf("log missing err_type")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("log 'oauth status failed' not found; logs=%s", buf.String())
+	}
+
+	// err.Error() 生値がログに漏れていないこと
+	for _, leaky := range []string{"leaky-AAAA", "real-CCCC", "access_token=", secretErrMsg} {
+		if strings.Contains(logs, leaky) {
+			t.Errorf("logs leak sensitive substring %q; logs=%s", leaky, logs)
+		}
+	}
+}
+
+// ---- 15. HandleDisconnect メソッドチェック ----
+func TestHandleDisconnect_MethodNotAllowed(t *testing.T) {
+	methods := []string{stdhttp.MethodGet, stdhttp.MethodPost, stdhttp.MethodPut, stdhttp.MethodPatch}
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			h := newTestHandler(t, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+			req := httptest.NewRequest(method, "/oauth/backlog/disconnect", nil)
+			req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+			rec := httptest.NewRecorder()
+
+			h.HandleDisconnect(rec, req)
+
+			if rec.Code != stdhttp.StatusMethodNotAllowed {
+				t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusMethodNotAllowed)
+			}
+			var body map[string]string
+			_ = json.Unmarshal(rec.Body.Bytes(), &body)
+			if body["error"] != "method_not_allowed" {
+				t.Errorf("error = %q, want method_not_allowed", body["error"])
+			}
+		})
+	}
+}
+
+// ---- 16. HandleDisconnect 未認証 ----
+func TestHandleDisconnect_Unauthenticated(t *testing.T) {
+	h := newTestHandler(t, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	req := newDisconnectRequest("")
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusUnauthorized)
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "unauthenticated" {
+		t.Errorf("error = %q, want unauthenticated", body["error"])
+	}
+}
+
+// ---- 17. HandleDisconnect 成功 ----
+func TestHandleDisconnect_Success(t *testing.T) {
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body unmarshal: %v", err)
+	}
+	if body["status"] != "disconnected" {
+		t.Errorf("status = %v, want disconnected", body["status"])
+	}
+	if body["provider"] != "backlog" {
+		t.Errorf("provider = %v, want backlog", body["provider"])
+	}
+	if body["tenant"] != testTenant {
+		t.Errorf("tenant = %v, want %q", body["tenant"], testTenant)
+	}
+}
+
+// ---- 18. HandleDisconnect 冪等性（ErrProviderNotConnected）----
+func TestHandleDisconnect_Idempotent_ProviderNotConnected(t *testing.T) {
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return auth.ErrProviderNotConnected
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Errorf("status = %d, want %d (idempotent on not-connected)", rec.Code, stdhttp.StatusOK)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["status"] != "disconnected" {
+		t.Errorf("status = %v, want disconnected", body["status"])
+	}
+}
+
+// ---- 19. HandleDisconnect 内部エラー ----
+func TestHandleDisconnect_InternalError(t *testing.T) {
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return errors.New("store down")
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, stdhttp.StatusInternalServerError)
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "internal_error" {
+		t.Errorf("error = %q, want internal_error", body["error"])
+	}
+}
+
+// ---- 20. HandleDisconnect RevokeToken 引数 ----
+func TestHandleDisconnect_PassesCorrectArgsToRevoke(t *testing.T) {
+	var gotUserID, gotProvider, gotTenant string
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			gotUserID = userID
+			gotProvider = providerName
+			gotTenant = tenant
+			return nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if gotUserID != testUserID {
+		t.Errorf("userID passed = %q, want %q", gotUserID, testUserID)
+	}
+	if gotProvider != "backlog" {
+		t.Errorf("provider passed = %q, want backlog", gotProvider)
+	}
+	if gotTenant != testTenant {
+		t.Errorf("tenant passed = %q, want %q", gotTenant, testTenant)
+	}
+}
+
+// ---- 21. HandleDisconnect Content-Type ----
+func TestHandleDisconnect_ContentTypeJSON(t *testing.T) {
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	ct := rec.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+}
+
+// ---- 22. HandleDisconnect 成功ログ ----
+func TestHandleDisconnect_LogsSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+	}
+
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth disconnect success" {
+			found = true
+			if entry["user_id"] != testUserID {
+				t.Errorf("log user_id = %v, want %q", entry["user_id"], testUserID)
+			}
+			if entry["provider"] != "backlog" {
+				t.Errorf("log provider = %v, want backlog", entry["provider"])
+			}
+			if entry["tenant"] != testTenant {
+				t.Errorf("log tenant = %v, want %q", entry["tenant"], testTenant)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("log 'oauth disconnect success' not found; logs=%s", buf.String())
+	}
+}
+
+// ---- 23. HandleDisconnect 失敗ログ ----
+func TestHandleDisconnect_LogsFailure(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	secretErrMsg := "upstream: access_token=leaky-BBBB"
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return errors.New(secretErrMsg)
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	if rec.Code != stdhttp.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, stdhttp.StatusInternalServerError)
+	}
+
+	logs := buf.String()
+	found := false
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry["msg"] == "oauth disconnect failed" {
+			found = true
+			if entry["reason"] != "revoke_failed" {
+				t.Errorf("log reason = %v, want revoke_failed", entry["reason"])
+			}
+			if _, ok := entry["err_type"]; !ok {
+				t.Errorf("log missing err_type")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("log 'oauth disconnect failed' not found; logs=%s", buf.String())
+	}
+
+	for _, leaky := range []string{"leaky-BBBB", "access_token=", secretErrMsg} {
+		if strings.Contains(logs, leaky) {
+			t.Errorf("logs leak sensitive substring %q; logs=%s", leaky, logs)
+		}
+	}
+}
+
+// ---- 24. HandleDisconnect 成功時トークン漏れなし ----
+func TestHandleDisconnect_DoesNotLeakToken(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	tm := &fakeTokenManager{
+		revokeFn: func(ctx context.Context, userID, providerName, tenant string) error {
+			return nil
+		},
+	}
+	h := newTestHandlerWithDeps(t, logger, &fakeProvider{}, tm)
+	req := newDisconnectRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleDisconnect(rec, req)
+
+	logs := buf.String()
+	// Disconnect はトークン値を受け取らないが、念のためログにアクセストークンっぽい単語が入らないことを確認
+	for _, leaky := range []string{"access_token", "refresh_token"} {
+		if strings.Contains(logs, leaky) {
+			t.Errorf("logs contain sensitive key %q; logs=%s", leaky, logs)
+		}
+	}
+
+	// レスポンスボディにもトークン関連フィールドが含まれないこと
+	bodyStr := rec.Body.String()
+	for _, leaky := range []string{"access_token", "refresh_token"} {
+		if strings.Contains(bodyStr, leaky) {
+			t.Errorf("response body contains sensitive key %q; body=%s", leaky, bodyStr)
+		}
+	}
+}
+
 // ---- 25. GetCurrentUser が nil を返した場合の防御 ----
 func TestHandleCallback_NilProviderUser_Handled(t *testing.T) {
 	fp := &fakeProvider{
