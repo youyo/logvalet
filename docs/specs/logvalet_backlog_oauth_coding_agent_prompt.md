@@ -61,6 +61,35 @@
 
 ---
 
+# サポート行列
+
+logvalet は CLI / MCP × Backlog 認証方式（API key / OAuth）× クライアント認証（idproxy/OIDC）の組み合わせで 6 パターンが想定される。現状のサポート状況は以下の通り。
+
+| # | クライアント | Backlog 認証 | クライアント認証（OIDC） | 状態 | 備考 |
+|---|------------|-------------|------------------------|------|------|
+| 1 | CLI | API key | — | ✅ サポート | `lv auth login` で tokens.json に保存 |
+| 2 | CLI | OAuth | — | ❌ 未実装 | `credentials` 基盤はあるが `lv auth login` の OAuth 経路は未実装。手動 tokens.json 編集でのみ動作 |
+| 3 | MCP | API key | なし | ✅ サポート | `lv mcp`（`--auth` 無し）。起動時の単一 API key を全リクエスト共有 |
+| 4 | MCP | API key | OIDC（idproxy） | ✅ サポート | `lv mcp --auth`（`LOGVALET_BACKLOG_CLIENT_ID` 未設定）。OIDC 認証 + 起動時 API key 共有 |
+| 5 | MCP | OAuth | なし | ❌ 非サポート | OAuth は per-user 設計。userID 識別経路が idproxy のみのため、OIDC 無しでは「誰のトークンを使うか」決定不能 |
+| 6 | MCP | OAuth | OIDC（idproxy） | ✅ サポート | `lv mcp --auth` + `LOGVALET_BACKLOG_CLIENT_ID` 設定。per-user Backlog トークンで API 実行 |
+
+## 非サポートの理由（#5）
+
+- OAuth 時の TokenStore キーは `userID`
+- userID の供給元は `idproxy.UserFromContext().Subject` のみ
+- OIDC を外すと userID が取れず、ClientFactory がトークンを取得できない
+- 実行時バリデーション: `LOGVALET_BACKLOG_CLIENT_ID` 設定時は `--auth` を必須とする fast-fail を実装（silent fallback 防止）
+
+## 未実装の理由（#2）
+
+- `lv auth login` の OAuth 経路（localhost callback 起動、ブラウザ認可、token 保存）が CLI コマンドとして組み込まれていない
+- 基盤（`credentials.BuildAuthorizeURL` / `ExchangeCode` / `StartCallbackServer`）は存在するため、実装は別マイルストーンとして追加可能
+
+ユーザー向けの実行例（環境変数設定例 + CLI 引数パターン）は README の "Supported Modes" セクションを参照。
+
+---
+
 # ユーザーフロー
 
 ## 初回
