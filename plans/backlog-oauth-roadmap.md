@@ -82,9 +82,9 @@ if c.Auth && oauthCfg != nil {
 
 ## Current Focus
 
-- **マイルストーン**: M11 (ToolRegistry Per-User 対応)
-- **直近の完了**: M10 Per-User ClientFactory
-- **次のアクション**: M11 → M13 → M12 → M14 → M15 → M16 → M17
+- **マイルストーン**: M13 (OAuth HTTP ハンドラー 認可開始)
+- **直近の完了**: M11 ToolRegistry Per-User 対応
+- **次のアクション**: M13 → M12 → M14 → M15 → M16 → M17
 
 ---
 
@@ -159,10 +159,10 @@ if c.Auth && oauthCfg != nil {
 - [x] ユーザー隔離テスト
 - 詳細: plans/backlog-oauth-m10-client-factory.md
 
-#### M11: ToolRegistry Per-User 対応
-- [ ] NewToolRegistryWithFactory(server, factory)
-- [ ] Register 内で factory(ctx) 呼び出し
-- [ ] 既存 NewToolRegistry 後方互換維持
+#### M11: ToolRegistry Per-User 対応 ✓
+- [x] NewToolRegistryWithFactory(server, factory)
+- [x] Register 内で factory(ctx) 呼び出し
+- [x] 既存 NewToolRegistry 後方互換維持
 - 詳細: plans/backlog-oauth-m11-registry-factory.md
 
 #### M12: NewServer Per-User 対応
