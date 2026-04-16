@@ -3,6 +3,7 @@ package mcp_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
@@ -412,5 +413,147 @@ func TestWatchingMarkAsReadHandler(t *testing.T) {
 	}
 	if capturedWatchingID != 42 {
 		t.Errorf("expected watchingID=42, got %d", capturedWatchingID)
+	}
+}
+
+// callToolWithCtx は指定した context で ServerTool のハンドラーを呼び出すテストヘルパー。
+func callToolWithCtx(t *testing.T, s *mcpserver.MCPServer, ctx context.Context, toolName string, args map[string]any) *gomcp.CallToolResult {
+	t.Helper()
+	serverTool := s.GetTool(toolName)
+	if serverTool == nil {
+		t.Fatalf("tool %q not found", toolName)
+	}
+
+	req := gomcp.CallToolRequest{}
+	req.Params.Name = toolName
+	req.Params.Arguments = args
+
+	result, err := serverTool.Handler(ctx, req)
+	if err != nil {
+		t.Fatalf("tool %q handler returned error: %v", toolName, err)
+	}
+	return result
+}
+
+// M11-1: NewToolRegistryWithFactory でツール登録 → factory(ctx) が呼ばれてツール実行
+func TestNewToolRegistryWithFactory_RegisterAndCall(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return &domain.Issue{
+			ID:       1,
+			IssueKey: issueKey,
+			Summary:  "factory test",
+		}, nil
+	}
+
+	factoryCalled := false
+	factory := func(ctx context.Context) (backlog.Client, error) {
+		factoryCalled = true
+		return mock, nil
+	}
+
+	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	reg := mcpinternal.NewToolRegistryWithFactory(s, factory)
+
+	// 簡単なツールを登録
+	tool := gomcp.NewTool("test_tool",
+		gomcp.WithDescription("test tool"),
+		gomcp.WithString("issue_key", gomcp.Description("issue key"), gomcp.Required()),
+	)
+	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		key := args["issue_key"].(string)
+		return client.GetIssue(ctx, key)
+	})
+
+	ctx := context.Background()
+	result := callToolWithCtx(t, s, ctx, "test_tool", map[string]any{"issue_key": "TEST-1"})
+
+	if !factoryCalled {
+		t.Error("expected factory to be called")
+	}
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var issue domain.Issue
+	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if issue.IssueKey != "TEST-1" {
+		t.Errorf("expected issue_key TEST-1, got %s", issue.IssueKey)
+	}
+}
+
+// M11-2: factory がエラーを返した場合 → IsError: true、ツール関数は呼ばれない
+func TestNewToolRegistryWithFactory_FactoryError(t *testing.T) {
+	factoryErr := errors.New("user not authenticated")
+	factory := func(ctx context.Context) (backlog.Client, error) {
+		return nil, factoryErr
+	}
+
+	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	reg := mcpinternal.NewToolRegistryWithFactory(s, factory)
+
+	fnCalled := false
+	tool := gomcp.NewTool("test_tool",
+		gomcp.WithDescription("test tool"),
+	)
+	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		fnCalled = true
+		return nil, nil
+	})
+
+	result := callToolWithCtx(t, s, context.Background(), "test_tool", map[string]any{})
+
+	if fnCalled {
+		t.Error("expected tool function NOT to be called when factory returns error")
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when factory returns error")
+	}
+}
+
+// M11-3: 既存 NewToolRegistry は後方互換で動作する
+func TestNewToolRegistry_BackwardCompat(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return &domain.Issue{
+			ID:       1,
+			IssueKey: issueKey,
+			Summary:  "backward compat test",
+		}, nil
+	}
+
+	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	reg := mcpinternal.NewToolRegistry(s, mock)
+
+	tool := gomcp.NewTool("test_tool",
+		gomcp.WithDescription("test tool"),
+		gomcp.WithString("issue_key", gomcp.Description("issue key"), gomcp.Required()),
+	)
+	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		key := args["issue_key"].(string)
+		return client.GetIssue(ctx, key)
+	})
+
+	result := callToolWithCtx(t, s, context.Background(), "test_tool", map[string]any{"issue_key": "TEST-1"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var issue domain.Issue
+	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if issue.IssueKey != "TEST-1" {
+		t.Errorf("expected issue_key TEST-1, got %s", issue.IssueKey)
 	}
 }

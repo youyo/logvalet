@@ -19,8 +19,9 @@ type ToolFunc func(ctx context.Context, client backlog.Client, args map[string]a
 
 // ToolRegistry は MCP サーバーへの tool 登録を管理する。
 type ToolRegistry struct {
-	server *mcpserver.MCPServer
-	client backlog.Client
+	server  *mcpserver.MCPServer
+	client  backlog.Client
+	factory func(ctx context.Context) (backlog.Client, error)
 }
 
 // NewToolRegistry は新しい ToolRegistry を返す。
@@ -28,12 +29,30 @@ func NewToolRegistry(s *mcpserver.MCPServer, client backlog.Client) *ToolRegistr
 	return &ToolRegistry{server: s, client: client}
 }
 
+// NewToolRegistryWithFactory は ClientFactory を使って per-user の backlog.Client を
+// 動的に生成する ToolRegistry を返す。
+// factory は MCP ツール呼び出し時に context.Context からユーザーを特定し、
+// そのユーザー用の backlog.Client を返す。
+func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context.Context) (backlog.Client, error)) *ToolRegistry {
+	return &ToolRegistry{server: s, factory: factory}
+}
+
 // Register は tool を MCPServer に登録する。
 // ToolFunc が error を返した場合、自動的に mcp.NewToolResultError に変換する。
+// factory が設定されている場合、リクエストの context から per-user クライアントを生成する。
 func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
-	client := r.client
 	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
-		result, err := fn(ctx, client, req.GetArguments())
+		var c backlog.Client
+		if r.factory != nil {
+			var err error
+			c, err = r.factory(ctx)
+			if err != nil {
+				return gomcp.NewToolResultError(err.Error()), nil
+			}
+		} else {
+			c = r.client
+		}
+		result, err := fn(ctx, c, req.GetArguments())
 		if err != nil {
 			return gomcp.NewToolResultError(err.Error()), nil
 		}
