@@ -1732,6 +1732,29 @@ func TestHandleStatus_LogsInternalError(t *testing.T) {
 	}
 }
 
+// ---- 14b. HandleStatus TokenManager 契約違反 (nil, nil) の防御 ----
+func TestHandleStatus_NilRecordNilError_Handled(t *testing.T) {
+	tm := &fakeTokenManager{
+		getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+			return nil, nil // 契約違反: 実装上は ErrProviderNotConnected を返すべき
+		},
+	}
+	h := newTestHandlerWithDeps(t, slog.New(slog.NewJSONHandler(io.Discard, nil)), &fakeProvider{}, tm)
+	req := newStatusRequest(testUserID)
+	rec := httptest.NewRecorder()
+
+	h.HandleStatus(rec, req)
+
+	if rec.Code != stdhttp.StatusInternalServerError {
+		t.Errorf("status = %d, want %d (nil record with nil error should be treated as internal error)", rec.Code, stdhttp.StatusInternalServerError)
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "internal_error" {
+		t.Errorf("error = %q, want internal_error", body["error"])
+	}
+}
+
 // ---- 15. HandleDisconnect メソッドチェック ----
 func TestHandleDisconnect_MethodNotAllowed(t *testing.T) {
 	methods := []string{stdhttp.MethodGet, stdhttp.MethodPost, stdhttp.MethodPut, stdhttp.MethodPatch}

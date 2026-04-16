@@ -454,7 +454,7 @@ func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request
 	// 3. GetValidToken で接続状態を判定
 	record, err := h.tokenManager.GetValidToken(ctx, userID, providerName, h.tenant)
 	switch {
-	case err == nil:
+	case err == nil && record != nil:
 		// 接続済み・有効
 		h.logStatusResult(ctx, "connected", userID, providerName)
 		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
@@ -463,6 +463,12 @@ func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request
 			Tenant:         h.tenant,
 			ProviderUserID: record.ProviderUserID,
 		})
+		return
+
+	case err == nil && record == nil:
+		// TokenManager 契約違反: (nil, nil) を返した場合の防御（M14 の NilProviderUser_Handled と一貫）
+		h.logStatusFailed(ctx, "nil_record", nil, userID, providerName)
+		writeJSONError(w, stdhttp.StatusInternalServerError, errCodeInternalError, errMsgStatusInternal)
 		return
 
 	case errors.Is(err, auth.ErrProviderNotConnected):
