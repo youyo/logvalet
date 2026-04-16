@@ -528,6 +528,149 @@ The MCP server provides 31+ tools including:
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
 
+### Supported Modes
+
+logvalet supports four operating modes combining CLI / MCP, the Backlog authentication method (API key vs OAuth), and MCP client authentication (OIDC via `idproxy`). Two combinations are **not** available — see notes below.
+
+| # | Client | Backlog auth | Client auth (OIDC) | Status |
+|---|--------|--------------|--------------------|--------|
+| 1 | CLI | API key | — | ✅ supported |
+| 2 | CLI | OAuth | — | ❌ not implemented (CLI OAuth login command is not wired; only manual `tokens.json` editing works today) |
+| 3 | MCP | API key | none | ✅ supported |
+| 4 | MCP | API key | OIDC | ✅ supported |
+| 5 | MCP | OAuth | none | ❌ not supported by design — OAuth is per-user and userID can only be resolved from the OIDC subject. Running `logvalet mcp` with `LOGVALET_BACKLOG_CLIENT_ID` but without `--auth` fails fast |
+| 6 | MCP | OAuth | OIDC | ✅ supported |
+
+Examples below show each supported mode twice: (A) environment variables only, (B) CLI flags only (with the minimum env vars when flags are not available).
+
+#### Mode 1: CLI + API key
+
+(A) Environment variables:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+logvalet auth login
+logvalet issue get EXAMPLE-1
+```
+
+(B) CLI flags:
+
+```bash
+logvalet --api-key=your-api-key-here --space=example-space auth login
+logvalet --space=example-space issue get EXAMPLE-1
+```
+
+#### Mode 3: MCP + API key (no client authentication)
+
+(A) Environment variables:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+logvalet mcp
+```
+
+(B) CLI flags:
+
+```bash
+logvalet mcp --api-key=your-api-key-here --space=example-space
+```
+
+#### Mode 4: MCP + API key + OIDC (idproxy)
+
+(A) Environment variables:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+logvalet mcp
+```
+
+(B) CLI flags:
+
+```bash
+logvalet mcp \
+  --api-key=your-api-key-here \
+  --space=example-space \
+  --auth \
+  --external-url=https://mcp.example.com \
+  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
+  --oidc-client-id=your-oidc-client-id-here \
+  --oidc-client-secret=your-oidc-client-secret-here \
+  --cookie-secret=$(openssl rand -hex 32) \
+  --allowed-domains=example.com
+```
+
+#### Mode 6: MCP + Backlog OAuth + OIDC
+
+Backlog OAuth settings (`LOGVALET_BACKLOG_*`, `LOGVALET_OAUTH_STATE_SECRET`, `LOGVALET_TOKEN_STORE*`) are configured via environment variables only — no CLI flags.
+
+(A) Environment variables:
+
+```bash
+# Backlog space
+export LOGVALET_SPACE=example-space
+
+# OIDC (idproxy)
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+# Backlog OAuth
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+
+# Token store (DynamoDB recommended for Lambda)
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+logvalet mcp
+```
+
+(B) CLI flags (OIDC via flags, Backlog OAuth still via env vars):
+
+```bash
+# Backlog OAuth settings — no CLI flags, env vars are required
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+logvalet mcp \
+  --space=example-space \
+  --auth \
+  --external-url=https://mcp.example.com \
+  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
+  --oidc-client-id=your-oidc-client-id-here \
+  --oidc-client-secret=your-oidc-client-secret-here \
+  --cookie-secret=$(openssl rand -hex 32) \
+  --allowed-domains=example.com
+```
+
+See the **Backlog OAuth (Per-User)** subsection below for token store details and the first-time connection flow.
+
 ### Authentication (Optional)
 
 Enable OIDC/OAuth 2.1 authentication for remote deployments:

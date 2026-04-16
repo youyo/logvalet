@@ -527,6 +527,149 @@ MCP サーバーは以下を含む 31 個以上のツールを提供します:
 
 Claude Desktop の設定または Claude Code のスキル設定で MCP サーバーを設定し、logvalet をツールとして使用できます。
 
+### サポートされる動作モード
+
+logvalet は CLI / MCP × Backlog 認証方式（API key / OAuth）× MCP クライアント認証（OIDC via `idproxy`）の組み合わせで 4 パターンをサポートします。2 つの組み合わせは **未対応** です（下表参照）。
+
+| # | クライアント | Backlog 認証 | クライアント認証 (OIDC) | 状態 |
+|---|------------|-------------|------------------------|------|
+| 1 | CLI | API key | — | ✅ サポート |
+| 2 | CLI | OAuth | — | ❌ 未実装（CLI 向け OAuth ログインコマンドは未配線。現状は `tokens.json` を手動編集した場合のみ動作） |
+| 3 | MCP | API key | なし | ✅ サポート |
+| 4 | MCP | API key | OIDC | ✅ サポート |
+| 5 | MCP | OAuth | なし | ❌ 非サポート（設計上） — OAuth は per-user で、userID の取得元が OIDC subject のみ。`logvalet mcp` を `LOGVALET_BACKLOG_CLIENT_ID` 設定 + `--auth` 無しで起動すると fast-fail エラーになります |
+| 6 | MCP | OAuth | OIDC | ✅ サポート |
+
+以下の例ではサポートされる 4 モードについて、(A) 環境変数のみ・(B) CLI 引数のみ（フラグに対応しない設定は必要最小限の環境変数）の 2 通りで記載しています。
+
+#### Mode 1: CLI + API key
+
+(A) 環境変数:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+logvalet auth login
+logvalet issue get EXAMPLE-1
+```
+
+(B) CLI 引数:
+
+```bash
+logvalet --api-key=your-api-key-here --space=example-space auth login
+logvalet --space=example-space issue get EXAMPLE-1
+```
+
+#### Mode 3: MCP + API key（クライアント認証なし）
+
+(A) 環境変数:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+logvalet mcp
+```
+
+(B) CLI 引数:
+
+```bash
+logvalet mcp --api-key=your-api-key-here --space=example-space
+```
+
+#### Mode 4: MCP + API key + OIDC (idproxy)
+
+(A) 環境変数:
+
+```bash
+export LOGVALET_API_KEY=your-api-key-here
+export LOGVALET_SPACE=example-space
+
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+logvalet mcp
+```
+
+(B) CLI 引数:
+
+```bash
+logvalet mcp \
+  --api-key=your-api-key-here \
+  --space=example-space \
+  --auth \
+  --external-url=https://mcp.example.com \
+  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
+  --oidc-client-id=your-oidc-client-id-here \
+  --oidc-client-secret=your-oidc-client-secret-here \
+  --cookie-secret=$(openssl rand -hex 32) \
+  --allowed-domains=example.com
+```
+
+#### Mode 6: MCP + Backlog OAuth + OIDC
+
+Backlog OAuth 関連の設定（`LOGVALET_BACKLOG_*`, `LOGVALET_OAUTH_STATE_SECRET`, `LOGVALET_TOKEN_STORE*`）は **環境変数のみ** で設定します（CLI フラグは用意していません）。
+
+(A) 環境変数:
+
+```bash
+# Backlog space
+export LOGVALET_SPACE=example-space
+
+# OIDC (idproxy)
+export LOGVALET_MCP_AUTH=true
+export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
+export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
+export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
+export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+
+# Backlog OAuth
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+
+# Token store（Lambda では DynamoDB 推奨）
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+logvalet mcp
+```
+
+(B) CLI 引数（OIDC はフラグ、Backlog OAuth は環境変数のまま）:
+
+```bash
+# Backlog OAuth 関連は CLI フラグ無し。環境変数で設定する必要があります
+export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_TOKEN_STORE=dynamodb
+export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+logvalet mcp \
+  --space=example-space \
+  --auth \
+  --external-url=https://mcp.example.com \
+  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
+  --oidc-client-id=your-oidc-client-id-here \
+  --oidc-client-secret=your-oidc-client-secret-here \
+  --cookie-secret=$(openssl rand -hex 32) \
+  --allowed-domains=example.com
+```
+
+Token Store の詳細や初回接続フローは後述の **Backlog OAuth（ユーザーごとの認可）** を参照してください。
+
 ### 認証（オプション）
 
 リモートデプロイ向けに OIDC/OAuth 2.1 認証を有効化できます:
