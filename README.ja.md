@@ -32,6 +32,12 @@ alias lv=logvalet
 logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
 
+### 確認
+
+```bash
+logvalet user me
+```
+
 ### ダイジェストの取得
 
 ```bash

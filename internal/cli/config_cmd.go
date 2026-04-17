@@ -250,7 +250,7 @@ func (c *ConfigureCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, base
 	// stderr に案内
 	fmt.Fprintf(deps.Stderr, "configuration saved: %s\n", deps.ConfigPath)
 	if authSaved {
-		fmt.Fprintf(deps.Stderr, "setup complete! run logvalet project list to verify\n")
+		fmt.Fprintf(deps.Stderr, "setup complete! run logvalet user me to verify\n")
 	} else {
 		fmt.Fprintf(deps.Stderr, "next step: logvalet configure --init-profile %s --init-api-key YOUR_KEY\n", profileName)
 	}

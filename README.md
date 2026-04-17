@@ -41,7 +41,7 @@ logvalet configure
 ### 2. Verify
 
 ```bash
-logvalet project list
+logvalet user me
 ```
 
 ### 3. Get a digest
