@@ -12,8 +12,26 @@
   ],
   "Environment": {
     "Variables": {
-      "LOGVALET_API_KEY": "{{ must_env `LOGVALET_API_KEY` }}",
-      "LOGVALET_BASE_URL": "{{ must_env `LOGVALET_BASE_URL` }}"
+      "LOGVALET_BASE_URL":                        "{{ must_env `LOGVALET_BASE_URL` }}",
+
+      "LOGVALET_MCP_AUTH":                        "true",
+      "LOGVALET_MCP_EXTERNAL_URL":                "{{ must_env `LOGVALET_MCP_EXTERNAL_URL` }}",
+      "LOGVALET_MCP_OIDC_ISSUER":                 "{{ must_env `LOGVALET_MCP_OIDC_ISSUER` }}",
+      "LOGVALET_MCP_OIDC_CLIENT_ID":              "{{ must_env `LOGVALET_MCP_OIDC_CLIENT_ID` }}",
+      "LOGVALET_MCP_OIDC_CLIENT_SECRET":          "{{ must_env `LOGVALET_MCP_OIDC_CLIENT_SECRET` }}",
+      "LOGVALET_MCP_COOKIE_SECRET":               "{{ must_env `LOGVALET_MCP_COOKIE_SECRET` }}",
+      "LOGVALET_MCP_ALLOWED_DOMAINS":             "{{ env `LOGVALET_MCP_ALLOWED_DOMAINS` `` }}",
+      "LOGVALET_MCP_ALLOWED_EMAILS":              "{{ env `LOGVALET_MCP_ALLOWED_EMAILS` `` }}",
+
+      "LOGVALET_API_KEY":                         "{{ env `LOGVALET_API_KEY` `` }}",
+
+      "LOGVALET_MCP_BACKLOG_CLIENT_ID":           "{{ env `LOGVALET_MCP_BACKLOG_CLIENT_ID` `` }}",
+      "LOGVALET_MCP_BACKLOG_CLIENT_SECRET":       "{{ env `LOGVALET_MCP_BACKLOG_CLIENT_SECRET` `` }}",
+      "LOGVALET_MCP_BACKLOG_REDIRECT_URL":        "{{ env `LOGVALET_MCP_BACKLOG_REDIRECT_URL` `` }}",
+      "LOGVALET_MCP_OAUTH_STATE_SECRET":          "{{ env `LOGVALET_MCP_OAUTH_STATE_SECRET` `` }}",
+      "LOGVALET_MCP_TOKEN_STORE":                 "{{ env `LOGVALET_MCP_TOKEN_STORE` `memory` }}",
+      "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE":  "{{ env `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE` `` }}",
+      "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "{{ env `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION` `` }}"
     }
   }
 }
