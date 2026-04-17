@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
+	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -453,7 +455,7 @@ func TestNewToolRegistryWithFactory_RegisterAndCall(t *testing.T) {
 	}
 
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistryWithFactory(s, factory)
+	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	// 簡単なツールを登録
 	tool := gomcp.NewTool("test_tool",
@@ -496,7 +498,7 @@ func TestNewToolRegistryWithFactory_FactoryError(t *testing.T) {
 	}
 
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistryWithFactory(s, factory)
+	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	fnCalled := false
 	tool := gomcp.NewTool("test_tool",
@@ -529,7 +531,7 @@ func TestNewToolRegistry_BackwardCompat(t *testing.T) {
 	}
 
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistry(s, mock)
+	reg := mcpinternal.NewToolRegistry(s, mock, "")
 
 	tool := gomcp.NewTool("test_tool",
 		gomcp.WithDescription("test tool"),
@@ -555,5 +557,169 @@ func TestNewToolRegistry_BackwardCompat(t *testing.T) {
 	}
 	if issue.IssueKey != "TEST-1" {
 		t.Errorf("expected issue_key TEST-1, got %s", issue.IssueKey)
+	}
+}
+
+// ============================================================================
+// T10〜T13: factory エラー時の _meta.authorization_url 付与テスト（Proposal B）
+// ============================================================================
+
+const toolAuthTestAuthorizeURL = "https://x/oauth/backlog/authorize"
+
+// TestToolRegistry_AuthRequired は factory エラー時の _meta 付与挙動をテーブル駆動で検証。
+func TestToolRegistry_AuthRequired(t *testing.T) {
+	tests := []struct {
+		name             string
+		factoryErr       error
+		authorizationURL string
+		wantMeta         bool
+		wantURL          string
+	}{
+		{
+			name:             "T10: ErrProviderNotConnected + authURL あり → Meta 付与",
+			factoryErr:       auth.ErrProviderNotConnected,
+			authorizationURL: toolAuthTestAuthorizeURL,
+			wantMeta:         true,
+			wantURL:          toolAuthTestAuthorizeURL,
+		},
+		{
+			name:             "T11: ErrTokenRefreshFailed + authURL あり → Meta 付与",
+			factoryErr:       auth.ErrTokenRefreshFailed,
+			authorizationURL: toolAuthTestAuthorizeURL,
+			wantMeta:         true,
+			wantURL:          toolAuthTestAuthorizeURL,
+		},
+		{
+			name:             "T12: 汎用エラー + authURL あり → Meta なし（従来挙動）",
+			factoryErr:       errors.New("some generic error"),
+			authorizationURL: toolAuthTestAuthorizeURL,
+			wantMeta:         false,
+		},
+		{
+			name:             "T13: ErrProviderNotConnected + authURL なし → Meta なし（後方互換）",
+			factoryErr:       auth.ErrProviderNotConnected,
+			authorizationURL: "",
+			wantMeta:         false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+			factory := func(ctx context.Context) (backlog.Client, error) {
+				return nil, tc.factoryErr
+			}
+			reg := mcpinternal.NewToolRegistryWithFactory(s, factory, tc.authorizationURL)
+
+			tool := gomcp.NewTool("auth_test_tool", gomcp.WithDescription("test"))
+			reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+				return nil, nil
+			})
+
+			result := callToolWithCtx(t, s, context.Background(), "auth_test_tool", map[string]any{})
+
+			if !result.IsError {
+				t.Fatal("expected IsError=true, got false")
+			}
+
+			if tc.wantMeta {
+				if result.Meta == nil {
+					t.Fatal("expected Meta to be non-nil")
+				}
+				authReq, ok := result.Meta.AdditionalFields["authorization_required"].(bool)
+				if !ok || !authReq {
+					t.Errorf("Meta.authorization_required = %v, want true", result.Meta.AdditionalFields["authorization_required"])
+				}
+				authURL, ok := result.Meta.AdditionalFields["authorization_url"].(string)
+				if !ok || authURL != tc.wantURL {
+					t.Errorf("Meta.authorization_url = %q, want %q", authURL, tc.wantURL)
+				}
+				// テキストに URL が含まれること
+				if len(result.Content) > 0 {
+					text, ok := result.Content[0].(gomcp.TextContent)
+					if ok && !strings.Contains(text.Text, tc.wantURL) {
+						t.Errorf("Content text does not contain URL %q: %q", tc.wantURL, text.Text)
+					}
+				}
+			} else {
+				if result.Meta != nil {
+					t.Errorf("expected Meta to be nil, got %+v", result.Meta)
+				}
+			}
+		})
+	}
+}
+
+// TestFactoryError_AuthRequired_MetaJSONSerialization は ErrProviderNotConnected 時に
+// json.Marshal した CallToolResult のワイヤフォーマットが期待形状であることを検証する。
+//
+// mark3labs/mcp-go の Meta.MarshalJSON は AdditionalFields を top-level に展開するため、
+// 実際の JSON ペイロードとして {"_meta":{"authorization_required":true,"authorization_url":"..."}}
+// が生成されることを担保する（struct フィールドアクセス検証とは独立した確認）。
+func TestFactoryError_AuthRequired_MetaJSONSerialization(t *testing.T) {
+	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	factory := func(ctx context.Context) (backlog.Client, error) {
+		return nil, auth.ErrProviderNotConnected
+	}
+	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, toolAuthTestAuthorizeURL)
+
+	tool := gomcp.NewTool("auth_test_tool", gomcp.WithDescription("test"))
+	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		return nil, nil
+	})
+
+	result := callToolWithCtx(t, s, context.Background(), "auth_test_tool", map[string]any{})
+
+	// struct フィールド検証（前提確認）
+	if !result.IsError {
+		t.Fatal("expected IsError=true")
+	}
+
+	// JSON シリアライズ検証
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("json.Marshal(result): %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	// isError フィールドの検証
+	isError, ok := decoded["isError"].(bool)
+	if !ok || !isError {
+		t.Errorf("decoded[\"isError\"] = %v (type %T), want true", decoded["isError"], decoded["isError"])
+	}
+
+	// content フィールドがテキスト配列であること
+	contentRaw, ok := decoded["content"].([]any)
+	if !ok || len(contentRaw) == 0 {
+		t.Fatalf("decoded[\"content\"] = %v (type %T), want non-empty []any", decoded["content"], decoded["content"])
+	}
+	firstContent, ok := contentRaw[0].(map[string]any)
+	if !ok {
+		t.Fatalf("content[0] = %T, want map[string]any", contentRaw[0])
+	}
+	if firstContent["type"] != "text" {
+		t.Errorf("content[0][\"type\"] = %v, want \"text\"", firstContent["type"])
+	}
+	textVal, ok := firstContent["text"].(string)
+	if !ok || textVal == "" {
+		t.Errorf("content[0][\"text\"] = %v, want non-empty string", firstContent["text"])
+	}
+
+	// _meta フィールドの検証
+	metaRaw, ok := decoded["_meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("decoded[\"_meta\"] = %v (type %T), want map[string]any", decoded["_meta"], decoded["_meta"])
+	}
+	authReq, ok := metaRaw["authorization_required"].(bool)
+	if !ok || !authReq {
+		t.Errorf("_meta[\"authorization_required\"] = %v (type %T), want true", metaRaw["authorization_required"], metaRaw["authorization_required"])
+	}
+	authURL, ok := metaRaw["authorization_url"].(string)
+	if !ok || authURL != toolAuthTestAuthorizeURL {
+		t.Errorf("_meta[\"authorization_url\"] = %q, want %q", metaRaw["authorization_url"], toolAuthTestAuthorizeURL)
 	}
 }

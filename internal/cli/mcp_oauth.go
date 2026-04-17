@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
@@ -22,6 +23,7 @@ type OAuthDeps struct {
 	TokenManager auth.TokenManager
 	Factory      auth.ClientFactory
 	Handler      *httptransport.OAuthHandler
+	AuthorizeURL string
 }
 
 // Close は OAuthDeps の保持するリソース（主に TokenStore）を解放する。
@@ -40,21 +42,26 @@ func (d *OAuthDeps) Close() error {
 //   - cfg.Validate() が nil を返していること（caller で確認済み）
 //   - space は Backlog スペース名（例: "example-space"）
 //   - baseURL は Backlog API のベース URL（例: "https://example-space.backlog.com"）
+//   - externalURL は MCP サーバーの外部公開 URL（例: "https://example.com"）
 //   - logger は nil でも可（handler 側で slog.Default() へフォールバック）
 //
 // 失敗条件:
 //   - cfg が nil
 //   - space が空
+//   - externalURL が空
 //   - hex.DecodeString(cfg.OAuthStateSecret) 失敗
 //   - provider.NewBacklogOAuthProvider 失敗
 //   - tokenstore.NewTokenStore 失敗
 //   - httptransport.NewOAuthHandler 失敗（失敗時は store を Close する）
-func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL string, logger *slog.Logger) (*OAuthDeps, error) {
+func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL, externalURL string, logger *slog.Logger) (*OAuthDeps, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("mcp: oauth config must not be nil")
 	}
 	if space == "" {
 		return nil, fmt.Errorf("mcp: space must not be empty for OAuth mode")
+	}
+	if externalURL == "" {
+		return nil, fmt.Errorf("mcp: external URL required")
 	}
 
 	secret, err := hex.DecodeString(cfg.OAuthStateSecret)
@@ -81,8 +88,11 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL string, logger *slo
 	// ClientFactory
 	factory := auth.NewClientFactory(tm, p.Name(), space, baseURL)
 
+	// AuthorizeURL を組み立て
+	authorizeURL := strings.TrimRight(externalURL, "/") + "/oauth/backlog/authorize"
+
 	// OAuthHandler
-	handler, err := httptransport.NewOAuthHandler(p, tm, space, cfg.BacklogRedirectURL, secret, auth.DefaultStateTTL, logger)
+	handler, err := httptransport.NewOAuthHandler(p, tm, space, cfg.BacklogRedirectURL, authorizeURL, secret, auth.DefaultStateTTL, logger)
 	if err != nil {
 		// 失敗時は store を閉じる（リソースリーク防止）
 		_ = store.Close()
@@ -95,6 +105,7 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL string, logger *slo
 		TokenManager: tm,
 		Factory:      factory,
 		Handler:      handler,
+		AuthorizeURL: authorizeURL,
 	}, nil
 }
 

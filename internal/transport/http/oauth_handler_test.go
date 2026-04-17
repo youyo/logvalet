@@ -22,11 +22,12 @@ import (
 
 // テスト定数
 var (
-	testSecret      = []byte("0123456789abcdef0123456789abcdef") // 32 bytes
-	testTenant      = "test-space"
-	testRedirectURI = "https://example.com/oauth/backlog/callback"
-	testTTL         = 10 * time.Minute
-	testUserID      = "user-123"
+	testSecret       = []byte("0123456789abcdef0123456789abcdef") // 32 bytes
+	testTenant       = "test-space"
+	testRedirectURI  = "https://example.com/oauth/backlog/callback"
+	testAuthorizeURL = "https://example.com/oauth/backlog/authorize"
+	testTTL          = 10 * time.Minute
+	testUserID       = "user-123"
 )
 
 // ============================================================================
@@ -136,7 +137,7 @@ func newTestHandler(t *testing.T, logger *slog.Logger) *httptransport.OAuthHandl
 // newTestHandlerWithDeps は依存性を指定して OAuthHandler を構築する。
 func newTestHandlerWithDeps(t *testing.T, logger *slog.Logger, p provider.OAuthProvider, tm auth.TokenManager) *httptransport.OAuthHandler {
 	t.Helper()
-	h, err := httptransport.NewOAuthHandler(p, tm, testTenant, testRedirectURI, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(p, tm, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -153,7 +154,7 @@ func TestNewOAuthHandler_NilProvider_Panics(t *testing.T) {
 			t.Errorf("NewOAuthHandler(nil provider) did not panic")
 		}
 	}()
-	_, _ = httptransport.NewOAuthHandler(nil, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, nil)
+	_, _ = httptransport.NewOAuthHandler(nil, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
 }
 
 func TestNewOAuthHandler_NilTokenManager_Panics(t *testing.T) {
@@ -162,53 +163,53 @@ func TestNewOAuthHandler_NilTokenManager_Panics(t *testing.T) {
 			t.Errorf("NewOAuthHandler(nil tokenManager) did not panic")
 		}
 	}()
-	_, _ = httptransport.NewOAuthHandler(&fakeProvider{}, nil, testTenant, testRedirectURI, testSecret, testTTL, nil)
+	_, _ = httptransport.NewOAuthHandler(&fakeProvider{}, nil, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
 }
 
 func TestNewOAuthHandler_EmptyTenant(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, "", testRedirectURI, testSecret, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, "", testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
 	if !errors.Is(err, auth.ErrInvalidTenant) {
 		t.Errorf("error = %v, want ErrInvalidTenant", err)
 	}
 }
 
 func TestNewOAuthHandler_EmptyRedirectURI(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, "", testSecret, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, "", testAuthorizeURL, testSecret, testTTL, nil)
 	if !errors.Is(err, auth.ErrInvalidRedirectURI) {
 		t.Errorf("error = %v, want ErrInvalidRedirectURI", err)
 	}
 }
 
 func TestNewOAuthHandler_NilStateSecret(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, nil, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, nil, testTTL, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_EmptyStateSecret(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, []byte{}, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, []byte{}, testTTL, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_ZeroTTL(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, 0, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, 0, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_NegativeTTL(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, -1*time.Minute, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, -1*time.Minute, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_NilLogger_UsesDefault(t *testing.T) {
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, nil)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -219,7 +220,7 @@ func TestNewOAuthHandler_NilLogger_UsesDefault(t *testing.T) {
 
 func TestNewOAuthHandler_Valid(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -373,7 +374,7 @@ func TestHandleAuthorize_ProviderError(t *testing.T) {
 		},
 	}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	h, err := httptransport.NewOAuthHandler(fp, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(fp, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -425,7 +426,7 @@ func TestHandleAuthorize_Nonce_Unique(t *testing.T) {
 func TestHandleAuthorize_LogsSuccess(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{name: "backlog"}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{name: "backlog"}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -461,7 +462,7 @@ func TestHandleAuthorize_LogsSuccess(t *testing.T) {
 func TestHandleAuthorize_DoesNotLogSecret(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -2072,5 +2073,100 @@ func TestHandleCallback_NilProviderUser_Handled(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &body)
 	if body["error"] != "provider_error" {
 		t.Errorf("error = %q, want provider_error", body["error"])
+	}
+}
+
+// ============================================================================
+// T14〜T16: /oauth/backlog/status の authorization_url フィールドテスト（Proposal C）
+// ============================================================================
+
+// TestHandleStatus_AuthorizationURL は status レスポンスの authorization_url フィールドを検証する。
+func TestHandleStatus_AuthorizationURL(t *testing.T) {
+	tests := []struct {
+		name            string
+		tmErr           error
+		tmRecord        *auth.TokenRecord
+		wantAuthURL     bool
+		wantConnected   bool
+		wantNeedsReauth bool
+	}{
+		{
+			name:          "T14: 正常接続 → authorization_url なし",
+			tmRecord:      &auth.TokenRecord{ProviderUserID: "uid-123"},
+			tmErr:         nil,
+			wantAuthURL:   false,
+			wantConnected: true,
+		},
+		{
+			name:          "T15: ErrProviderNotConnected → authorization_url あり",
+			tmErr:         auth.ErrProviderNotConnected,
+			wantAuthURL:   true,
+			wantConnected: false,
+		},
+		{
+			name:            "T16: ErrTokenRefreshFailed → authorization_url あり + needs_reauth",
+			tmErr:           auth.ErrTokenRefreshFailed,
+			wantAuthURL:     true,
+			wantConnected:   true,
+			wantNeedsReauth: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tm := &fakeTokenManager{
+				getFn: func(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+					return tc.tmRecord, tc.tmErr
+				},
+			}
+			h, err := httptransport.NewOAuthHandler(
+				&fakeProvider{},
+				tm,
+				testTenant,
+				testRedirectURI,
+				testAuthorizeURL,
+				testSecret,
+				testTTL,
+				nil,
+			)
+			if err != nil {
+				t.Fatalf("NewOAuthHandler: %v", err)
+			}
+
+			ctx := auth.ContextWithUserID(context.Background(), testUserID)
+			req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/status", nil).WithContext(ctx)
+			rec := httptest.NewRecorder()
+			h.HandleStatus(rec, req)
+
+			if rec.Code != stdhttp.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, stdhttp.StatusOK)
+			}
+
+			var body map[string]any
+			if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+
+			connected, _ := body["connected"].(bool)
+			if connected != tc.wantConnected {
+				t.Errorf("connected = %v, want %v", connected, tc.wantConnected)
+			}
+
+			needsReauth, _ := body["needs_reauth"].(bool)
+			if needsReauth != tc.wantNeedsReauth {
+				t.Errorf("needs_reauth = %v, want %v", needsReauth, tc.wantNeedsReauth)
+			}
+
+			authURL, hasAuthURL := body["authorization_url"].(string)
+			if tc.wantAuthURL {
+				if !hasAuthURL || authURL != testAuthorizeURL {
+					t.Errorf("authorization_url = %q, want %q", authURL, testAuthorizeURL)
+				}
+			} else {
+				if hasAuthURL {
+					t.Errorf("authorization_url should be absent, got %q", authURL)
+				}
+			}
+		})
 	}
 }

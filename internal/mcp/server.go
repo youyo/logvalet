@@ -10,9 +10,10 @@ import (
 // ServerConfig は MCP サーバーの設定。
 // analysis 系ツールが IssueContextBuilder に渡す情報を保持する。
 type ServerConfig struct {
-	Profile string
-	Space   string
-	BaseURL string
+	Profile          string
+	Space            string
+	BaseURL          string
+	AuthorizationURL string
 }
 
 // NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
@@ -24,7 +25,7 @@ func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.M
 		ver,
 		mcpserver.WithToolCapabilities(true),
 	)
-	reg := NewToolRegistry(s, client)
+	reg := NewToolRegistry(s, client, cfg.AuthorizationURL)
 	registerAllTools(reg, cfg)
 	return s
 }
@@ -42,7 +43,7 @@ func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, err
 		ver,
 		mcpserver.WithToolCapabilities(true),
 	)
-	reg := NewToolRegistryWithFactory(s, factory)
+	reg := NewToolRegistryWithFactory(s, factory, cfg.AuthorizationURL)
 	registerAllTools(reg, cfg)
 	return s
 }

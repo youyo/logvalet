@@ -73,11 +73,12 @@ const (
 // statusResponse は /oauth/backlog/status のレスポンス形式。
 // connected のみ常時出力、その他は omitempty。
 type statusResponse struct {
-	Connected      bool   `json:"connected"`
-	NeedsReauth    bool   `json:"needs_reauth,omitempty"`
-	Provider       string `json:"provider,omitempty"`
-	Tenant         string `json:"tenant,omitempty"`
-	ProviderUserID string `json:"provider_user_id,omitempty"`
+	Connected        bool   `json:"connected"`
+	NeedsReauth      bool   `json:"needs_reauth,omitempty"`
+	Provider         string `json:"provider,omitempty"`
+	Tenant           string `json:"tenant,omitempty"`
+	ProviderUserID   string `json:"provider_user_id,omitempty"`
+	AuthorizationURL string `json:"authorization_url,omitempty"`
 }
 
 // disconnectResponse は /oauth/backlog/disconnect のレスポンス形式。
@@ -98,6 +99,7 @@ type OAuthHandler struct {
 	tokenManager auth.TokenManager
 	tenant       string
 	redirectURI  string
+	authorizeURL string
 	stateSecret  []byte
 	stateTTL     time.Duration
 	logger       *slog.Logger
@@ -109,13 +111,14 @@ type OAuthHandler struct {
 // tokenManager が nil の場合は panic する（programming error として早期検出）。
 // tenant が空の場合は auth.ErrInvalidTenant を返す。
 // redirectURI が空の場合は auth.ErrInvalidRedirectURI を返す。
+// authorizeURL は "<externalURL>/oauth/backlog/authorize" の完全修飾 URL。空でも可（その場合 status に含まれない）。
 // stateSecret が nil または空の場合は auth.ErrStateInvalid を返す。
 // stateTTL が 0 以下の場合は auth.ErrStateInvalid を返す。
 // logger が nil の場合は slog.Default() を使用する。
 func NewOAuthHandler(
 	p provider.OAuthProvider,
 	tm auth.TokenManager,
-	tenant, redirectURI string,
+	tenant, redirectURI, authorizeURL string,
 	stateSecret []byte,
 	stateTTL time.Duration,
 	logger *slog.Logger,
@@ -146,6 +149,7 @@ func NewOAuthHandler(
 		tokenManager: tm,
 		tenant:       tenant,
 		redirectURI:  redirectURI,
+		authorizeURL: authorizeURL,
 		stateSecret:  stateSecret,
 		stateTTL:     stateTTL,
 		logger:       logger,
@@ -475,7 +479,8 @@ func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request
 		// 未接続
 		h.logStatusResult(ctx, "not_connected", userID, providerName)
 		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
-			Connected: false,
+			Connected:        false,
+			AuthorizationURL: h.authorizeURL,
 		})
 		return
 
@@ -483,10 +488,11 @@ func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request
 		// 再認可が必要
 		h.logStatusResult(ctx, "needs_reauth", userID, providerName)
 		writeJSONSuccess(w, stdhttp.StatusOK, statusResponse{
-			Connected:   true,
-			NeedsReauth: true,
-			Provider:    providerName,
-			Tenant:      h.tenant,
+			Connected:        true,
+			NeedsReauth:      true,
+			Provider:         providerName,
+			Tenant:           h.tenant,
+			AuthorizationURL: h.authorizeURL,
 		})
 		return
 

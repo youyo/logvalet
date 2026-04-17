@@ -792,6 +792,18 @@ For AWS Bedrock AgentCore Runtime deployment, see [docs/agentcore-deployment.md]
 Deploy logvalet as a Lambda Function URL using [lambroll](https://github.com/fujiwara/lambroll) and [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter).
 See [examples/lambroll/](examples/lambroll/) for setup instructions.
 
+### Backlog OAuth 自動誘導
+
+認証 (`--auth`) と Backlog OAuth (`--backlog-client-id` 等) を有効にしてデプロイすると、
+ブラウザで `$LOGVALET_MCP_EXTERNAL_URL` を開いた際に以下のフローが自動実行されます:
+
+1. EntraID 等の OIDC プロバイダでログイン
+2. Backlog トークン未保存の場合 `/oauth/backlog/authorize` へ自動リダイレクト
+3. Backlog 同意画面 → コールバック → 完了画面
+
+MCP クライアントが未接続状態でツールを呼ぶと、レスポンスの `_meta.authorization_url` に
+Backlog 認可 URL が含まれるため、クライアント側でユーザーに提示できます。
+
 ### Task Runner (mise)
 
 ```bash

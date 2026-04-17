@@ -255,7 +255,9 @@ func newOAuthE2EHarness(t *testing.T) *oauthE2EHarness {
 
 	redirectURI := authSrv.URL + "/oauth/backlog/callback"
 
-	h, err := httptransport.NewOAuthHandler(p, tm, "test-space", redirectURI, stateSecret, time.Minute, slog.Default())
+	authorizeURL := authSrv.URL + "/oauth/backlog/authorize"
+
+	h, err := httptransport.NewOAuthHandler(p, tm, "test-space", redirectURI, authorizeURL, stateSecret, time.Minute, slog.Default())
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -263,9 +265,17 @@ func newOAuthE2EHarness(t *testing.T) *oauthE2EHarness {
 	innerMux := http.NewServeMux()
 	cli.InstallOAuthRoutes(innerMux, h)
 
+	// EnsureBacklogConnected: userID bridge よりも内側に置く（条件 3: UserIDFromContext が先に必要）
+	ensuredInner := cli.EnsureBacklogConnected(
+		tm,
+		"backlog",
+		"test-space",
+		authorizeURL,
+	)(innerMux)
+
 	topMux := http.NewServeMux()
 	topMux.HandleFunc("/healthz", cli.HealthHandler)
-	topMux.Handle("/", testUserIDMiddleware(innerMux))
+	topMux.Handle("/", testUserIDMiddleware(ensuredInner))
 
 	authSrv.Config.Handler = topMux
 
@@ -607,6 +617,33 @@ func TestOAuthE2E_TwoUsers_DisconnectDoesNotAffectOtherUser(t *testing.T) {
 	status, body = h.doStatus(t, "bob-subject")
 	if status != http.StatusOK || body["connected"] != false {
 		t.Errorf("bob status after disconnect = %d / %v, want 200 / connected=false", status, body)
+	}
+}
+
+// TestE2E_BrowserRedirectsToAuthorizeWhenDisconnected は EnsureBacklogConnected ミドルウェア経由で
+// ログイン済みかつ Backlog 未接続のユーザーが GET / (Accept: text/html) を叩いた際に
+// 302 /oauth/backlog/authorize にリダイレクトされることを検証する（Proposal A 相当）。
+func TestE2E_BrowserRedirectsToAuthorizeWhenDisconnected(t *testing.T) {
+	h := newOAuthE2EHarness(t)
+
+	// OAuth フローを完了していない（= Backlog 未接続）ユーザーで GET / をブラウザアクセスに見立てる
+	client := noRedirectClient()
+	req, _ := http.NewRequest(http.MethodGet, h.authSrv.URL+"/", nil)
+	req.Header.Set("X-Test-User-ID", "unconnected-user")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, want 302", resp.StatusCode)
+	}
+	loc := resp.Header.Get("Location")
+	if !strings.Contains(loc, "/oauth/backlog/authorize") {
+		t.Errorf("Location = %q, want to contain /oauth/backlog/authorize", loc)
 	}
 }
 

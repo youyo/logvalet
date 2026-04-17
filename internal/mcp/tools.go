@@ -5,11 +5,13 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
+	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
@@ -19,27 +21,34 @@ type ToolFunc func(ctx context.Context, client backlog.Client, args map[string]a
 
 // ToolRegistry は MCP サーバーへの tool 登録を管理する。
 type ToolRegistry struct {
-	server  *mcpserver.MCPServer
-	client  backlog.Client
-	factory func(ctx context.Context) (backlog.Client, error)
+	server           *mcpserver.MCPServer
+	client           backlog.Client
+	factory          func(ctx context.Context) (backlog.Client, error)
+	authorizationURL string
 }
 
 // NewToolRegistry は新しい ToolRegistry を返す。
-func NewToolRegistry(s *mcpserver.MCPServer, client backlog.Client) *ToolRegistry {
-	return &ToolRegistry{server: s, client: client}
+// authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
+// 空文字列の場合は従来挙動（Meta なし）。
+func NewToolRegistry(s *mcpserver.MCPServer, client backlog.Client, authorizationURL string) *ToolRegistry {
+	return &ToolRegistry{server: s, client: client, authorizationURL: authorizationURL}
 }
 
 // NewToolRegistryWithFactory は ClientFactory を使って per-user の backlog.Client を
 // 動的に生成する ToolRegistry を返す。
 // factory は MCP ツール呼び出し時に context.Context からユーザーを特定し、
 // そのユーザー用の backlog.Client を返す。
-func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context.Context) (backlog.Client, error)) *ToolRegistry {
-	return &ToolRegistry{server: s, factory: factory}
+// authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
+// 空文字列の場合は従来挙動（Meta なし）。
+func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context.Context) (backlog.Client, error), authorizationURL string) *ToolRegistry {
+	return &ToolRegistry{server: s, factory: factory, authorizationURL: authorizationURL}
 }
 
 // Register は tool を MCPServer に登録する。
 // ToolFunc が error を返した場合、自動的に mcp.NewToolResultError に変換する。
 // factory が設定されている場合、リクエストの context から per-user クライアントを生成する。
+// factory が ErrProviderNotConnected / ErrTokenRefreshFailed / ErrTokenExpired を返し、
+// authorizationURL が設定されている場合は _meta.authorization_url を付与する。
 func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
 	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		var c backlog.Client
@@ -47,6 +56,9 @@ func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
 			var err error
 			c, err = r.factory(ctx)
 			if err != nil {
+				if needsAuthorization(err) && r.authorizationURL != "" {
+					return toolResultAuthRequired(err, r.authorizationURL), nil
+				}
 				return gomcp.NewToolResultError(err.Error()), nil
 			}
 		} else {
@@ -62,6 +74,31 @@ func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
 		}
 		return gomcp.NewToolResultText(string(jsonBytes)), nil
 	})
+}
+
+// needsAuthorization は GetValidToken / factory のエラーが OAuth 認可を要求するかを判定する。
+// ホワイトリスト方式で判定する。
+func needsAuthorization(err error) bool {
+	return errors.Is(err, auth.ErrProviderNotConnected) ||
+		errors.Is(err, auth.ErrTokenRefreshFailed) ||
+		errors.Is(err, auth.ErrTokenExpired)
+}
+
+// toolResultAuthRequired は認可 URL 付きのツールエラー結果を返す。
+// _meta.authorization_required と _meta.authorization_url を含む。
+func toolResultAuthRequired(err error, url string) *gomcp.CallToolResult {
+	text := fmt.Sprintf(
+		"Backlog authorization required. Open the following URL in your browser to connect:\n%s",
+		url,
+	)
+	result := gomcp.NewToolResultError(text)
+	result.Meta = &gomcp.Meta{
+		AdditionalFields: map[string]any{
+			"authorization_required": true,
+			"authorization_url":      url,
+		},
+	}
+	return result
 }
 
 // stringArg は args map から文字列引数を取り出すヘルパー。

@@ -172,13 +172,18 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 			if err := oauthCfg.Validate(); err != nil {
 				return fmt.Errorf("validate oauth config: %w", err)
 			}
-			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, slog.Default())
+			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, c.ExternalURL, slog.Default())
 			if err != nil {
 				return err
 			}
 			oauthDeps = deps
 			defer func() { _ = oauthDeps.Close() }()
 		}
+	}
+
+	// OAuth 有効時は AuthorizationURL を ServerConfig に設定
+	if oauthDeps != nil {
+		cfg.AuthorizationURL = oauthDeps.AuthorizeURL
 	}
 
 	// MCP サーバー構築（OAuth 有無で分岐）
@@ -222,7 +227,16 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		// idproxy.Wrap の内側に userID bridge を挟む（順序: auth.Wrap → bridge → innerMux）。
 		// bridge を外側に置くと idproxy が context に注入する前に動き、userID が取れない。
 		bridge := newUserIDBridge()
-		topMux.Handle("/", authMW.Wrap(bridge(innerMux)))
+		var finalInner http.Handler = innerMux
+		if oauthDeps != nil {
+			finalInner = EnsureBacklogConnected(
+				oauthDeps.TokenManager,
+				oauthDeps.Provider.Name(),
+				rc.Config.Space,
+				oauthDeps.AuthorizeURL,
+			)(innerMux)
+		}
+		topMux.Handle("/", authMW.Wrap(bridge(finalInner)))
 		handler = topMux
 
 		if oauthDeps != nil {
