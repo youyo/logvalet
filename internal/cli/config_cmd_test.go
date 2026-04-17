@@ -58,7 +58,7 @@ func TestConfigInit_AllFlags_NewProfile(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example-space", "https://example-space.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -128,7 +128,7 @@ func TestConfigInit_AllFlags_ExistingProfile(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	// 非対話モード: 確認なしに上書き
 	err := cmd.RunWithDeps(deps, "work", "new-space", "https://new-space.backlog.com", "")
 	if err != nil {
@@ -174,7 +174,7 @@ func TestConfigInit_Interactive(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "", "", "", "") // 全て空 = 対話モード
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -230,7 +230,7 @@ func TestConfigInit_Interactive_ExistingProfile_OverwriteYes(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "", "", "", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -274,7 +274,7 @@ func TestConfigInit_Interactive_ExistingProfile_OverwriteNo(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "", "", "", "")
 	if err == nil {
 		t.Fatal("RunWithDeps() should error when overwrite denied")
@@ -302,7 +302,7 @@ func TestConfigInit_DefaultBaseURL(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	// base_url 空 → space から自動生成
 	err := cmd.RunWithDeps(deps, "test", "my-space", "", "")
 	if err != nil {
@@ -331,7 +331,7 @@ func TestConfigInit_AuthRef_AutoSet(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "myprof", "space1", "https://space1.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -358,7 +358,7 @@ func TestConfigInit_DefaultProfile_AutoSet(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "first", "s", "https://s.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -400,7 +400,7 @@ func TestConfigInit_OutputJSON(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example", "https://example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -444,18 +444,18 @@ func TestConfigInit_StderrGuidance(t *testing.T) {
 		Stderr:     &stderr,
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example", "https://example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
 	}
 
 	stderrStr := stderr.String()
-	if !bytes.Contains(stderr.Bytes(), []byte("auth login")) {
-		t.Errorf("stderr should contain 'auth login' guidance, got: %s", stderrStr)
+	if !bytes.Contains(stderr.Bytes(), []byte("configure")) {
+		t.Errorf("stderr should contain 'configure' guidance, got: %s", stderrStr)
 	}
-	if !bytes.Contains(stderr.Bytes(), []byte("--profile work")) {
-		t.Errorf("stderr should contain '--profile work', got: %s", stderrStr)
+	if !bytes.Contains(stderr.Bytes(), []byte("--init-profile work")) {
+		t.Errorf("stderr should contain '--init-profile work', got: %s", stderrStr)
 	}
 }
 
@@ -476,7 +476,7 @@ func TestConfigInit_WithAPIKey(t *testing.T) {
 		CredStore:  credentials.NewStore(tokensPath),
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example", "https://example.backlog.com", "MY_API_KEY")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -539,7 +539,7 @@ func TestConfigInit_WithAPIKey_Interactive(t *testing.T) {
 		CredStore:  credentials.NewStore(tokensPath),
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "", "", "", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -577,7 +577,7 @@ func TestConfigInit_WithoutAPIKey(t *testing.T) {
 		CredStore:  credentials.NewStore(tokensPath),
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example", "https://example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)
@@ -620,7 +620,7 @@ func TestConfigInit_StderrComplete(t *testing.T) {
 		CredStore:  credentials.NewStore(tokensPath),
 	}
 
-	cmd := cli.ConfigInitCmd{}
+	cmd := cli.ConfigureCmd{}
 	err := cmd.RunWithDeps(deps, "work", "example", "https://example.backlog.com", "MY_KEY")
 	if err != nil {
 		t.Fatalf("RunWithDeps() error: %v", err)

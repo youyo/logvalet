@@ -26,10 +26,10 @@ alias lv=logvalet
 
 ## クイックスタート
 
-### 認証
+### セットアップ
 
 ```bash
-logvalet auth login --profile work
+logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
 
 ### ダイジェストの取得
@@ -95,10 +95,7 @@ end
 
 | コマンド | 説明 |
 |---------|------|
-| `auth login` | OAuth 認証 |
-| `auth logout` | 認証情報の削除 |
-| `auth whoami` | 現在のアイデンティティを表示 |
-| `auth list` | 設定済みプロファイル一覧 |
+| `configure` | 対話的な設定初期化 |
 | `completion bash/zsh/fish` | シェル補完スクリプト生成 |
 | `digest` | 課題・プロジェクト・ユーザー・チーム・スペースのダイジェスト生成 |
 | `issue get <KEY>` | 課題の取得 |
@@ -550,15 +547,13 @@ logvalet は CLI / MCP × Backlog 認証方式（API key / OAuth）× MCP クラ
 export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
 
-logvalet auth login
 logvalet issue get EXAMPLE-1
 ```
 
 (B) CLI 引数:
 
 ```bash
-logvalet --api-key=your-api-key-here --space=example-space auth login
-logvalet --space=example-space issue get EXAMPLE-1
+logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 ```
 
 #### Mode 3: MCP + API key（クライアント認証なし）

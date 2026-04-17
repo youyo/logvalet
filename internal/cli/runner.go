@@ -67,7 +67,7 @@ func buildRunContext(g *GlobalFlags) (*RunContext, error) {
 	}
 	cred, err := resolver.Resolve(resolved.AuthRef, credFlags, os.Getenv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve credentials (run logvalet auth login): %w", err)
+		return nil, fmt.Errorf("failed to resolve credentials (run logvalet configure): %w", err)
 	}
 
 	// 4. BaseURL を決定

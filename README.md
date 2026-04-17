@@ -29,19 +29,19 @@ alias lv=logvalet
 ### 1. Setup
 
 ```bash
-logvalet config init --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
+logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
 
 Or interactively:
 
 ```bash
-logvalet config init
+logvalet configure
 ```
 
 ### 2. Verify
 
 ```bash
-logvalet auth whoami
+logvalet project list
 ```
 
 ### 3. Get a digest
@@ -59,10 +59,10 @@ logvalet digest --team 173843 --since this-week
 
 ## Configuration
 
-Run `logvalet config init` to create the configuration interactively, or use flags for non-interactive setup:
+Run `logvalet configure` to create the configuration interactively, or use flags for non-interactive setup:
 
 ```bash
-logvalet config init --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
+logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_API_KEY
 ```
 
 Configuration file:
@@ -93,10 +93,7 @@ This enables completion for both `logvalet` and `lv`.
 
 | Command | Description |
 |---------|-------------|
-| `auth login` | Authenticate with API key |
-| `auth logout` | Remove stored credentials |
-| `auth whoami` | Show current identity |
-| `auth list` | List configured profiles |
+| `configure` | Interactive configuration setup |
 | `completion bash/zsh/fish` | Generate shell completion scripts |
 | `digest` | Generate digest for issues, projects, users, teams, or space |
 | `issue get <KEY>` | Get a single issue |
@@ -145,8 +142,6 @@ This enables completion for both `logvalet` and `lv`.
 | `watching delete <WATCHING-ID>` | Delete watching |
 | `watching mark-as-read <WATCHING-ID>` | Mark watching as read |
 | `mcp` | Start MCP server (Streamable HTTP) |
-| `config init` | Interactive configuration setup |
-| `configure` | Alias for config init |
 | `version` | Show version information |
 
 ## AI Analysis Commands
@@ -551,15 +546,13 @@ Examples below show each supported mode twice: (A) environment variables only, (
 export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
 
-logvalet auth login
 logvalet issue get EXAMPLE-1
 ```
 
 (B) CLI flags:
 
 ```bash
-logvalet --api-key=your-api-key-here --space=example-space auth login
-logvalet --space=example-space issue get EXAMPLE-1
+logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 ```
 
 #### Mode 3: MCP + API key (no client authentication)

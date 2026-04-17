@@ -5,9 +5,7 @@ package cli
 type CLI struct {
 	GlobalFlags
 
-	Auth        AuthCmd       `cmd:"" help:"manage Backlog authentication"`
-	Config      ConfigCmd     `cmd:"" help:"manage configuration"`
-	Configure   ConfigureCmd  `cmd:"" help:"interactively initialize configuration (alias for config init)"`
+	Configure   ConfigureCmd  `cmd:"" help:"interactively initialize configuration"`
 	Completion  CompletionCmd `cmd:"" help:"output shell completion scripts"`
 	Digest      DigestCmd     `cmd:"" help:"generate integrated digest"`
 	Issue       IssueCmd      `cmd:"" help:"manage issues"`

@@ -76,8 +76,8 @@ func TestCollectCompletions(t *testing.T) {
 		if !ok {
 			t.Fatal("true が返されるべき")
 		}
-		if !sliceContains(got, "auth") {
-			t.Errorf("auth が含まれていない: %v", got)
+		if !sliceContains(got, "configure") {
+			t.Errorf("configure が含まれていない: %v", got)
 		}
 		if !sliceContains(got, "issue") {
 			t.Errorf("issue が含まれていない: %v", got)
@@ -89,7 +89,7 @@ func TestCollectCompletions(t *testing.T) {
 
 	t.Run("E1: --completion-bash なし", func(t *testing.T) {
 		parser := newTestParser(t)
-		got, ok := collectCompletions(parser, []string{"auth", "login"})
+		got, ok := collectCompletions(parser, []string{"configure"})
 		if ok {
 			t.Error("false が返されるべき")
 		}
@@ -136,7 +136,7 @@ func TestCollectCompletions(t *testing.T) {
 func TestHandleCompletionBash(t *testing.T) {
 	t.Run("--completion-bash がない場合は false を返す", func(t *testing.T) {
 		parser := newTestParser(t)
-		if handleCompletionBash(parser, []string{"auth", "login"}) {
+		if handleCompletionBash(parser, []string{"configure"}) {
 			t.Error("--completion-bash がないのに true が返された")
 		}
 	})
@@ -150,9 +150,9 @@ func TestHandleCompletionBash(t *testing.T) {
 		// stdout に出力されるので、関数が true を返すことだけ確認
 	})
 
-	t.Run("--completion-bash auth でサブコマンドを返す", func(t *testing.T) {
+	t.Run("--completion-bash configure でフラグを返す", func(t *testing.T) {
 		parser := newTestParser(t)
-		got := handleCompletionBash(parser, []string{"--completion-bash", "auth"})
+		got := handleCompletionBash(parser, []string{"--completion-bash", "configure"})
 		if !got {
 			t.Fatal("true が返されるべき")
 		}

@@ -12,35 +12,8 @@ import (
 	"github.com/youyo/logvalet/internal/credentials"
 )
 
-// ConfigCmd は config サブコマンド群。
-type ConfigCmd struct {
-	Init ConfigInitCmd `cmd:"" help:"interactively initialize configuration"`
-}
-
-// ConfigureCmd は config init のトップレベルエイリアス。
-// logvalet configure = logvalet config init として動作する。
+// ConfigureCmd は設定を対話的または非対話的に初期化するコマンド。
 type ConfigureCmd struct {
-	InitProfile string `help:"profile name" name:"init-profile"`
-	InitSpace   string `help:"Backlog space name" name:"init-space"`
-	InitBaseURL string `help:"Backlog base URL" name:"init-base-url"`
-	InitAPIKey  string `help:"set API key" name:"init-api-key"`
-}
-
-// Run は configure のメインエントリポイント（Kong から呼び出し）。
-// ConfigInitCmd に委譲する。
-func (c *ConfigureCmd) Run(g *GlobalFlags) error {
-	cmd := &ConfigInitCmd{
-		InitProfile: c.InitProfile,
-		InitSpace:   c.InitSpace,
-		InitBaseURL: c.InitBaseURL,
-		InitAPIKey:  c.InitAPIKey,
-	}
-	return cmd.Run(g)
-}
-
-// ConfigInitCmd は config init コマンド。
-// 対話プロンプトで profile 名、space 名、base_url を入力し config.toml を生成する。
-type ConfigInitCmd struct {
 	InitProfile string `help:"profile name" name:"init-profile"`
 	InitSpace   string `help:"Backlog space name" name:"init-space"`
 	InitBaseURL string `help:"Backlog base URL" name:"init-base-url"`
@@ -106,7 +79,7 @@ func (p *stdinPrompter) Confirm(label string, defaultYes bool) (bool, error) {
 	return line == "y" || line == "yes", nil
 }
 
-// ConfigInitDeps は ConfigInitCmd のテスト用依存注入。
+// ConfigInitDeps は ConfigureCmd のテスト用依存注入。
 type ConfigInitDeps struct {
 	ConfigPath string
 	Writer     config.Writer
@@ -117,8 +90,8 @@ type ConfigInitDeps struct {
 	CredStore  credentials.Store // tokens.json ストア（nil の場合スキップ）
 }
 
-// Run は config init のメインエントリポイント（Kong から呼び出し）。
-func (c *ConfigInitCmd) Run(g *GlobalFlags) error {
+// Run は configure のメインエントリポイント（Kong から呼び出し）。
+func (c *ConfigureCmd) Run(g *GlobalFlags) error {
 	configPath := config.ResolveConfigPath(g.Config, os.Getenv)
 	deps := ConfigInitDeps{
 		ConfigPath: configPath,
@@ -135,7 +108,7 @@ func (c *ConfigInitCmd) Run(g *GlobalFlags) error {
 // RunWithDeps はテスト用の依存注入付き実行。
 // profileName, space, baseURL が全て非空の場合は非対話モード。
 // それ以外は対話プロンプトで入力を取得する。
-func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, baseURL, apiKey string) error {
+func (c *ConfigureCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, baseURL, apiKey string) error {
 	interactive := profileName == "" || space == ""
 
 	// 対話モード: プロンプトで入力を取得
@@ -279,7 +252,7 @@ func (c *ConfigInitCmd) RunWithDeps(deps ConfigInitDeps, profileName, space, bas
 	if authSaved {
 		fmt.Fprintf(deps.Stderr, "setup complete! run logvalet project list to verify\n")
 	} else {
-		fmt.Fprintf(deps.Stderr, "next step: logvalet auth login --profile %s\n", profileName)
+		fmt.Fprintf(deps.Stderr, "next step: logvalet configure --init-profile %s --init-api-key YOUR_KEY\n", profileName)
 	}
 
 	return nil
