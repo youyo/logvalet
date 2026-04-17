@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -45,6 +46,12 @@ type McpCmd struct {
 	TokenStoreSQLitePath    string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
 	TokenStoreDynamoDBTable  string `name:"token-store-dynamodb-table" help:"DynamoDB table name (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"`
 	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
+
+	// idproxy Store / JWT 署名鍵フラグ (Lambda マルチインスタンス対応)
+	SigningKey                 string `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
+	IDProxyStore               string `name:"idproxy-store" help:"idproxy store type (memory|dynamodb)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
+	IDProxyStoreDynamoDBTable  string `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
+	IDProxyStoreDynamoDBRegion string `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`
 }
 
 // Validate は McpCmd のフィールドを検証する。
@@ -54,6 +61,22 @@ type McpCmd struct {
 //     OAuth は per-user であり OIDC 認証（idproxy）が必須のため。
 //  2. --auth 有効時は OIDC 必須フィールドをチェックする。
 func (c *McpCmd) Validate() error {
+	// idproxy Store 検証 (--auth の有無に関わらず適用)
+	switch strings.ToLower(c.IDProxyStore) {
+	case "", "memory":
+		// OK
+	case "dynamodb":
+		if c.IDProxyStoreDynamoDBTable == "" {
+			return fmt.Errorf("--idproxy-store-dynamodb-table is required when --idproxy-store=dynamodb")
+		}
+		if c.SigningKey == "" {
+			return fmt.Errorf("--signing-key is required when --idproxy-store=dynamodb " +
+				"(random signing key cannot be shared across Lambda containers)")
+		}
+	default:
+		return fmt.Errorf("invalid --idproxy-store: %q (must be memory or dynamodb)", c.IDProxyStore)
+	}
+
 	// Backlog OAuth fast-fail: --auth なしに --backlog-client-id を設定しても動かない
 	if c.BacklogClientID != "" && !c.Auth {
 		return fmt.Errorf(
@@ -183,6 +206,11 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if authCfg.Store != nil {
+				_ = authCfg.Store.Close()
+			}
+		}()
 
 		authMW, err := idproxy.New(context.Background(), authCfg)
 		if err != nil {

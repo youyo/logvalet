@@ -100,3 +100,47 @@ func TestMcpCmd_Validate_NoBacklogClientID_NoAuthRequired(t *testing.T) {
 		t.Fatalf("unexpected error when no BacklogClientID and no auth: %v", err)
 	}
 }
+
+func TestMcpCmd_Validate_IDProxyStoreDynamoDB_RequiresTable(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore: "dynamodb",
+		SigningKey:   "dummy-pem",
+	}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "idproxy-store-dynamodb-table") {
+		t.Fatalf("expected table-required error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreDynamoDB_RequiresSigningKey(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore:              "dynamodb",
+		IDProxyStoreDynamoDBTable: "tbl",
+	}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "signing-key") {
+		t.Fatalf("expected signing-key-required error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStore_InvalidValue(t *testing.T) {
+	cmd := &cli.McpCmd{IDProxyStore: "redis"}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "invalid --idproxy-store") {
+		t.Fatalf("expected invalid-store error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreMemory_OK(t *testing.T) {
+	cmd := &cli.McpCmd{IDProxyStore: "memory"}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreEmpty_OK(t *testing.T) {
+	cmd := &cli.McpCmd{}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
