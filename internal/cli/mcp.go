@@ -24,6 +24,7 @@ type McpCmd struct {
 	Port int    `help:"listen port" default:"8080"`
 	Host string `help:"listen host" default:"127.0.0.1"`
 
+	// OIDC 認証フラグ（idproxy）
 	Auth             bool   `help:"enable idproxy authentication" group:"auth" env:"LOGVALET_MCP_AUTH"`
 	ExternalURL      string `help:"external URL for OAuth callbacks" group:"auth" env:"LOGVALET_MCP_EXTERNAL_URL"`
 	OIDCIssuer       string `help:"OIDC issuer URL" group:"auth" env:"LOGVALET_MCP_OIDC_ISSUER"`
@@ -32,29 +33,42 @@ type McpCmd struct {
 	CookieSecret     string `help:"cookie encryption key (hex-encoded, 64+ chars = 32+ bytes)" group:"auth" env:"LOGVALET_MCP_COOKIE_SECRET"`
 	AllowedDomains   string `help:"comma-separated allowed email domains" group:"auth" env:"LOGVALET_MCP_ALLOWED_DOMAINS"`
 	AllowedEmails    string `help:"comma-separated allowed email addresses" group:"auth" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
+
+	// Backlog OAuth フラグ（OIDC と同じ group + env タグ様式）
+	BacklogClientID     string `name:"backlog-client-id" help:"Backlog OAuth client ID" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_ID"`
+	BacklogClientSecret string `name:"backlog-client-secret" help:"Backlog OAuth client secret" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_SECRET"`
+	BacklogRedirectURL  string `name:"backlog-redirect-url" help:"Backlog OAuth redirect URL" group:"auth" env:"LOGVALET_MCP_BACKLOG_REDIRECT_URL"`
+	OAuthStateSecret    string `name:"oauth-state-secret" help:"HMAC-SHA256 signing key for OAuth state (hex-encoded, 32+ bytes)" group:"auth" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
+
+	// TokenStore フラグ
+	TokenStore              string `name:"token-store" help:"token store type (memory/sqlite/dynamodb)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE"`
+	TokenStoreSQLitePath    string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
+	TokenStoreDynamoDBTable  string `name:"token-store-dynamodb-table" help:"DynamoDB table name (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"`
+	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
 }
 
-// ValidateEnv は環境変数との整合性を検証する。
-// LOGVALET_BACKLOG_CLIENT_ID が設定されているが --auth が無効な場合、
-// OAuth モードは OIDC 認証（idproxy）を必須とするため fast-fail する。
-// 詳細は README の "Supported Modes" を参照。
-func (c *McpCmd) ValidateEnv(getenv func(string) string) error {
-	if !c.Auth && getenv("LOGVALET_BACKLOG_CLIENT_ID") != "" {
+// Validate は McpCmd のフィールドを検証する。
+//
+// チェック順序:
+//  1. BacklogClientID が設定されているが --auth が無効な場合は fast-fail する。
+//     OAuth は per-user であり OIDC 認証（idproxy）が必須のため。
+//  2. --auth 有効時は OIDC 必須フィールドをチェックする。
+func (c *McpCmd) Validate() error {
+	// Backlog OAuth fast-fail: --auth なしに --backlog-client-id を設定しても動かない
+	if c.BacklogClientID != "" && !c.Auth {
 		return fmt.Errorf(
-			"LOGVALET_BACKLOG_CLIENT_ID is set but --auth is disabled. " +
+			"--backlog-client-id is set but --auth is disabled. " +
 				"OAuth requires client authentication (OIDC). " +
-				"Either enable --auth or unset LOGVALET_BACKLOG_CLIENT_ID. " +
+				"Either enable --auth or unset --backlog-client-id. " +
 				"See README \"Supported Modes\".",
 		)
 	}
-	return nil
-}
 
-// Validate は認証フラグが有効な場合に必須フィールドをチェックする。
-func (c *McpCmd) Validate() error {
 	if !c.Auth {
 		return nil
 	}
+
+	// OIDC 必須フィールドチェック
 	if c.ExternalURL == "" {
 		return fmt.Errorf("--external-url is required when --auth is enabled")
 	}
@@ -83,12 +97,34 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
-// Run は MCP サーバーを起動する。
-func (c *McpCmd) Run(g *GlobalFlags) error {
-	if err := c.ValidateEnv(os.Getenv); err != nil {
-		return err
+// buildOAuthEnvConfig は McpCmd のフィールドから OAuthEnvConfig を組み立てる。
+// Kong が env タグを見て McpCmd フィールドに env 値を自動注入するため、
+// flag/env 両対応は McpCmd フィールドを転記するだけで実現できる。
+func (c *McpCmd) buildOAuthEnvConfig() (*auth.OAuthEnvConfig, error) {
+	storeType, err := auth.ParseStoreType(c.TokenStore)
+	if err != nil {
+		return nil, fmt.Errorf("--token-store: %w", err)
 	}
 
+	sqlitePath := c.TokenStoreSQLitePath
+	if sqlitePath == "" {
+		sqlitePath = auth.DefaultSQLitePath
+	}
+
+	return &auth.OAuthEnvConfig{
+		TokenStoreType:      storeType,
+		SQLitePath:          sqlitePath,
+		DynamoDBTable:       c.TokenStoreDynamoDBTable,
+		DynamoDBRegion:      c.TokenStoreDynamoDBRegion,
+		BacklogClientID:     c.BacklogClientID,
+		BacklogClientSecret: c.BacklogClientSecret,
+		BacklogRedirectURL:  c.BacklogRedirectURL,
+		OAuthStateSecret:    c.OAuthStateSecret,
+	}, nil
+}
+
+// Run は MCP サーバーを起動する。
+func (c *McpCmd) Run(g *GlobalFlags) error {
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
@@ -101,11 +137,11 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		BaseURL: rc.Config.BaseURL,
 	}
 
-	// OAuth モード判定（--auth かつ LOGVALET_BACKLOG_CLIENT_ID 設定時のみ有効）。
+	// OAuth モード判定（--auth かつ BacklogClientID 設定時のみ有効）。
 	// 既存 CLI / 既存 MCP パスは一切変更しない。
 	var oauthDeps *OAuthDeps
 	if c.Auth {
-		oauthCfg, err := auth.LoadOAuthEnvConfig(os.Getenv)
+		oauthCfg, err := c.buildOAuthEnvConfig()
 		if err != nil {
 			return fmt.Errorf("load oauth config: %w", err)
 		}

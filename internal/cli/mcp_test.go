@@ -63,43 +63,40 @@ func TestMcpCmd_Validate_InvalidHexCookieSecret(t *testing.T) {
 	}
 }
 
-func TestMcpCmd_ValidateEnv_ClientIDWithoutAuth_Fails(t *testing.T) {
-	cmd := &cli.McpCmd{Auth: false}
-	getenv := func(key string) string {
-		if key == "LOGVALET_BACKLOG_CLIENT_ID" {
-			return "some-client-id"
-		}
-		return ""
+// BacklogClientID フィールドベースのバリデーションテスト（新設計）
+func TestMcpCmd_Validate_BacklogClientIDWithoutAuth_Fails(t *testing.T) {
+	cmd := &cli.McpCmd{
+		Auth:            false,
+		BacklogClientID: "some-client-id",
 	}
-	err := cmd.ValidateEnv(getenv)
+	err := cmd.Validate()
 	if err == nil {
-		t.Fatal("expected error when LOGVALET_BACKLOG_CLIENT_ID is set but --auth is disabled")
+		t.Fatal("expected error when BacklogClientID is set but --auth is disabled")
 	}
-	if !strings.Contains(err.Error(), "LOGVALET_BACKLOG_CLIENT_ID") {
-		t.Fatalf("error message should mention the env var, got: %v", err)
+	if !strings.Contains(err.Error(), "--backlog-client-id") {
+		t.Fatalf("error message should mention --backlog-client-id, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "--auth") {
 		t.Fatalf("error message should mention --auth, got: %v", err)
 	}
 }
 
-func TestMcpCmd_ValidateEnv_ClientIDWithAuth_OK(t *testing.T) {
-	cmd := &cli.McpCmd{Auth: true}
-	getenv := func(key string) string {
-		if key == "LOGVALET_BACKLOG_CLIENT_ID" {
-			return "some-client-id"
-		}
-		return ""
+func TestMcpCmd_Validate_BacklogClientIDWithAuth_OK(t *testing.T) {
+	// --auth 有効 + BacklogClientID 設定 → Validate 自体は通る（OIDC 必須チェックのみ失敗）
+	cmd := &cli.McpCmd{
+		Auth:            true,
+		BacklogClientID: "some-client-id",
 	}
-	if err := cmd.ValidateEnv(getenv); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	err := cmd.Validate()
+	// OIDC 必須フィールドが無いのでエラーになるが、BacklogClientID の fast-fail ではないこと
+	if err != nil && strings.Contains(err.Error(), "--backlog-client-id") {
+		t.Fatalf("should not get backlog-client-id error when --auth is enabled, got: %v", err)
 	}
 }
 
-func TestMcpCmd_ValidateEnv_NoClientID_OK(t *testing.T) {
+func TestMcpCmd_Validate_NoBacklogClientID_NoAuthRequired(t *testing.T) {
 	cmd := &cli.McpCmd{Auth: false}
-	getenv := func(key string) string { return "" }
-	if err := cmd.ValidateEnv(getenv); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error when no BacklogClientID and no auth: %v", err)
 	}
 }

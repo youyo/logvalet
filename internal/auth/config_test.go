@@ -15,14 +15,14 @@ func mockGetenv(envs map[string]string) func(string) string {
 // fullOAuthEnvs は OAuth が有効な全環境変数セットを返すヘルパー。
 func fullOAuthEnvs() map[string]string {
 	return map[string]string{
-		"LOGVALET_TOKEN_STORE":                "memory",
-		"LOGVALET_TOKEN_STORE_SQLITE_PATH":    "/tmp/test.db",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
-		"LOGVALET_BACKLOG_CLIENT_ID":           "test-client-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET":       "test-client-secret",
-		"LOGVALET_BACKLOG_REDIRECT_URL":        "https://example.com/callback",
-		"LOGVALET_OAUTH_STATE_SECRET":          "0123456789abcdef0123456789abcdef", // 32 hex chars = 16 bytes
+		"LOGVALET_MCP_TOKEN_STORE":                "memory",
+		"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH":    "/tmp/test.db",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":           "test-client-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET":       "test-client-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":        "https://example.com/callback",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":          "0123456789abcdef0123456789abcdef", // 32 hex chars = 16 bytes
 	}
 }
 
@@ -91,7 +91,7 @@ func TestLoadOAuthEnvConfig_AllSet(t *testing.T) {
 
 func TestLoadOAuthEnvConfig_StoreTypeMemory(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "memory",
+		"LOGVALET_MCP_TOKEN_STORE": "memory",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -103,7 +103,7 @@ func TestLoadOAuthEnvConfig_StoreTypeMemory(t *testing.T) {
 
 func TestLoadOAuthEnvConfig_StoreTypeSQLite(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "sqlite",
+		"LOGVALET_MCP_TOKEN_STORE": "sqlite",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -115,7 +115,7 @@ func TestLoadOAuthEnvConfig_StoreTypeSQLite(t *testing.T) {
 
 func TestLoadOAuthEnvConfig_StoreTypeDynamoDB(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "dynamodb",
+		"LOGVALET_MCP_TOKEN_STORE": "dynamodb",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -140,7 +140,7 @@ func TestLoadOAuthEnvConfig_StoreTypeCaseInsensitive(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.input, func(t *testing.T) {
 			cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-				"LOGVALET_TOKEN_STORE": tc.input,
+				"LOGVALET_MCP_TOKEN_STORE": tc.input,
 			}))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -154,7 +154,7 @@ func TestLoadOAuthEnvConfig_StoreTypeCaseInsensitive(t *testing.T) {
 
 func TestLoadOAuthEnvConfig_InvalidStoreType(t *testing.T) {
 	_, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "redis",
+		"LOGVALET_MCP_TOKEN_STORE": "redis",
 	}))
 	if err == nil {
 		t.Fatal("expected error for invalid store type, got nil")
@@ -177,7 +177,7 @@ func TestValidate_OAuthEnabled_AllRequired(t *testing.T) {
 func TestValidate_OAuthEnabled_MissingClientID(t *testing.T) {
 	// ClientID 未設定 = OAuth 無効 → Validate は成功
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "memory",
+		"LOGVALET_MCP_TOKEN_STORE": "memory",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -189,9 +189,9 @@ func TestValidate_OAuthEnabled_MissingClientID(t *testing.T) {
 
 func TestValidate_OAuthEnabled_MissingClientSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":  "test-id",
-		"LOGVALET_OAUTH_STATE_SECRET": "0123456789abcdef0123456789abcdef",
-		"LOGVALET_BACKLOG_REDIRECT_URL": "https://example.com/callback",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":  "test-id",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET": "0123456789abcdef0123456789abcdef",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL": "https://example.com/callback",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -207,9 +207,9 @@ func TestValidate_OAuthEnabled_MissingClientSecret(t *testing.T) {
 
 func TestValidate_OAuthEnabled_MissingRedirectURL(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":     "test-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET": "test-secret",
-		"LOGVALET_OAUTH_STATE_SECRET":    "0123456789abcdef0123456789abcdef",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":     "test-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET": "test-secret",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":    "0123456789abcdef0123456789abcdef",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -225,9 +225,9 @@ func TestValidate_OAuthEnabled_MissingRedirectURL(t *testing.T) {
 
 func TestValidate_OAuthEnabled_MissingStateSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":     "test-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET": "test-secret",
-		"LOGVALET_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":     "test-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET": "test-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -244,7 +244,7 @@ func TestValidate_OAuthEnabled_MissingStateSecret(t *testing.T) {
 func TestValidate_SQLite_MissingSQLitePath(t *testing.T) {
 	// SQLite 選択時に Path 未設定でもデフォルト値があるので成功
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "sqlite",
+		"LOGVALET_MCP_TOKEN_STORE": "sqlite",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -259,8 +259,8 @@ func TestValidate_SQLite_MissingSQLitePath(t *testing.T) {
 
 func TestValidate_DynamoDB_MissingTable(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE":                "dynamodb",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
+		"LOGVALET_MCP_TOKEN_STORE":                "dynamodb",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -276,8 +276,8 @@ func TestValidate_DynamoDB_MissingTable(t *testing.T) {
 
 func TestValidate_DynamoDB_MissingRegion(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE":               "dynamodb",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_TABLE": "test-table",
+		"LOGVALET_MCP_TOKEN_STORE":               "dynamodb",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE": "test-table",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -293,9 +293,9 @@ func TestValidate_DynamoDB_MissingRegion(t *testing.T) {
 
 func TestValidate_DynamoDB_AllSet(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE":                "dynamodb",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
-		"LOGVALET_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
+		"LOGVALET_MCP_TOKEN_STORE":                "dynamodb",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
+		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -308,8 +308,8 @@ func TestValidate_DynamoDB_AllSet(t *testing.T) {
 func TestValidate_MultipleErrors(t *testing.T) {
 	// OAuth 有効 + DynamoDB だが、必須項目が複数欠けている
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE":       "dynamodb",
-		"LOGVALET_BACKLOG_CLIENT_ID": "test-id",
+		"LOGVALET_MCP_TOKEN_STORE":       "dynamodb",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID": "test-id",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -353,7 +353,7 @@ func TestOAuthEnabled_False(t *testing.T) {
 
 func TestLoadOAuthEnvConfig_SQLiteDefaultPath(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_TOKEN_STORE": "sqlite",
+		"LOGVALET_MCP_TOKEN_STORE": "sqlite",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -381,10 +381,10 @@ func TestStoreType_String(t *testing.T) {
 
 func TestValidate_OAuthEnabled_InvalidHexStateSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":     "test-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET": "test-secret",
-		"LOGVALET_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
-		"LOGVALET_OAUTH_STATE_SECRET":    "not-valid-hex-string-!@#$%^&*()",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":     "test-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET": "test-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":    "not-valid-hex-string-!@#$%^&*()",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -400,10 +400,10 @@ func TestValidate_OAuthEnabled_InvalidHexStateSecret(t *testing.T) {
 
 func TestValidate_OAuthEnabled_ValidHexStateSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":     "test-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET": "test-secret",
-		"LOGVALET_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
-		"LOGVALET_OAUTH_STATE_SECRET":    "0123456789abcdef0123456789abcdef",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":     "test-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET": "test-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":    "0123456789abcdef0123456789abcdef",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -415,10 +415,10 @@ func TestValidate_OAuthEnabled_ValidHexStateSecret(t *testing.T) {
 
 func TestValidate_OAuthEnabled_TooShortStateSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_BACKLOG_CLIENT_ID":     "test-id",
-		"LOGVALET_BACKLOG_CLIENT_SECRET": "test-secret",
-		"LOGVALET_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
-		"LOGVALET_OAUTH_STATE_SECRET":    "0123456789abcdef", // 16 hex chars = 8 bytes, too short
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":     "test-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET": "test-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":  "https://example.com/callback",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":    "0123456789abcdef", // 16 hex chars = 8 bytes, too short
 	}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

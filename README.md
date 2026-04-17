@@ -533,7 +533,7 @@ logvalet supports four operating modes combining CLI / MCP, the Backlog authenti
 | 2 | CLI | OAuth | — | ❌ not implemented (CLI OAuth login command is not wired; only manual `tokens.json` editing works today) |
 | 3 | MCP | API key | none | ✅ supported |
 | 4 | MCP | API key | OIDC | ✅ supported |
-| 5 | MCP | OAuth | none | ❌ not supported by design — OAuth is per-user and userID can only be resolved from the OIDC subject. Running `logvalet mcp` with `LOGVALET_BACKLOG_CLIENT_ID` but without `--auth` fails fast |
+| 5 | MCP | OAuth | none | ❌ not supported by design — OAuth is per-user and userID can only be resolved from the OIDC subject. Running `logvalet mcp` with `--backlog-client-id` but without `--auth` fails fast |
 | 6 | MCP | OAuth | OIDC | ✅ supported |
 
 Examples below show each supported mode twice: (A) environment variables only, (B) CLI flags only (with the minimum env vars when flags are not available).
@@ -608,7 +608,7 @@ logvalet mcp \
 
 #### Mode 6: MCP + Backlog OAuth + OIDC
 
-Backlog OAuth settings (`LOGVALET_BACKLOG_*`, `LOGVALET_OAUTH_STATE_SECRET`, `LOGVALET_TOKEN_STORE*`) are configured via environment variables only — no CLI flags.
+Backlog OAuth settings can be configured via CLI flags or the corresponding `LOGVALET_MCP_*` environment variables.
 
 (A) Environment variables:
 
@@ -626,31 +626,22 @@ export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
 export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
 
 # Backlog OAuth
-export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
 
 # Token store (DynamoDB recommended for Lambda)
-export LOGVALET_TOKEN_STORE=dynamodb
-export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+export LOGVALET_MCP_TOKEN_STORE=dynamodb
+export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
 
 logvalet mcp
 ```
 
-(B) CLI flags (OIDC via flags, Backlog OAuth still via env vars):
+(B) CLI flags (all settings via flags):
 
 ```bash
-# Backlog OAuth settings — no CLI flags, env vars are required
-export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_TOKEN_STORE=dynamodb
-export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
-
 logvalet mcp \
   --space=example-space \
   --auth \
@@ -659,7 +650,14 @@ logvalet mcp \
   --oidc-client-id=your-oidc-client-id-here \
   --oidc-client-secret=your-oidc-client-secret-here \
   --cookie-secret=$(openssl rand -hex 32) \
-  --allowed-domains=example.com
+  --allowed-domains=example.com \
+  --backlog-client-id=your-backlog-oauth-client-id-here \
+  --backlog-client-secret=your-backlog-oauth-client-secret-here \
+  --backlog-redirect-url=https://mcp.example.com/oauth/backlog/callback \
+  --oauth-state-secret=$(openssl rand -hex 32) \
+  --token-store=dynamodb \
+  --token-store-dynamodb-table=logvalet-oauth-tokens \
+  --token-store-dynamodb-region=ap-northeast-1
 ```
 
 See the **Backlog OAuth (Per-User)** subsection below for token store details and the first-time connection flow.
@@ -694,7 +692,7 @@ Both layers are independent: the OIDC token is never used for Backlog API calls,
 
 Backlog OAuth mode activates only when **both** of the following are set:
 1. `--auth` (or `LOGVALET_MCP_AUTH=true`) is enabled
-2. `LOGVALET_BACKLOG_CLIENT_ID` is set
+2. `--backlog-client-id` (or `LOGVALET_MCP_BACKLOG_CLIENT_ID`) is set
 
 #### Token Store
 
@@ -715,20 +713,20 @@ Backlog tokens are persisted via a pluggable token store. Pick one based on your
 5. Subsequent tool calls automatically use the stored token for that user.
 6. The user can check state with `GET /oauth/backlog/status` or revoke with `DELETE /oauth/backlog/disconnect`.
 
-#### Environment Variables
+#### Flags and Environment Variables
 
-All OAuth configuration is via environment variables (no config file required):
+All Backlog OAuth settings can be configured via CLI flags or environment variables (no config file required):
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `LOGVALET_BACKLOG_CLIENT_ID` | yes | — | Backlog OAuth client ID |
-| `LOGVALET_BACKLOG_CLIENT_SECRET` | yes | — | Backlog OAuth client secret |
-| `LOGVALET_BACKLOG_REDIRECT_URL` | yes | — | OAuth callback URL (`https://<your-host>/oauth/backlog/callback`) |
-| `LOGVALET_OAUTH_STATE_SECRET` | yes | — | HMAC-SHA256 signing key for state JWT (hex, 64+ chars) |
-| `LOGVALET_TOKEN_STORE` | no | `memory` | `memory` / `sqlite` / `dynamodb` |
-| `LOGVALET_TOKEN_STORE_SQLITE_PATH` | sqlite only | `./logvalet.db` | SQLite DB file path |
-| `LOGVALET_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb only | — | DynamoDB table name |
-| `LOGVALET_TOKEN_STORE_DYNAMODB_REGION` | dynamodb only | — | AWS region for the DynamoDB table |
+| Flag | Environment Variable | Required | Default | Description |
+|------|---------------------|----------|---------|-------------|
+| `--backlog-client-id` | `LOGVALET_MCP_BACKLOG_CLIENT_ID` | yes | — | Backlog OAuth client ID |
+| `--backlog-client-secret` | `LOGVALET_MCP_BACKLOG_CLIENT_SECRET` | yes | — | Backlog OAuth client secret |
+| `--backlog-redirect-url` | `LOGVALET_MCP_BACKLOG_REDIRECT_URL` | yes | — | OAuth callback URL (`https://<your-host>/oauth/backlog/callback`) |
+| `--oauth-state-secret` | `LOGVALET_MCP_OAUTH_STATE_SECRET` | yes | — | HMAC-SHA256 signing key for state JWT (hex, 64+ chars) |
+| `--token-store` | `LOGVALET_MCP_TOKEN_STORE` | no | `memory` | `memory` / `sqlite` / `dynamodb` |
+| `--token-store-sqlite-path` | `LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH` | sqlite only | `./logvalet.db` | SQLite DB file path |
+| `--token-store-dynamodb-table` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb only | — | DynamoDB table name |
+| `--token-store-dynamodb-region` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION` | dynamodb only | — | AWS region for the DynamoDB table |
 
 #### Example
 
@@ -743,15 +741,15 @@ export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
 export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
 
 # Token store (DynamoDB recommended for Lambda)
-export LOGVALET_TOKEN_STORE=dynamodb
-export LOGVALET_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+export LOGVALET_MCP_TOKEN_STORE=dynamodb
+export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
+export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
 
 # Backlog OAuth client (created in your Backlog space)
-export LOGVALET_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
+export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
+export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
+export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
+export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
 
 logvalet mcp --auth
 ```

@@ -9,14 +9,14 @@ import (
 
 // 環境変数キー名定数
 const (
-	EnvTokenStore      = "LOGVALET_TOKEN_STORE"
-	EnvSQLitePath      = "LOGVALET_TOKEN_STORE_SQLITE_PATH"
-	EnvDynamoDBTable   = "LOGVALET_TOKEN_STORE_DYNAMODB_TABLE"
-	EnvDynamoDBRegion  = "LOGVALET_TOKEN_STORE_DYNAMODB_REGION"
-	EnvBacklogClientID     = "LOGVALET_BACKLOG_CLIENT_ID"
-	EnvBacklogClientSecret = "LOGVALET_BACKLOG_CLIENT_SECRET"
-	EnvBacklogRedirectURL  = "LOGVALET_BACKLOG_REDIRECT_URL"
-	EnvOAuthStateSecret    = "LOGVALET_OAUTH_STATE_SECRET"
+	EnvTokenStore      = "LOGVALET_MCP_TOKEN_STORE"
+	EnvSQLitePath      = "LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"
+	EnvDynamoDBTable   = "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"
+	EnvDynamoDBRegion  = "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"
+	EnvBacklogClientID     = "LOGVALET_MCP_BACKLOG_CLIENT_ID"
+	EnvBacklogClientSecret = "LOGVALET_MCP_BACKLOG_CLIENT_SECRET"
+	EnvBacklogRedirectURL  = "LOGVALET_MCP_BACKLOG_REDIRECT_URL"
+	EnvOAuthStateSecret    = "LOGVALET_MCP_OAUTH_STATE_SECRET"
 )
 
 // デフォルト値
@@ -61,10 +61,10 @@ type OAuthEnvConfig struct {
 	OAuthStateSecret string // LOGVALET_OAUTH_STATE_SECRET (hex エンコード)
 }
 
-// parseStoreType は文字列を StoreType に変換する。
+// ParseStoreType は文字列を StoreType に変換する。
 // 空文字列の場合はデフォルト (memory) を返す。
 // 不正値の場合は ErrInvalidStoreType を返す。
-func parseStoreType(s string) (StoreType, error) {
+func ParseStoreType(s string) (StoreType, error) {
 	normalized := strings.ToLower(strings.TrimSpace(s))
 	switch normalized {
 	case "", "memory":
@@ -86,7 +86,7 @@ func LoadOAuthEnvConfig(getenv func(string) string) (*OAuthEnvConfig, error) {
 		getenv = func(string) string { return "" }
 	}
 
-	storeType, err := parseStoreType(getenv(EnvTokenStore))
+	storeType, err := ParseStoreType(getenv(EnvTokenStore))
 	if err != nil {
 		return nil, err
 	}
