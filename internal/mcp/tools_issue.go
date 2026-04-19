@@ -21,6 +21,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 			gomcp.Required(),
 			gomcp.Description("Issue key (e.g. PROJECT-123)"),
 		),
+		readOnlyAnnotation("課題詳細取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -41,6 +42,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("assignee_id", gomcp.Description("Assignee filter: me (resolved via GetMyself) or numeric user ID")),
 		gomcp.WithString("status_id", gomcp.Description("Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs")),
 		gomcp.WithString("due_date", gomcp.Description("Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
+		readOnlyAnnotation("課題一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
 
@@ -121,6 +123,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("description", gomcp.Description("Issue description")),
 		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
 		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
+		writeAnnotation("課題作成", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -168,6 +171,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
 		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
 		gomcp.WithString("comment", gomcp.Description("Comment to add with the update")),
+		writeAnnotation("課題更新", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -203,6 +207,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("limit", gomcp.Description("Max number of comments")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
+		readOnlyAnnotation("課題コメント一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -223,6 +228,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithDescription("Add a comment to an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithString("content", gomcp.Required(), gomcp.Description("Comment content")),
+		writeAnnotation("課題コメント追加", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -242,6 +248,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("comment_id", gomcp.Required(), gomcp.Description("Comment ID")),
 		gomcp.WithString("content", gomcp.Required(), gomcp.Description("New comment content")),
+		writeAnnotation("課題コメント更新", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -263,6 +270,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_issue_attachment_list",
 		gomcp.WithDescription("List attachments for an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
+		readOnlyAnnotation("課題添付ファイル一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {

@@ -14,6 +14,7 @@ func RegisterDocumentTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_document_get",
 		gomcp.WithDescription("Get document by document ID"),
 		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
+		readOnlyAnnotation("ドキュメント取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		documentID, ok := stringArg(args, "document_id")
 		if !ok || documentID == "" {
@@ -28,6 +29,7 @@ func RegisterDocumentTools(r *ToolRegistry) {
 		gomcp.WithNumber("project_id", gomcp.Required(), gomcp.Description("Project ID (numeric)")),
 		gomcp.WithNumber("limit", gomcp.Description("Max number of documents")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
+		readOnlyAnnotation("ドキュメント一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectID, ok := intArg(args, "project_id")
 		if !ok || projectID == 0 {
@@ -50,6 +52,7 @@ func RegisterDocumentTools(r *ToolRegistry) {
 		gomcp.WithString("title", gomcp.Required(), gomcp.Description("Document title")),
 		gomcp.WithString("content", gomcp.Required(), gomcp.Description("Document content (markdown)")),
 		gomcp.WithString("parent_id", gomcp.Description("Parent document ID (optional)")),
+		writeAnnotation("ドキュメント作成", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectID, ok := intArg(args, "project_id")
 		if !ok || projectID == 0 {

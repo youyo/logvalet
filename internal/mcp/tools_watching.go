@@ -18,6 +18,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination (default: 0)")),
 		gomcp.WithString("order", gomcp.Description("Sort order: asc or desc (default: desc)")),
 		gomcp.WithString("sort", gomcp.Description("Sort key: created, updated, or issueUpdated")),
+		readOnlyAnnotation("ウォッチ一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, ok := intArg(args, "user_id")
 		if !ok || userID == 0 {
@@ -43,6 +44,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_watching_count",
 		gomcp.WithDescription("Get the count of watchings for a user."),
 		gomcp.WithNumber("user_id", gomcp.Description("User ID (required)"), gomcp.Required()),
+		readOnlyAnnotation("ウォッチ数取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, ok := intArg(args, "user_id")
 		if !ok || userID == 0 {
@@ -59,6 +61,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_watching_get",
 		gomcp.WithDescription("Get watching detail by watching ID."),
 		gomcp.WithNumber("watching_id", gomcp.Description("Watching ID (required)"), gomcp.Required()),
+		readOnlyAnnotation("ウォッチ詳細取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		watchingID, ok := intArg(args, "watching_id")
 		if !ok || watchingID == 0 {
@@ -72,6 +75,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 		gomcp.WithDescription("Add a watching for an issue. Returns the created watching."),
 		gomcp.WithString("issue_id_or_key", gomcp.Description("Issue ID or key (e.g., PROJ-123) (required)"), gomcp.Required()),
 		gomcp.WithString("note", gomcp.Description("Optional note for the watching")),
+		writeAnnotation("ウォッチ追加", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueIDOrKey, ok := stringArg(args, "issue_id_or_key")
 		if !ok || issueIDOrKey == "" {
@@ -89,6 +93,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 		gomcp.WithDescription("Update the note of a watching."),
 		gomcp.WithNumber("watching_id", gomcp.Description("Watching ID (required)"), gomcp.Required()),
 		gomcp.WithString("note", gomcp.Description("New note for the watching (required)"), gomcp.Required()),
+		writeAnnotation("ウォッチ更新", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		watchingID, ok := intArg(args, "watching_id")
 		if !ok || watchingID == 0 {
@@ -106,6 +111,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_watching_delete",
 		gomcp.WithDescription("Delete a watching by watching ID. Returns the deleted watching."),
 		gomcp.WithNumber("watching_id", gomcp.Description("Watching ID (required)"), gomcp.Required()),
+		destructiveAnnotation("ウォッチ削除"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		watchingID, ok := intArg(args, "watching_id")
 		if !ok || watchingID == 0 {
@@ -118,6 +124,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_watching_mark_as_read",
 		gomcp.WithDescription("Mark a watching as read by watching ID."),
 		gomcp.WithNumber("watching_id", gomcp.Description("Watching ID (required)"), gomcp.Required()),
+		writeAnnotation("ウォッチ既読化", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		watchingID, ok := intArg(args, "watching_id")
 		if !ok || watchingID == 0 {

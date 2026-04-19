@@ -17,6 +17,7 @@ func RegisterActivityTools(r *ToolRegistry) {
 		gomcp.WithString("user_id", gomcp.Description("User ID or 'me' for current user")),
 		gomcp.WithString("project_key", gomcp.Description("Project key")),
 		gomcp.WithNumber("count", gomcp.Description("Max number of activities (default 20, max 100)")),
+		readOnlyAnnotation("アクティビティ一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, hasUserID := stringArg(args, "user_id")
 		projectKey, hasProjectKey := stringArg(args, "project_key")

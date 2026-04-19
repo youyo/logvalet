@@ -25,6 +25,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithBoolean("compact",
 			gomcp.Description("Omit description and comment bodies (default false)"),
 		),
+		readOnlyAnnotation("課題コンテキスト取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -59,6 +60,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("exclude_status",
 			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
 		),
+		readOnlyAnnotation("プロジェクトブロッカー一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKeysStr, ok := stringArg(args, "project_keys")
 		if !ok || projectKeysStr == "" {
@@ -95,6 +97,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("exclude_status",
 			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
 		),
+		readOnlyAnnotation("停滞課題一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKeysStr, ok := stringArg(args, "project_keys")
 		if !ok || projectKeysStr == "" {
@@ -131,6 +134,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("exclude_status",
 			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
 		),
+		readOnlyAnnotation("プロジェクトヘルス取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -178,6 +182,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			gomcp.Required(),
 			gomcp.Description("Issue key (e.g. PROJ-123)"),
 		),
+		readOnlyAnnotation("課題トリアージ材料取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -201,6 +206,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("until",
 			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
 		),
+		readOnlyAnnotation("週次ダイジェスト取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -238,6 +244,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("until",
 			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
 		),
+		readOnlyAnnotation("日次ダイジェスト取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -283,6 +290,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithNumber("top_n",
 			gomcp.Description("Number of top actors/types to include (default: 5)"),
 		),
+		readOnlyAnnotation("アクティビティ統計取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		scope := "space"
 		if s, ok := stringArg(args, "scope"); ok && s != "" {
@@ -349,6 +357,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("until",
 			gomcp.Description("Filter events until date (YYYY-MM-DD)"),
 		),
+		readOnlyAnnotation("課題タイムライン取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -403,6 +412,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithString("exclude_status",
 			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
 		),
+		readOnlyAnnotation("ユーザー稼働状況取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -429,6 +439,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithNumber("stale_days",
 			gomcp.Description("Days threshold for stale detection on watched issues (default 7)"),
 		),
+		readOnlyAnnotation("自分のタスク一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opts := analysis.MyTasksOptions{}
 		if mode, ok := stringArg(args, "mode"); ok && mode != "" {

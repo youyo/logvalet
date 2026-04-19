@@ -12,6 +12,7 @@ func RegisterSpaceTools(r *ToolRegistry) {
 	// logvalet_space_info
 	r.Register(gomcp.NewTool("logvalet_space_info",
 		gomcp.WithDescription("Get information about the Backlog space"),
+		readOnlyAnnotation("スペース情報取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		return client.GetSpace(ctx)
 	})

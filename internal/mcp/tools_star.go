@@ -18,6 +18,7 @@ func RegisterStarTools(r *ToolRegistry) {
 		gomcp.WithNumber("wiki_id", gomcp.Description("Wiki ID to star")),
 		gomcp.WithNumber("pull_request_id", gomcp.Description("Pull request ID to star")),
 		gomcp.WithNumber("pull_request_comment_id", gomcp.Description("Pull request comment ID to star")),
+		writeAnnotation("スター追加", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		req := backlog.AddStarRequest{}
 		count := 0

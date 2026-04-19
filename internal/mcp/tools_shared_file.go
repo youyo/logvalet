@@ -17,6 +17,7 @@ func RegisterSharedFileTools(r *ToolRegistry) {
 		gomcp.WithString("path", gomcp.Description("Directory path within the project (default: root)")),
 		gomcp.WithNumber("limit", gomcp.Description("Max number of files")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
+		readOnlyAnnotation("共有ファイル一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {

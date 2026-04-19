@@ -14,6 +14,7 @@ func RegisterMetaTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_meta_statuses",
 		gomcp.WithDescription("List statuses for a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("ステータス一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -26,6 +27,7 @@ func RegisterMetaTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_meta_issue_types",
 		gomcp.WithDescription("List issue types for a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("課題種別一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -38,6 +40,7 @@ func RegisterMetaTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_meta_categories",
 		gomcp.WithDescription("List categories for a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("カテゴリ一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
