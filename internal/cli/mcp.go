@@ -48,7 +48,8 @@ type McpCmd struct {
 	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
 
 	// idproxy Store / JWT 署名鍵フラグ (Lambda マルチインスタンス対応)
-	SigningKey                 string `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
+	SigningKey                 string        `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
+	RefreshTokenTTL            time.Duration `name:"refresh-token-ttl" help:"MCP OAuth refresh token TTL (e.g. 720h for 30d). 0 = idproxy default (30 days)" group:"auth" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
 	IDProxyStore               string `name:"idproxy-store" help:"idproxy store type (memory|dynamodb)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
 	IDProxyStoreDynamoDBTable  string `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
 	IDProxyStoreDynamoDBRegion string `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`

@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/youyo/logvalet/internal/cli"
 )
@@ -178,5 +179,36 @@ func TestBuildAuthConfig_IDProxyStore_Invalid(t *testing.T) {
 	_, err := cli.BuildAuthConfig(cmd)
 	if err == nil || !strings.Contains(err.Error(), "invalid idproxy-store") {
 		t.Fatalf("expected invalid-store error, got: %v", err)
+	}
+}
+
+func TestBuildAuthConfig_RefreshTokenTTL_Propagated(t *testing.T) {
+	cmd := &cli.McpCmd{
+		CookieSecret:    strings.Repeat("ab", 32),
+		OIDCIssuer:      "https://example.com",
+		OIDCClientID:    "id",
+		RefreshTokenTTL: 72 * time.Hour,
+	}
+	cfg, err := cli.BuildAuthConfig(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.RefreshTokenTTL != 72*time.Hour {
+		t.Errorf("RefreshTokenTTL = %v, want %v", cfg.RefreshTokenTTL, 72*time.Hour)
+	}
+}
+
+func TestBuildAuthConfig_RefreshTokenTTL_ZeroPassedAsZero(t *testing.T) {
+	cmd := &cli.McpCmd{
+		CookieSecret: strings.Repeat("ab", 32),
+		OIDCIssuer:   "https://example.com",
+		OIDCClientID: "id",
+	}
+	cfg, err := cli.BuildAuthConfig(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.RefreshTokenTTL != 0 {
+		t.Errorf("RefreshTokenTTL = %v, want 0 (idproxy default should apply)", cfg.RefreshTokenTTL)
 	}
 }
