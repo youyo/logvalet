@@ -523,6 +523,22 @@ The MCP server provides 31+ tools including:
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
 
+### MCP ツールの annotation 分類
+
+logvalet MCP サーバーは全 42 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
+
+| カテゴリ | 件数 | 対象ツール例 | 挙動 |
+|---|---|---|---|
+| Read-only | 32 | `*_list`, `*_get`, `*_stats`, `*_health` 等 | 確認ダイアログなしで自動実行 |
+| Write 非冪等 | 3 | `issue_create`, `issue_comment_add`, `document_create` | 通常の書き込み確認 |
+| Write 冪等 | 6 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read` | 通常の書き込み確認 |
+| Destructive | 1 | `watching_delete` | 強い確認ダイアログを表示 |
+
+> **注意**: annotations はクライアントへの**ヒント**であり、サーバー側のアクセス制御ではありません。
+> annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。
+> セキュリティはバックエンドの API キーまたは OAuth スコープで担保されます。
+
 ### Supported Modes
 
 logvalet supports four operating modes combining CLI / MCP, the Backlog authentication method (API key vs OAuth), and MCP client authentication (OIDC via `idproxy`). Two combinations are **not** available — see notes below.
