@@ -603,6 +603,7 @@ export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
 export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
 export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
 export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
+export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (default: 30d)
 
 logvalet mcp
 ```
@@ -651,6 +652,9 @@ export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
 export LOGVALET_MCP_TOKEN_STORE=dynamodb
 export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
 export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
+
+# OAuth refresh token TTL
+export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (default: 30d)
 
 logvalet mcp
 ```
