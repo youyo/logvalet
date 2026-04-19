@@ -704,7 +704,26 @@ Backlog tokens are persisted via a pluggable token store. Pick one based on your
 | `sqlite` | self-hosted server / local CLI | pure-Go (`modernc.org/sqlite`), no CGO required |
 | `dynamodb` | Lambda / multi-instance remote MCP | no VPC required, AWS-managed durability |
 
-#### First-Time Connection Flow
+#### First-Time Connection Flow (Claude Desktop / Claude Code)
+
+When connecting via Claude Desktop or Claude Code, logvalet chains the OIDC login and Backlog OAuth consent into a single seamless browser flow:
+
+1. Claude Desktop / Claude Code opens `/authorize?...` (MCP Authorization spec)
+2. No session: idproxy redirects to OIDC login (Entra ID, etc.)
+3. OIDC login completes; browser returns to `/authorize?...` with session cookie
+4. **BacklogAuthorizeGate** detects: session OK but Backlog not connected
+   - 302 to `/oauth/backlog/authorize?continue=%2Fauthorize%3F...`
+5. logvalet redirects to Backlog consent screen
+6. User approves on Backlog; Backlog redirects to `/oauth/backlog/callback`
+7. logvalet exchanges code, saves token, reads `state.continue`
+   - 302 to `/authorize?...` (back to original MCP authorize URL)
+8. BacklogAuthorizeGate: session OK + Backlog connected → pass-through
+9. idproxy issues authorization code; Claude Desktop / Claude Code receives it via localhost redirect
+10. Claude Desktop / Claude Code exchanges code for JWT; all subsequent `POST /mcp` calls succeed
+
+From the user's perspective: **OIDC login → Backlog consent → Claude Desktop connected** — no manual URL copying required.
+
+#### First-Time Connection Flow (browser / manual)
 
 1. User invokes a Backlog tool in Claude — logvalet returns `provider_not_connected` with a link to the connection URL.
 2. User opens `GET /oauth/backlog/authorize` in the browser — logvalet redirects to the Backlog consent screen.
@@ -712,6 +731,18 @@ Backlog tokens are persisted via a pluggable token store. Pick one based on your
 4. logvalet exchanges the code, stores the token keyed by the user's OIDC subject, and returns `{"status":"connected"}`.
 5. Subsequent tool calls automatically use the stored token for that user.
 6. The user can check state with `GET /oauth/backlog/status` or revoke with `DELETE /oauth/backlog/disconnect`.
+
+#### `continue` Parameter and Security
+
+`GET /oauth/backlog/authorize` accepts an optional `?continue=<path>` query parameter.
+When present, `/oauth/backlog/callback` redirects to that path after storing the token instead of returning the JSON success response.
+
+Security constraints (enforced in both authorize and callback — double defence):
+
+- `continue` must be a **relative path starting with `/authorize`** (e.g. `/authorize?client_id=...`)
+- Absolute URLs (`https://...`), protocol-relative URLs (`//...`), and backslashes are rejected with `400 invalid_request`
+- Any other path prefix (e.g. `/`, `/mcp`) is also rejected
+- If a tampered `continue` value is found in the callback state, logvalet falls back to the JSON success response instead of redirecting
 
 #### Flags and Environment Variables
 

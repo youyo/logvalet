@@ -35,4 +35,8 @@ var (
 	// ErrNotImplemented は未実装の TokenStore 種別が指定された場合に返される。
 	// SQLite (M08) / DynamoDB (M09) の実装が完了するまでスタブとして使用する。
 	ErrNotImplemented = errors.New("auth: token store not implemented")
+
+	// ErrInvalidContinue は continue URL が allowlist に合致しない場合に返される。
+	// open redirect 攻撃を防ぐため、相対パスかつ /authorize prefix のみを許可する。
+	ErrInvalidContinue = errors.New("auth: invalid continue URL")
 )

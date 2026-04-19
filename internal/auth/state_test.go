@@ -209,3 +209,83 @@ func TestValidateState_AlgorithmNone(t *testing.T) {
 		t.Fatalf("ValidateState() error = %v, want ErrStateInvalid", err)
 	}
 }
+
+// ============================================================================
+// S1-S8: GenerateStateWithContinue / ValidateContinueURL テスト
+// ============================================================================
+
+// S1: GenerateStateWithContinue でラウンドトリップし、Continue フィールドが保持されること。
+func TestGenerateStateWithContinue_RoundTrip(t *testing.T) {
+	continueURL := "/authorize?x=1"
+	state, err := GenerateStateWithContinue(testUserID, testTenant, continueURL, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithContinue() error = %v, want nil", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v, want nil", err)
+	}
+	if claims.Continue != continueURL {
+		t.Errorf("claims.Continue = %q, want %q", claims.Continue, continueURL)
+	}
+	if claims.UserID != testUserID {
+		t.Errorf("claims.UserID = %q, want %q", claims.UserID, testUserID)
+	}
+}
+
+// S2: 既存 GenerateState は Continue フィールドが空で後方互換を維持すること。
+func TestGenerateState_BackwardCompatNoContinue(t *testing.T) {
+	state, err := GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState() error = %v, want nil", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v, want nil", err)
+	}
+	if claims.Continue != "" {
+		t.Errorf("claims.Continue = %q, want empty string (backward compat)", claims.Continue)
+	}
+}
+
+// S3: ValidateContinueURL("/authorize?a=b") は nil を返すこと（/authorize prefix 有効）。
+func TestValidateContinueURL_ValidAuthorizePrefix(t *testing.T) {
+	if err := ValidateContinueURL("/authorize?a=b"); err != nil {
+		t.Errorf("ValidateContinueURL(%q) = %v, want nil", "/authorize?a=b", err)
+	}
+}
+
+// S4: ValidateContinueURL("https://evil.example/x") は ErrInvalidContinue を返すこと。
+func TestValidateContinueURL_AbsoluteURLRejected(t *testing.T) {
+	if err := ValidateContinueURL("https://evil.example/x"); !errors.Is(err, ErrInvalidContinue) {
+		t.Errorf("ValidateContinueURL(%q) = %v, want ErrInvalidContinue", "https://evil.example/x", err)
+	}
+}
+
+// S5: ValidateContinueURL("//evil.example/x") は ErrInvalidContinue を返すこと（protocol-relative）。
+func TestValidateContinueURL_ProtocolRelativeRejected(t *testing.T) {
+	if err := ValidateContinueURL("//evil.example/x"); !errors.Is(err, ErrInvalidContinue) {
+		t.Errorf("ValidateContinueURL(%q) = %v, want ErrInvalidContinue", "//evil.example/x", err)
+	}
+}
+
+// S6: ValidateContinueURL("\\\\evil") は ErrInvalidContinue を返すこと（backslash）。
+func TestValidateContinueURL_BackslashRejected(t *testing.T) {
+	if err := ValidateContinueURL(`\\evil`); !errors.Is(err, ErrInvalidContinue) {
+		t.Errorf("ValidateContinueURL(%q) = %v, want ErrInvalidContinue", `\\evil`, err)
+	}
+}
+
+// S7: ValidateContinueURL("/anything") は ErrInvalidContinue を返すこと（/authorize prefix 以外）。
+func TestValidateContinueURL_NonAuthorizePrefixRejected(t *testing.T) {
+	if err := ValidateContinueURL("/anything"); !errors.Is(err, ErrInvalidContinue) {
+		t.Errorf("ValidateContinueURL(%q) = %v, want ErrInvalidContinue", "/anything", err)
+	}
+}
+
+// S8: ValidateContinueURL("") は nil を返すこと（空は「継続先なし」として許容）。
+func TestValidateContinueURL_EmptyAllowed(t *testing.T) {
+	if err := ValidateContinueURL(""); err != nil {
+		t.Errorf("ValidateContinueURL(%q) = %v, want nil", "", err)
+	}
+}

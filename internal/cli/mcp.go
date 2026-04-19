@@ -236,12 +236,32 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 				oauthDeps.AuthorizeURL,
 			)(innerMux)
 		}
-		topMux.Handle("/", authMW.Wrap(bridge(finalInner)))
+
+		// BacklogAuthorizeGate: idproxy の /authorize に Backlog 接続チェックを挟む。
+		// authMW.Wrap の外側に置く必要がある（idproxy の /authorize は next を呼ばないため
+		// Wrap の内側に置いても発火しない）。
+		var topHandler http.Handler = authMW.Wrap(bridge(finalInner))
+		if oauthDeps != nil {
+			sm, err := idproxy.NewSessionManager(authCfg)
+			if err != nil {
+				return fmt.Errorf("failed to create session manager for BacklogAuthorizeGate: %w", err)
+			}
+			gate := NewBacklogAuthorizeGate(
+				sm,
+				oauthDeps.TokenManager,
+				oauthDeps.Provider.Name(),
+				rc.Config.Space,
+				oauthDeps.AuthorizeURL,
+			)
+			topHandler = gate(topHandler)
+		}
+		topMux.Handle("/", topHandler)
 		handler = topMux
 
 		if oauthDeps != nil {
 			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth + OAuth) listening on %s/mcp\n", addr)
 			fmt.Fprintln(os.Stderr, "  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}")
+			fmt.Fprintln(os.Stderr, "  MCP OAuth flow: /authorize gated via Backlog connection check")
 		} else {
 			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)
 		}

@@ -61,7 +61,6 @@ const (
 	errMsgExchangeFailed    = "failed to exchange authorization code"
 	errMsgUserFetchFailed   = "failed to fetch current user"
 	errMsgSaveFailed        = "failed to save token"
-	errMsgCallbackInternal  = "failed to complete OAuth callback"
 
 	// メッセージ定数（M15 — ステータス / 切断）
 	errMsgStatusInternal   = "failed to fetch connection status"
@@ -160,10 +159,11 @@ func NewOAuthHandler(
 //
 // 処理フロー:
 //  1. HTTP メソッドが GET であることを確認（それ以外は 405）
-//  2. context から userID を取得（なければ 401）
-//  3. signed state JWT を生成
-//  4. provider.BuildAuthorizationURL で認可 URL を構築
-//  5. 302 Found で認可 URL へリダイレクト
+//  2. ?continue= クエリを取得し ValidateContinueURL で検証（NG なら 400）
+//  3. context から userID を取得（なければ 401）
+//  4. signed state JWT を生成（continue フィールドを含む）
+//  5. provider.BuildAuthorizationURL で認可 URL を構築
+//  6. 302 Found で認可 URL へリダイレクト
 //
 // セキュリティ: state JWT 生値・stateSecret は一切ログに出さない。
 // ログに出すのは user_id / provider / tenant のみ。
@@ -176,7 +176,17 @@ func (h *OAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *stdhttp.Requ
 		return
 	}
 
-	// 2. userID 取得
+	// 2. ?continue= バリデーション（open redirect 防止）
+	continueURL := r.URL.Query().Get("continue")
+	if err := auth.ValidateContinueURL(continueURL); err != nil {
+		h.logger.WarnContext(ctx, "oauth authorize rejected",
+			slog.String("reason", "invalid_continue_url"),
+		)
+		writeJSONError(w, stdhttp.StatusBadRequest, errCodeInvalidRequest, "invalid continue URL")
+		return
+	}
+
+	// 3. userID 取得
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		h.logger.WarnContext(ctx, "oauth authorize rejected",
@@ -186,8 +196,8 @@ func (h *OAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *stdhttp.Requ
 		return
 	}
 
-	// 3. signed state 生成
-	state, err := auth.GenerateState(userID, h.tenant, h.stateSecret, h.stateTTL)
+	// 4. signed state 生成（continue フィールドを含む）
+	state, err := auth.GenerateStateWithContinue(userID, h.tenant, continueURL, h.stateSecret, h.stateTTL)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "oauth authorize failed",
 			slog.String("reason", "state_generation_failed"),
@@ -373,7 +383,7 @@ func (h *OAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		return
 	}
 
-	// 11. 成功ログ → 200 JSON
+	// 11. 成功ログ
 	h.logger.InfoContext(ctx, "oauth callback success",
 		slog.String("user_id", ctxUserID),
 		slog.String("provider", providerName),
@@ -381,6 +391,22 @@ func (h *OAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		slog.String("provider_user_id", providerUser.ID),
 	)
 
+	// 12. continue リダイレクト分岐
+	// state.Continue が有効な相対パスならリダイレクト。
+	// 無効（改ざん等）なら警告ログを出し JSON fallback（攻撃ベクトル抑制）。
+	if claims.Continue != "" {
+		if err := auth.ValidateContinueURL(claims.Continue); err != nil {
+			h.logger.WarnContext(ctx, "oauth callback: invalid continue URL in state, falling back to JSON",
+				slog.String("user_id", ctxUserID),
+			)
+			// fall-through to JSON success
+		} else {
+			stdhttp.Redirect(w, r, claims.Continue, stdhttp.StatusFound)
+			return
+		}
+	}
+
+	// 継続先なし / invalid continue → 200 JSON レスポンス（既存挙動）
 	writeJSONSuccess(w, stdhttp.StatusOK, callbackSuccessResponse{
 		Status:           "connected",
 		Provider:         providerName,

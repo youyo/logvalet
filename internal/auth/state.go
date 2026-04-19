@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -19,9 +21,10 @@ const nonceBytes = 16
 // StateClaims は OAuth state JWT のカスタムクレームを保持する。
 // HMAC-SHA256 で署名され、CSRF 対策および callback 時のコンテキスト復元に使用する。
 type StateClaims struct {
-	UserID string `json:"uid"`
-	Tenant string `json:"tenant"`
-	Nonce  string `json:"nonce"`
+	UserID   string `json:"uid"`
+	Tenant   string `json:"tenant"`
+	Nonce    string `json:"nonce"`
+	Continue string `json:"continue,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -42,6 +45,15 @@ func generateNonce() (string, error) {
 // secret は HMAC 署名鍵。nil または空の場合 ErrStateInvalid を返す。
 // ttl はトークン有効期間。0 以下の場合 ErrStateInvalid を返す。
 func GenerateState(userID, tenant string, secret []byte, ttl time.Duration) (string, error) {
+	return GenerateStateWithContinue(userID, tenant, "", secret, ttl)
+}
+
+// GenerateStateWithContinue は Continue フィールドを含む JWT state トークンを生成する。
+//
+// continueURL は Backlog OAuth 完了後に戻るパス。空文字は許可（継続先なし）。
+// 非空の場合は ValidateContinueURL でバリデーションする。
+// その他の引数は GenerateState と同様。
+func GenerateStateWithContinue(userID, tenant, continueURL string, secret []byte, ttl time.Duration) (string, error) {
 	if userID == "" {
 		return "", ErrUnauthenticated
 	}
@@ -62,9 +74,10 @@ func GenerateState(userID, tenant string, secret []byte, ttl time.Duration) (str
 
 	now := time.Now()
 	claims := &StateClaims{
-		UserID: userID,
-		Tenant: tenant,
-		Nonce:  nonce,
+		UserID:   userID,
+		Tenant:   tenant,
+		Nonce:    nonce,
+		Continue: continueURL,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -78,6 +91,46 @@ func GenerateState(userID, tenant string, secret []byte, ttl time.Duration) (str
 	}
 
 	return signedString, nil
+}
+
+// ValidateContinueURL は continue URL が同一オリジン相対パスかつ
+// /authorize prefix に限定された安全な値であることを検証する。
+//
+// allowlist:
+//   - "" (空文字): 許可（継続先なし）
+//   - "/authorize" で始まる相対パス: 許可（クエリパラメータを含んでよい）
+//
+// 以下は拒否（ErrInvalidContinue を返す）:
+//   - "//" で始まる（protocol-relative URL）
+//   - "\" で始まる（backslash / Windows path 形式）
+//   - Scheme が空でない（絶対 URL: "https://evil.example/..."）
+//   - Host が空でない（"//" prefix 後にホスト名がある形式）
+//   - Path が "/authorize" で始まらない
+//
+// クエリパラメータの値（"redirect_uri=http://..." 等）に "//" が含まれても
+// url.Parse が Path と Query を分離するため正しく許可される。
+func ValidateContinueURL(raw string) error {
+	// 空文字は「継続先なし」として許容
+	if raw == "" {
+		return nil
+	}
+	// url.Parse 前に protocol-relative / backslash をブロック
+	if strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "\\") {
+		return ErrInvalidContinue
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidContinue, err)
+	}
+	// 絶対 URL（Scheme あり）または Host あり（"//" prefix 形式）を拒否
+	if u.Scheme != "" || u.Host != "" {
+		return ErrInvalidContinue
+	}
+	// /authorize prefix のみ許可
+	if !strings.HasPrefix(u.Path, "/authorize") {
+		return ErrInvalidContinue
+	}
+	return nil
 }
 
 // ValidateState は JWT state トークンを検証し、StateClaims を返す。

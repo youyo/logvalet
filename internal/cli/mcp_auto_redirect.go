@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -75,13 +74,3 @@ func EnsureBacklogConnected(
 	}
 }
 
-// needsBacklogAuthorization は GetValidToken のエラーが Backlog 認可を要求するものかを判定する。
-// ホワイトリスト方式で判定し、予期しないエラー（ErrUnauthenticated 等）は対象外とする。
-func needsBacklogAuthorization(err error) bool {
-	if err == nil {
-		return false
-	}
-	return errors.Is(err, auth.ErrProviderNotConnected) ||
-		errors.Is(err, auth.ErrTokenRefreshFailed) ||
-		errors.Is(err, auth.ErrTokenExpired)
-}
