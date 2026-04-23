@@ -8,8 +8,34 @@ import (
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
+
+// ===== C1: logvalet_shared_file_list count パラメータ =====
+
+// TestSharedFileList_Count_Normal は count=10 で ListSharedFilesOptions.Limit が 10 になることを確認する。
+func TestSharedFileList_Count_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListSharedFilesOptions
+	mock.ListSharedFilesFunc = func(ctx context.Context, projectKey string, opt backlog.ListSharedFilesOptions) ([]domain.SharedFile, error) {
+		capturedOpt = opt
+		return []domain.SharedFile{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_shared_file_list", map[string]any{
+		"project_key": "PROJ",
+		"count":       float64(10),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Limit != 10 {
+		t.Errorf("expected Limit=10, got %d", capturedOpt.Limit)
+	}
+}
 
 // ===== B14: logvalet_shared_file_download =====
 

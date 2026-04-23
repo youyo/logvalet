@@ -16,11 +16,11 @@ type StarCmd struct {
 // lv star add (--issue-id ID | --comment-id ID | --wiki-id ID | --pr-id ID | --pr-comment-id ID)
 // 指定されたフラグはちょうど1つでなければならない。
 type StarAddCmd struct {
-	IssueID            *int `help:"issue ID to star"`
-	CommentID          *int `help:"issue comment ID to star"`
-	WikiID             *int `help:"wiki ID to star"`
-	PrID               *int `help:"pull request ID to star" name:"pr-id"`
-	PrCommentID        *int `help:"pull request comment ID to star" name:"pr-comment-id"`
+	IssueID     *int `help:"issue ID to star"`
+	CommentID   *int `help:"issue comment ID to star"`
+	WikiID      *int `help:"wiki ID to star"`
+	PrID        *int `help:"pull request ID to star" name:"pull-request-id" aliases:"pr-id"`
+	PrCommentID *int `help:"pull request comment ID to star" name:"pr-comment-id"`
 }
 
 func (c *StarAddCmd) Run(g *GlobalFlags) error {
@@ -42,10 +42,10 @@ func (c *StarAddCmd) Run(g *GlobalFlags) error {
 		count++
 	}
 	if count == 0 {
-		return fmt.Errorf("at least one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id must be specified")
+		return fmt.Errorf("at least one of --issue-id, --comment-id, --wiki-id, --pull-request-id, --pr-comment-id must be specified")
 	}
 	if count > 1 {
-		return fmt.Errorf("only one of --issue-id, --comment-id, --wiki-id, --pr-id, --pr-comment-id can be specified")
+		return fmt.Errorf("only one of --issue-id, --comment-id, --wiki-id, --pull-request-id, --pr-comment-id can be specified")
 	}
 
 	ctx := context.Background()

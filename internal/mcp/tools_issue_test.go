@@ -973,6 +973,51 @@ func TestIssueList_UpdatedSinceInvalid(t *testing.T) {
 	}
 }
 
+// ===== C1: issue_list count パラメータテスト =====
+
+// TestIssueList_Count_Normal は count=50 で ListIssuesOptions.Limit が 50 になることを確認する。
+func TestIssueList_Count_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListIssuesOptions
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		capturedOpt = opt
+		return []domain.Issue{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_list", map[string]any{"count": float64(50)})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Limit != 50 {
+		t.Errorf("expected Limit=50, got %d", capturedOpt.Limit)
+	}
+}
+
+// TestIssueCommentList_Count_Normal は count=10 で ListCommentsOptions.Limit が 10 になることを確認する。
+func TestIssueCommentList_Count_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListCommentsOptions
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		capturedOpt = opt
+		return []domain.Comment{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_comment_list", map[string]any{
+		"issue_key": "PROJ-1",
+		"count":     float64(10),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Limit != 10 {
+		t.Errorf("expected Limit=10, got %d", capturedOpt.Limit)
+	}
+}
+
 // ===== A4: issue_comment_add 追加パラメータテスト =====
 
 // TestIssueCommentAdd_WithNotifiedUserIDs_CSV は notified_user_ids が NotifiedUserIDs に設定されることを確認する。

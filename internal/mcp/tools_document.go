@@ -27,23 +27,27 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_document_list
 	r.Register(gomcp.NewTool("logvalet_document_list",
 		gomcp.WithDescription("List documents in a project"),
-		gomcp.WithNumber("project_id", gomcp.Required(), gomcp.Description("Project ID (numeric)")),
-		gomcp.WithNumber("limit", gomcp.Description("Max number of documents")),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
+		gomcp.WithNumber("count", gomcp.Description("Max number of documents")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
 		readOnlyAnnotation("ドキュメント一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
-		projectID, ok := intArg(args, "project_id")
-		if !ok || projectID == 0 {
-			return nil, fmt.Errorf("project_id is required")
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		proj, err := client.GetProject(ctx, projectKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get project %s: %w", projectKey, err)
 		}
 		opt := backlog.ListDocumentsOptions{}
-		if limit, ok := intArg(args, "limit"); ok && limit > 0 {
-			opt.Limit = limit
+		if count, ok := intArg(args, "count"); ok && count > 0 {
+			opt.Limit = count
 		}
 		if offset, ok := intArg(args, "offset"); ok {
 			opt.Offset = offset
 		}
-		return client.ListDocuments(ctx, projectID, opt)
+		return client.ListDocuments(ctx, proj.ID, opt)
 	})
 
 	// logvalet_document_create

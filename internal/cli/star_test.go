@@ -83,3 +83,37 @@ func TestStarAddCmd_each_flag_passes_validation(t *testing.T) {
 		})
 	}
 }
+
+// C4: star add --pull-request-id フラグが PrID フィールドに設定されることを確認する。
+// （Kong の alias 機能は CLI パース時に動作するため、フィールドへの直接設定で検証）
+func TestStarAddCmd_pull_request_id_validation_passes(t *testing.T) {
+	prID := 100
+	// C4: PrID フィールドは --pull-request-id フラグ（aliases: --pr-id）に対応
+	cmd := &StarAddCmd{
+		PrID: &prID,
+	}
+	g := &GlobalFlags{}
+	err := cmd.Run(g)
+	// バリデーションは通過するが buildRunContext で config エラーになる
+	if err == nil {
+		t.Fatal("Run() should return error (config not available)")
+	}
+	// バリデーションエラーではないことを確認
+	if strings.Contains(err.Error(), "at least one of") || strings.Contains(err.Error(), "only one of") {
+		t.Errorf("unexpected validation error for --pull-request-id: %v", err)
+	}
+}
+
+// C4: star add のエラーメッセージが --pull-request-id フラグ名を参照することを確認する。
+func TestStarAddCmd_error_message_references_pull_request_id(t *testing.T) {
+	cmd := &StarAddCmd{}
+	g := &GlobalFlags{}
+	err := cmd.Run(g)
+	if err == nil {
+		t.Fatal("Run() should return error when no flag is specified")
+	}
+	// エラーメッセージに pull-request-id が含まれること（C4: フラグ名変更の反映）
+	if !strings.Contains(err.Error(), "pull-request-id") {
+		t.Errorf("error message = %q, want to contain 'pull-request-id'", err.Error())
+	}
+}

@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
@@ -13,16 +14,20 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	// logvalet_watching_list
 	r.Register(gomcp.NewTool("logvalet_watching_list",
 		gomcp.WithDescription("List watchings for a user. Returns issues being watched by the specified user."),
-		gomcp.WithNumber("user_id", gomcp.Description("User ID (required)"), gomcp.Required()),
+		gomcp.WithString("user_id", gomcp.Description(`User ID: "me" (resolved via GetMyself) or numeric user ID (e.g. "12345")`), gomcp.Required()),
 		gomcp.WithNumber("count", gomcp.Description("Max number of items (default: 20, max: 100)")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination (default: 0)")),
 		gomcp.WithString("order", gomcp.Description("Sort order: asc or desc (default: desc)")),
 		gomcp.WithString("sort", gomcp.Description("Sort key: created, updated, or issueUpdated")),
 		readOnlyAnnotation("ウォッチ一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
-		userID, ok := intArg(args, "user_id")
-		if !ok || userID == 0 {
+		userIDStr, ok := stringArg(args, "user_id")
+		if !ok || userIDStr == "" {
 			return nil, fmt.Errorf("user_id is required")
+		}
+		userID, err := resolveUserIDForMCP(ctx, userIDStr, client)
+		if err != nil {
+			return nil, err
 		}
 		opt := backlog.ListWatchingsOptions{}
 		if count, ok := intArg(args, "count"); ok && count > 0 {
@@ -135,4 +140,23 @@ func RegisterWatchingTools(r *ToolRegistry) {
 		}
 		return map[string]string{"result": "ok"}, nil
 	})
+}
+
+// resolveUserIDForMCP は user_id 文字列を int の userID に解決する。
+// "me" -> GetMyself を呼び出してユーザーIDを取得。
+// 数値文字列 -> strconv.Atoi で変換。
+// それ以外 -> エラー。
+func resolveUserIDForMCP(ctx context.Context, input string, client backlog.Client) (int, error) {
+	if input == "me" {
+		user, err := client.GetMyself(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get myself: %w", err)
+		}
+		return user.ID, nil
+	}
+	id, err := strconv.Atoi(input)
+	if err != nil {
+		return 0, fmt.Errorf("user_id must be \"me\" or a numeric user ID, got %q", input)
+	}
+	return id, nil
 }

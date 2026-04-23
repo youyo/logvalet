@@ -271,7 +271,7 @@ func TestProjectHealthHandler_MissingProjectKey(t *testing.T) {
 	}
 }
 
-// MCP-W1: logvalet_watching_list ハンドラーテスト
+// MCP-W1: logvalet_watching_list ハンドラーテスト（C2: user_id は string 型）
 func TestWatchingListHandler(t *testing.T) {
 	mock := backlog.NewMockClient()
 	mock.ListWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) ([]domain.Watching, error) {
@@ -285,7 +285,8 @@ func TestWatchingListHandler(t *testing.T) {
 	}
 
 	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
-	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": float64(123)})
+	// C2: user_id は string 型で渡す（"123" のように数値文字列）
+	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "123"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
@@ -311,6 +312,41 @@ func TestWatchingListHandler_MissingUserID(t *testing.T) {
 	result := callTool(t, s, "logvalet_watching_list", map[string]any{})
 	if !result.IsError {
 		t.Error("expected IsError=true for missing user_id")
+	}
+}
+
+// MCP-W1b: logvalet_watching_list の user_id="me" → GetMyself 経由で解決
+func TestWatchingListHandler_UserIDMe(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {
+		return &domain.User{ID: 99, UserID: "taro", Name: "Taro"}, nil
+	}
+	var capturedUserID int
+	mock.ListWatchingsFunc = func(ctx context.Context, userID int, opt backlog.ListWatchingsOptions) ([]domain.Watching, error) {
+		capturedUserID = userID
+		return []domain.Watching{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "me"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedUserID != 99 {
+		t.Errorf("expected userID=99 (from GetMyself), got %d", capturedUserID)
+	}
+}
+
+// MCP-W1c: logvalet_watching_list の user_id="abc" → エラー（数値でも "me" でもない）
+func TestWatchingListHandler_UserIDInvalid(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "abc"})
+
+	if !result.IsError {
+		t.Error("expected IsError=true for invalid user_id='abc'")
 	}
 }
 

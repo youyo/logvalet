@@ -36,7 +36,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithDescription("List issues with optional filters"),
 		gomcp.WithString("project_key", gomcp.Description("Filter by single project key (legacy; use project_keys for multiple)")),
 		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys (e.g. PROJ1,PROJ2)")),
-		gomcp.WithNumber("limit", gomcp.Description("Max number of issues (default 20, max 100)")),
+		gomcp.WithNumber("count", gomcp.Description("Max number of issues (default 20, max 100)")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
 		gomcp.WithString("sort", gomcp.Description("Sort field (e.g. updated, created)")),
 		gomcp.WithString("order", gomcp.Description("Sort order (asc/desc)")),
@@ -50,8 +50,8 @@ func RegisterIssueTools(r *ToolRegistry) {
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
 
-		if limit, ok := intArg(args, "limit"); ok && limit > 0 {
-			opt.Limit = limit
+		if count, ok := intArg(args, "count"); ok && count > 0 {
+			opt.Limit = count
 		}
 		if offset, ok := intArg(args, "offset"); ok {
 			opt.Offset = offset
@@ -338,7 +338,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_issue_comment_list",
 		gomcp.WithDescription("List comments for an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithNumber("limit", gomcp.Description("Max number of comments")),
+		gomcp.WithNumber("count", gomcp.Description("Max number of comments")),
 		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
 		readOnlyAnnotation("課題コメント一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
@@ -347,8 +347,8 @@ func RegisterIssueTools(r *ToolRegistry) {
 			return nil, fmt.Errorf("issue_key is required")
 		}
 		opt := backlog.ListCommentsOptions{}
-		if limit, ok := intArg(args, "limit"); ok {
-			opt.Limit = limit
+		if count, ok := intArg(args, "count"); ok {
+			opt.Limit = count
 		}
 		if offset, ok := intArg(args, "offset"); ok {
 			opt.Offset = offset
