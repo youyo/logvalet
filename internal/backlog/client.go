@@ -136,7 +136,7 @@ type Client interface {
 	// ListTeams はスペースのチーム一覧を返す。
 	// Backlog API: GET /api/v2/teams
 	// API は members[] を含むレスポンスを返すため TeamWithMembers を使用する。
-	ListTeams(ctx context.Context) ([]domain.TeamWithMembers, error)
+	ListTeams(ctx context.Context, opt ListTeamsOptions) ([]domain.TeamWithMembers, error)
 
 	// ListProjectTeams は指定プロジェクトのチーム一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/teams

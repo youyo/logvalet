@@ -58,7 +58,7 @@ func TestResolveAssignee_name(t *testing.T) {
 			{ID: 51, Name: "鈴木花子"},
 		}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return nil, nil
 	}
 	ids, err := resolveAssignee(context.Background(), "田中太郎", mc)
@@ -78,7 +78,7 @@ func TestResolveAssignee_name_not_found(t *testing.T) {
 			{ID: 50, Name: "田中太郎"},
 		}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 1, Name: "開発チーム"},
 		}, nil
@@ -122,7 +122,7 @@ func TestResolveAssignee_team_name_exact(t *testing.T) {
 	mc.ListUsersFunc = func(ctx context.Context) ([]domain.User, error) {
 		return []domain.User{{ID: 10, Name: "田中太郎"}}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 100, Name: "株式会社ヘプタゴン全体"},
 		}, nil
@@ -152,7 +152,7 @@ func TestResolveAssignee_not_found_shows_both_lists(t *testing.T) {
 	mc.ListUsersFunc = func(ctx context.Context) ([]domain.User, error) {
 		return []domain.User{{ID: 10, Name: "田中太郎"}}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 100, Name: "開発チーム"},
 		}, nil
@@ -176,7 +176,7 @@ func TestResolveAssignee_team_name_partial(t *testing.T) {
 	mc.ListUsersFunc = func(ctx context.Context) ([]domain.User, error) {
 		return []domain.User{{ID: 10, Name: "田中太郎"}}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 100, Name: "株式会社ヘプタゴン全体"},
 		}, nil
@@ -442,7 +442,7 @@ func TestResolveAssignee_userID(t *testing.T) {
 			{ID: 51, UserID: "hanako.suzuki", Name: "鈴木花子"},
 		}, nil
 	}
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return nil, nil
 	}
 	ids, err := resolveAssignee(context.Background(), "taro.tanaka", mc)
@@ -1148,7 +1148,7 @@ func TestResolveTeamIDs_numeric(t *testing.T) {
 // T2: チーム名 "ヘプタゴン" → 名前一致の ID
 func TestResolveTeamIDs_name(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 173843, Name: "ヘプタゴン"},
 			{ID: 221464, Name: "他チーム"},
@@ -1166,7 +1166,7 @@ func TestResolveTeamIDs_name(t *testing.T) {
 // T3: 存在しない名前 → エラー（利用可能なチーム名一覧を含む）
 func TestResolveTeamIDs_notFound(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 173843, Name: "ヘプタゴン"},
 		}, nil
@@ -1183,7 +1183,7 @@ func TestResolveTeamIDs_notFound(t *testing.T) {
 // T4: 複数指定 ["173843", "221464"] → [173843, 221464]
 func TestResolveTeamIDs_multiple(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 173843, Name: "ヘプタゴン"},
 			{ID: 221464, Name: "別チーム"},
@@ -1201,7 +1201,7 @@ func TestResolveTeamIDs_multiple(t *testing.T) {
 // T5: 名前で複数一致 → エラー
 func TestResolveTeamIDs_multipleMatch(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{ID: 1, Name: "チームA"},
 			{ID: 2, Name: "チームA"},

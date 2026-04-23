@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
@@ -149,4 +151,27 @@ func parseDateStr(s string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid date format (must be YYYY-MM-DD): %q", s)
 	}
 	return t, nil
+}
+
+// parseCSVIntList は "1,2,3" 形式の文字列を []int に変換する。
+// 空文字列は nil を返す（未指定扱い）。
+// 無効な整数が含まれる場合はエラー。
+func parseCSVIntList(input, paramName string) ([]int, error) {
+	if input == "" {
+		return nil, nil
+	}
+	parts := strings.Split(input, ",")
+	ids := make([]int, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: must be comma-separated integers, got %q", paramName, input)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }

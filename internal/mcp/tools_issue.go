@@ -42,6 +42,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("assignee_id", gomcp.Description("Assignee filter: me (resolved via GetMyself) or numeric user ID")),
 		gomcp.WithString("status_id", gomcp.Description("Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs")),
 		gomcp.WithString("due_date", gomcp.Description("Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
+		gomcp.WithString("start_date", gomcp.Description("Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
+		gomcp.WithString("updated_since", gomcp.Description("Updated since (YYYY-MM-DD)")),
+		gomcp.WithString("updated_until", gomcp.Description("Updated until (YYYY-MM-DD)")),
 		readOnlyAnnotation("課題一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
@@ -111,6 +114,32 @@ func RegisterIssueTools(r *ToolRegistry) {
 			opt.DueDateUntil = until
 		}
 
+		// start_date: keyword or date range
+		if startDateStr, ok := stringArg(args, "start_date"); ok && startDateStr != "" {
+			since, until, err := resolveStartDateForMCP(startDateStr, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			opt.StartDateSince = since
+			opt.StartDateUntil = until
+		}
+
+		// updated_since / updated_until: plain YYYY-MM-DD
+		if updatedSinceStr, ok := stringArg(args, "updated_since"); ok && updatedSinceStr != "" {
+			t, err := parseDateStr(updatedSinceStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid updated_since: %w", err)
+			}
+			opt.UpdatedSince = &t
+		}
+		if updatedUntilStr, ok := stringArg(args, "updated_until"); ok && updatedUntilStr != "" {
+			t, err := parseDateStr(updatedUntilStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid updated_until: %w", err)
+			}
+			opt.UpdatedUntil = &t
+		}
+
 		return client.ListIssues(ctx, opt)
 	})
 
@@ -123,6 +152,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("description", gomcp.Description("Issue description")),
 		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
 		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
+		gomcp.WithNumber("parent_issue_id", gomcp.Description("Parent issue ID for creating a child issue")),
+		gomcp.WithString("category_ids", gomcp.Description("Comma-separated category IDs (e.g. \"10,20\")")),
+		gomcp.WithString("version_ids", gomcp.Description("Comma-separated version IDs")),
+		gomcp.WithString("milestone_ids", gomcp.Description("Comma-separated milestone IDs")),
+		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
+		gomcp.WithString("due_date", gomcp.Description("Due date in YYYY-MM-DD format")),
+		gomcp.WithString("start_date", gomcp.Description("Start date in YYYY-MM-DD format")),
 		writeAnnotation("課題作成", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
@@ -157,10 +193,54 @@ func RegisterIssueTools(r *ToolRegistry) {
 		if assigneeID, ok := intArg(args, "assignee_id"); ok {
 			req.AssigneeID = assigneeID
 		}
+		if parentIssueID, ok := intArg(args, "parent_issue_id"); ok {
+			req.ParentIssueID = parentIssueID
+		}
+		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok && categoryIDsStr != "" {
+			ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.CategoryIDs = ids
+		}
+		if versionIDsStr, ok := stringArg(args, "version_ids"); ok && versionIDsStr != "" {
+			ids, err := parseCSVIntList(versionIDsStr, "version_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.VersionIDs = ids
+		}
+		if milestoneIDsStr, ok := stringArg(args, "milestone_ids"); ok && milestoneIDsStr != "" {
+			ids, err := parseCSVIntList(milestoneIDsStr, "milestone_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.MilestoneIDs = ids
+		}
+		if notifiedUserIDsStr, ok := stringArg(args, "notified_user_ids"); ok && notifiedUserIDsStr != "" {
+			ids, err := parseCSVIntList(notifiedUserIDsStr, "notified_user_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.NotifiedUserIDs = ids
+		}
+		if dueDateStr, ok := stringArg(args, "due_date"); ok && dueDateStr != "" {
+			t, err := parseDateStr(dueDateStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid due_date: %w", err)
+			}
+			req.DueDate = &t
+		}
+		if startDateStr, ok := stringArg(args, "start_date"); ok && startDateStr != "" {
+			t, err := parseDateStr(startDateStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid start_date: %w", err)
+			}
+			req.StartDate = &t
+		}
 
 		return client.CreateIssue(ctx, req)
 	})
-
 	// logvalet_issue_update
 	r.Register(gomcp.NewTool("logvalet_issue_update",
 		gomcp.WithDescription("Update an existing issue"),
@@ -170,6 +250,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithNumber("status_id", gomcp.Description("Status ID")),
 		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
 		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
+		gomcp.WithNumber("issue_type_id", gomcp.Description("Issue type ID")),
+		gomcp.WithString("category_ids", gomcp.Description("Comma-separated category IDs (e.g. \"10,20\")")),
+		gomcp.WithString("version_ids", gomcp.Description("Comma-separated version IDs")),
+		gomcp.WithString("milestone_ids", gomcp.Description("Comma-separated milestone IDs")),
+		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
+		gomcp.WithString("due_date", gomcp.Description("Due date in YYYY-MM-DD format")),
+		gomcp.WithString("start_date", gomcp.Description("Start date in YYYY-MM-DD format")),
 		gomcp.WithString("comment", gomcp.Description("Comment to add with the update")),
 		writeAnnotation("課題更新", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
@@ -193,6 +280,51 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		if assigneeID, ok := intArg(args, "assignee_id"); ok {
 			req.AssigneeID = &assigneeID
+		}
+		if issueTypeID, ok := intArg(args, "issue_type_id"); ok {
+			req.IssueTypeID = &issueTypeID
+		}
+		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok && categoryIDsStr != "" {
+			ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.CategoryIDs = ids
+		}
+		if versionIDsStr, ok := stringArg(args, "version_ids"); ok && versionIDsStr != "" {
+			ids, err := parseCSVIntList(versionIDsStr, "version_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.VersionIDs = ids
+		}
+		if milestoneIDsStr, ok := stringArg(args, "milestone_ids"); ok && milestoneIDsStr != "" {
+			ids, err := parseCSVIntList(milestoneIDsStr, "milestone_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.MilestoneIDs = ids
+		}
+		if notifiedUserIDsStr, ok := stringArg(args, "notified_user_ids"); ok && notifiedUserIDsStr != "" {
+			ids, err := parseCSVIntList(notifiedUserIDsStr, "notified_user_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.NotifiedUserIDs = ids
+		}
+		if dueDateStr, ok := stringArg(args, "due_date"); ok && dueDateStr != "" {
+			t, err := parseDateStr(dueDateStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid due_date: %w", err)
+			}
+			req.DueDate = &t
+		}
+		if startDateStr, ok := stringArg(args, "start_date"); ok && startDateStr != "" {
+			t, err := parseDateStr(startDateStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid start_date: %w", err)
+			}
+			req.StartDate = &t
 		}
 		if comment, ok := stringArg(args, "comment"); ok {
 			req.Comment = &comment
@@ -228,6 +360,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithDescription("Add a comment to an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithString("content", gomcp.Required(), gomcp.Description("Comment content")),
+		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
 		writeAnnotation("課題コメント追加", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
@@ -239,6 +372,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 			return nil, fmt.Errorf("content is required")
 		}
 		req := backlog.AddCommentRequest{Content: content}
+		if notifiedUserIDsStr, ok := stringArg(args, "notified_user_ids"); ok && notifiedUserIDsStr != "" {
+			ids, err := parseCSVIntList(notifiedUserIDsStr, "notified_user_ids")
+			if err != nil {
+				return nil, err
+			}
+			req.NotifiedUserIDs = ids
+		}
 		return client.AddIssueComment(ctx, issueKey, req)
 	})
 
@@ -398,4 +538,38 @@ func parseDateRangeMCP(input string) (*time.Time, *time.Time, error) {
 		until = &t
 	}
 	return since, until, nil
+}
+
+// resolveStartDateForMCP resolves start_date param to StartDateSince/StartDateUntil for MCP.
+// Keywords: today, this-week, this-month. Date: YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD.
+// Note: "overdue" is not supported for start_date (no semantic meaning).
+func resolveStartDateForMCP(input string, now time.Time) (*time.Time, *time.Time, error) {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	switch input {
+	case "today":
+		return &today, &today, nil
+	case "this-week":
+		monday := weekStartMCP(today)
+		sunday := monday.AddDate(0, 0, 6)
+		return &monday, &sunday, nil
+	case "this-month":
+		firstDay := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
+		return &firstDay, &lastDay, nil
+	}
+
+	if strings.Contains(input, ":") {
+		since, until, err := parseDateRangeMCP(input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("start_date must be one of: today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
+		}
+		return since, until, nil
+	}
+
+	t, err := time.Parse("2006-01-02", input)
+	if err != nil {
+		return nil, nil, fmt.Errorf("start_date must be one of: today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD: %q", input)
+	}
+	return &t, &t, nil
 }

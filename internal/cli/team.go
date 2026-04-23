@@ -3,7 +3,10 @@ package cli
 import (
 	"context"
 	"os"
+
+	"github.com/youyo/logvalet/internal/backlog"
 )
+
 
 // TeamCmd は team コマンド群のルート。
 type TeamCmd struct {
@@ -23,7 +26,7 @@ func (c *TeamListCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	teams, err := rc.Client.ListTeams(ctx)
+	teams, err := rc.Client.ListTeams(ctx, backlog.ListTeamsOptions{})
 	if err != nil {
 		return err
 	}

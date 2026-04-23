@@ -54,7 +54,7 @@ type MockClient struct {
 	ListPrioritiesFunc           func(ctx context.Context) ([]domain.IDName, error)
 
 	// Teams
-	ListTeamsFunc        func(ctx context.Context) ([]domain.TeamWithMembers, error)
+	ListTeamsFunc        func(ctx context.Context, opt ListTeamsOptions) ([]domain.TeamWithMembers, error)
 	ListProjectTeamsFunc func(ctx context.Context, projectKey string) ([]domain.Team, error)
 	GetTeamFunc          func(ctx context.Context, teamID int) (*domain.TeamWithMembers, error)
 
@@ -318,10 +318,10 @@ func (m *MockClient) ListPriorities(ctx context.Context) ([]domain.IDName, error
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) ListTeams(ctx context.Context) ([]domain.TeamWithMembers, error) {
+func (m *MockClient) ListTeams(ctx context.Context, opt ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 	m.increment("ListTeams")
 	if m.ListTeamsFunc != nil {
-		return m.ListTeamsFunc(ctx)
+		return m.ListTeamsFunc(ctx, opt)
 	}
 	return nil, ErrNotFound
 }

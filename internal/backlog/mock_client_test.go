@@ -159,10 +159,10 @@ func TestMockClientListTeams_withMembers(t *testing.T) {
 			},
 		}
 		mock := backlog.NewMockClient()
-		mock.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+		mock.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 			return want, nil
 		}
-		got, err := mock.ListTeams(context.Background())
+		got, err := mock.ListTeams(context.Background(), backlog.ListTeamsOptions{})
 		if err != nil {
 			t.Fatalf("ListTeams() error = %v", err)
 		}
@@ -182,7 +182,7 @@ func TestMockClientListTeams_withMembers(t *testing.T) {
 
 	t.Run("returns ErrNotFound when func not set", func(t *testing.T) {
 		mock := backlog.NewMockClient()
-		_, err := mock.ListTeams(context.Background())
+		_, err := mock.ListTeams(context.Background(), backlog.ListTeamsOptions{})
 		if !errors.Is(err, backlog.ErrNotFound) {
 			t.Errorf("ListTeams() error = %v, want ErrNotFound", err)
 		}

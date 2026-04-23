@@ -17,6 +17,8 @@ func RegisterActivityTools(r *ToolRegistry) {
 		gomcp.WithString("user_id", gomcp.Description("User ID or 'me' for current user")),
 		gomcp.WithString("project_key", gomcp.Description("Project key")),
 		gomcp.WithNumber("count", gomcp.Description("Max number of activities (default 20, max 100)")),
+		gomcp.WithString("activity_type_ids", gomcp.Description("Comma-separated activity type IDs to filter")),
+		gomcp.WithString("order", gomcp.Description("Sort order: asc or desc (default: desc)")),
 		readOnlyAnnotation("アクティビティ一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, hasUserID := stringArg(args, "user_id")
@@ -33,6 +35,16 @@ func RegisterActivityTools(r *ToolRegistry) {
 		}
 		if count, ok := intArg(args, "count"); ok && count > 0 {
 			opt.Count = count
+		}
+		if activityTypeIDsStr, ok := stringArg(args, "activity_type_ids"); ok && activityTypeIDsStr != "" {
+			ids, err := parseCSVIntList(activityTypeIDsStr, "activity_type_ids")
+			if err != nil {
+				return nil, err
+			}
+			opt.ActivityTypeIDs = ids
+		}
+		if order, ok := stringArg(args, "order"); ok && order != "" {
+			opt.Order = order
 		}
 
 		// ユーザー別アクティビティ

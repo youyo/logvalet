@@ -241,3 +241,86 @@ func TestActivityListInvalidUserId(t *testing.T) {
 		t.Errorf("expected ListUserActivities not to be called, got %d calls", mock.GetCallCount("ListUserActivities"))
 	}
 }
+
+// ===== A5: activity_list 追加パラメータテスト =====
+
+// TestActivityList_WithActivityTypeIDs は activity_type_ids が ActivityTypeIDs に設定されることを確認する。
+func TestActivityList_WithActivityTypeIDs(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListActivitiesOptions
+	mock.ListSpaceActivitiesFunc = func(ctx context.Context, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		capturedOpt = opt
+		return []domain.Activity{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_list", map[string]any{
+		"activity_type_ids": "1,2,3",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(capturedOpt.ActivityTypeIDs) != 3 || capturedOpt.ActivityTypeIDs[0] != 1 || capturedOpt.ActivityTypeIDs[1] != 2 || capturedOpt.ActivityTypeIDs[2] != 3 {
+		t.Errorf("expected ActivityTypeIDs=[1,2,3], got %v", capturedOpt.ActivityTypeIDs)
+	}
+}
+
+// TestActivityList_WithOrder は order が Order に設定されることを確認する。
+func TestActivityList_WithOrder(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListActivitiesOptions
+	mock.ListSpaceActivitiesFunc = func(ctx context.Context, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		capturedOpt = opt
+		return []domain.Activity{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_list", map[string]any{
+		"order": "asc",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Order != "asc" {
+		t.Errorf("expected Order=asc, got %q", capturedOpt.Order)
+	}
+}
+
+// TestActivityList_WithActivityTypeIDs_UserActivities は user_id 指定時も ActivityTypeIDs が伝搬することを確認する。
+func TestActivityList_WithActivityTypeIDs_UserActivities(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListUserActivitiesOptions
+	mock.ListUserActivitiesFunc = func(ctx context.Context, userID string, opt backlog.ListUserActivitiesOptions) ([]domain.Activity, error) {
+		capturedOpt = opt
+		return []domain.Activity{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_list", map[string]any{
+		"user_id":           "12345",
+		"activity_type_ids": "1,2",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(capturedOpt.ActivityTypeIDs) != 2 || capturedOpt.ActivityTypeIDs[0] != 1 || capturedOpt.ActivityTypeIDs[1] != 2 {
+		t.Errorf("expected ActivityTypeIDs=[1,2], got %v", capturedOpt.ActivityTypeIDs)
+	}
+}
+
+// TestActivityList_InvalidActivityTypeIDs は不正な activity_type_ids でエラーを返す。
+func TestActivityList_InvalidActivityTypeIDs(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_list", map[string]any{
+		"activity_type_ids": "1,abc",
+	})
+
+	if result.IsError == false {
+		t.Error("expected IsError=true for invalid activity_type_ids")
+	}
+}

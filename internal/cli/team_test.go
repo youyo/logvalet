@@ -11,7 +11,7 @@ import (
 // teamListCmdNoMembers は --no-members フラグ適用後にメンバーが除外されることを確認する。
 func TestTeamListCmd_NoMembers(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{
 				ID:   1,
@@ -31,7 +31,7 @@ func TestTeamListCmd_NoMembers(t *testing.T) {
 		}, nil
 	}
 
-	teams, err := mc.ListTeams(context.Background())
+	teams, err := mc.ListTeams(context.Background(), backlog.ListTeamsOptions{})
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestTeamListCmd_NoMembers(t *testing.T) {
 // TestTeamListCmd_WithMembers はデフォルト（--no-members なし）でメンバーが保持されることを確認する。
 func TestTeamListCmd_WithMembers(t *testing.T) {
 	mc := backlog.NewMockClient()
-	mc.ListTeamsFunc = func(ctx context.Context) ([]domain.TeamWithMembers, error) {
+	mc.ListTeamsFunc = func(ctx context.Context, opt backlog.ListTeamsOptions) ([]domain.TeamWithMembers, error) {
 		return []domain.TeamWithMembers{
 			{
 				ID:   1,
@@ -66,7 +66,7 @@ func TestTeamListCmd_WithMembers(t *testing.T) {
 		}, nil
 	}
 
-	teams, err := mc.ListTeams(context.Background())
+	teams, err := mc.ListTeams(context.Background(), backlog.ListTeamsOptions{})
 	if err != nil {
 		t.Fatalf("予期しないエラー: %v", err)
 	}

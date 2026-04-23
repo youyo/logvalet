@@ -63,6 +63,14 @@ type ListSharedFilesOptions struct {
 	Offset int
 }
 
+// ListTeamsOptions は ListTeams リクエストのオプション。
+// Backlog API: GET /api/v2/teams
+type ListTeamsOptions struct {
+	Order  string // "asc" or "desc"（空文字 = API デフォルト）
+	Offset int    // 0=未指定
+	Count  int    // 取得件数（最大100、0=未指定=API デフォルト）
+}
+
 // ListWatchingsOptions は ListWatchings リクエストのオプション。
 // Backlog API: GET /api/v2/users/{userId}/watchings
 type ListWatchingsOptions struct {

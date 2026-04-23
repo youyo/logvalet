@@ -72,7 +72,7 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 	}
 
 	// ユーザー名一致なし → チーム名フォールバック
-	teams, err := client.ListTeams(ctx)
+	teams, err := client.ListTeams(ctx, backlog.ListTeamsOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get teams: %w", err)
 	}
@@ -492,7 +492,7 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 	}
 
 	// 名前解決が必要: ListTeams を呼び出す
-	teams, err := client.ListTeams(ctx)
+	teams, err := client.ListTeams(ctx, backlog.ListTeamsOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get teams: %w", err)
 	}
