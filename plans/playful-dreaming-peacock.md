@@ -3,7 +3,7 @@ title: CLI/MCP パラメータ統一計画
 project: logvalet
 author: devflow:plan
 created: 2026-04-23
-status: Draft
+status: Released
 complexity: H
 ---
 

@@ -458,8 +458,8 @@ logvalet star add --comment-id 67890
 # Star a wiki page
 logvalet star add --wiki-id wiki123
 
-# Star a pull request
-logvalet star add --pr-id pr456
+# Star a pull request (the --pr-id alias is still accepted for backward compatibility)
+logvalet star add --pull-request-id pr456
 
 # Star a pull request comment
 logvalet star add --pr-comment-id prcomment789
@@ -504,40 +504,58 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server provides 31+ tools including:
-- `logvalet_issue_get`, `logvalet_issue_list`, `logvalet_issue_create`
-- `logvalet_project_get`, `logvalet_project_list`
-- `logvalet_digest`
-- `logvalet_shared_file_list`, `logvalet_shared_file_download`
-- `logvalet_star_add`
-- `logvalet_issue_context` — Issue context analysis
-- `logvalet_issue_stale` — Stale issue detection
-- `logvalet_project_blockers` — Project blocker detection
-- `logvalet_user_workload` — User workload analysis
-- `logvalet_project_health` — Integrated project health view
-- `logvalet_issue_triage_materials` — Issue triage materials collection
-- `logvalet_digest_weekly`, `logvalet_digest_daily` — Periodic activity digest
-- `logvalet_issue_timeline` — Issue comment and update history (chronological)
-- `logvalet_activity_stats` — Activity statistics and pattern analysis
-- And many more...
+The MCP server exposes **56 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+
+Representative tools by area:
+
+- **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`
+- **Project**: `logvalet_project_{get,list,blockers,health}`, `logvalet_user_workload`
+- **Digest**: `logvalet_digest`, `logvalet_digest_unified`, `logvalet_digest_{weekly,daily}`, `logvalet_space_digest`, `logvalet_activity_digest`, `logvalet_document_digest`
+- **Document**: `logvalet_document_{get,list,tree,create}`
+- **Meta**: `logvalet_meta_{statuses,categories,issue_types,version,custom_field}`
+- **User / Team**: `logvalet_user_{me,list,get,activity}`, `logvalet_team_{list,get,project}`
+- **Space / Shared File**: `logvalet_space_{info,disk_usage}`, `logvalet_shared_file_{list,get,download}`
+- **Star / Watching**: `logvalet_star_add`, `logvalet_watching_{list,count,get,add,update,delete,mark_as_read}`
+- **Activity**: `logvalet_activity_{list,stats}`
+- **Composite**: `logvalet_my_tasks`
 
 Configure the MCP server in your Claude Desktop config or Claude Code settings to use logvalet as a tool.
 
+### Binary Download Size Limit
+
+The binary download tools `logvalet_issue_attachment_download` and `logvalet_shared_file_download` return the file contents as a base64-encoded string inside the JSON response. To keep MCP responses manageable and to avoid client-side truncation:
+
+- **Maximum size: 20 MB**. The limit is enforced at the Backlog HTTP client layer — if the response `Content-Length` exceeds 20 MB the request fails fast with an explicit error and no bytes are buffered.
+- For files larger than 20 MB, use the CLI instead: `logvalet issue attachment download <KEY> <ID> --output <path>` or `logvalet shared-file download --project <PROJECT> <FILE-ID> --output <path>`.
+
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 42 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 56 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
 |---|---|---|---|
-| Read-only | 32 | `*_list`, `*_get`, `*_stats`, `*_health` 等 | 確認ダイアログなしで自動実行 |
+| Read-only | 45 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download` 等 | 確認ダイアログなしで自動実行 |
 | Write 非冪等 | 3 | `issue_create`, `issue_comment_add`, `document_create` | 通常の書き込み確認 |
 | Write 冪等 | 6 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read` | 通常の書き込み確認 |
-| Destructive | 1 | `watching_delete` | 強い確認ダイアログを表示 |
+| Destructive | 2 | `watching_delete`, `issue_attachment_delete` | 強い確認ダイアログを表示 |
 
 > **注意**: annotations はクライアントへの**ヒント**であり、サーバー側のアクセス制御ではありません。
 > annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。
 > セキュリティはバックエンドの API キーまたは OAuth スコープで担保されます。
+
+### Breaking Changes in v0.16.0
+
+v0.16.0 unifies MCP tool parameter naming and typing with the CLI. MCP clients that used the old names must update their invocations.
+
+| ID | Change | Affected tools | Before | After |
+|----|--------|----------------|--------|-------|
+| C1 | Pagination parameter unified to `count` | `logvalet_issue_list`, `logvalet_issue_comment_list`, `logvalet_document_list`, `logvalet_shared_file_list` | `limit: 50` | `count: 50` |
+| C2 | `user_id` now string-only (`"me"` or numeric string) | `logvalet_watching_list` | `user_id: 12345` (number) | `user_id: "12345"` / `user_id: "me"` |
+| C3 | `project_id` → `project_key` | `logvalet_document_list` | `project_id: 9999` (number) | `project_key: "PROJ"` (string) |
+| C4 | CLI flag rename (backward-compatible alias) | `logvalet star add` | `--pr-id <id>` | `--pull-request-id <id>` (old `--pr-id` kept as alias) |
+
+> **Migration note**: MCP clients send parameter names as JSON keys. Because the MCP framework silently ignores unknown parameters, sending the old names will not raise an explicit error — the parameter will simply be dropped. Update integration code before upgrading to v0.16.0.
 
 ### Supported Modes
 
