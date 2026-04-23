@@ -13,7 +13,7 @@ type StarCmd struct {
 }
 
 // StarAddCmd は star add コマンド。
-// lv star add (--issue-id ID | --comment-id ID | --wiki-id ID | --pr-id ID | --pr-comment-id ID)
+// lv star add (--issue-id ID | --comment-id ID | --wiki-id ID | --pull-request-id ID | --pr-comment-id ID)
 // 指定されたフラグはちょうど1つでなければならない。
 type StarAddCmd struct {
 	IssueID     *int `help:"issue ID to star"`
