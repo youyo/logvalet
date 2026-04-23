@@ -620,3 +620,61 @@ func TestMyTasksHandler_GetMyselfError(t *testing.T) {
 		t.Error("expected IsError=true when GetMyself fails")
 	}
 }
+
+// ===== B3: logvalet_digest_unified =====
+
+// TestDigestUnified_Normal は since 指定で UnifiedDigestBuilder.Build が呼ばれることを確認する。
+func TestDigestUnified_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListSpaceActivitiesFunc = func(ctx context.Context, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_unified", map[string]any{
+		"since": "2026-04-01",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+}
+
+// TestDigestUnified_WithProjectKeys は project_keys 指定で ListProjectActivities が呼ばれることを確認する。
+func TestDigestUnified_WithProjectKeys(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		return &domain.Project{ID: 100, ProjectKey: projectKey, Name: "テストプロジェクト"}, nil
+	}
+	mock.ListProjectActivitiesFunc = func(ctx context.Context, projectKey string, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_unified", map[string]any{
+		"since":        "2026-04-01",
+		"project_keys": "PROJ",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+}
+
+// TestDigestUnified_MissingSince は since 未指定で IsError=true になることを確認する。
+func TestDigestUnified_MissingSince(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := newTestServer(mock)
+	result := callTool(t, s, "logvalet_digest_unified", map[string]any{})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}

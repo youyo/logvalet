@@ -56,4 +56,17 @@ func RegisterTeamTools(r *ToolRegistry) {
 		}
 		return client.GetTeam(ctx, teamID)
 	})
+
+	// logvalet_team_project: B11
+	r.Register(gomcp.NewTool("logvalet_team_project",
+		gomcp.WithDescription("List teams for a specific project"),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("プロジェクトチーム一覧取得"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		return client.ListProjectTeams(ctx, projectKey)
+	})
 }

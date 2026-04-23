@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -417,6 +418,52 @@ func RegisterIssueTools(r *ToolRegistry) {
 			return nil, fmt.Errorf("issue_key is required")
 		}
 		return client.ListIssueAttachments(ctx, issueKey)
+	})
+
+	// logvalet_issue_attachment_delete: B12
+	r.Register(gomcp.NewTool("logvalet_issue_attachment_delete",
+		gomcp.WithDescription("Delete an attachment from an issue"),
+		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
+		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),
+		destructiveAnnotation("添付ファイル削除"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		attachmentID, ok := intArg(args, "attachment_id")
+		if !ok || attachmentID == 0 {
+			return nil, fmt.Errorf("attachment_id is required")
+		}
+		return client.DeleteIssueAttachment(ctx, issueKey, int64(attachmentID))
+	})
+
+	// logvalet_issue_attachment_download: B13
+	r.Register(gomcp.NewTool("logvalet_issue_attachment_download",
+		gomcp.WithDescription("Download an attachment from an issue (max 20MB, returned as base64)"),
+		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
+		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),
+		readOnlyAnnotation("添付ファイルダウンロード"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		attachmentID, ok := intArg(args, "attachment_id")
+		if !ok || attachmentID == 0 {
+			return nil, fmt.Errorf("attachment_id is required")
+		}
+		const maxBytes = 20 * 1024 * 1024
+		content, filename, contentType, err := client.DownloadIssueAttachmentBounded(ctx, issueKey, int64(attachmentID), maxBytes)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{
+			"content_base64": base64.StdEncoding.EncodeToString(content),
+			"filename":       filename,
+			"content_type":   contentType,
+			"size_bytes":     len(content),
+		}, nil
 	})
 }
 

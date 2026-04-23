@@ -1038,3 +1038,169 @@ func TestIssueCommentAdd_InvalidNotifiedUserIDs(t *testing.T) {
 		t.Error("expected IsError=true for invalid notified_user_ids")
 	}
 }
+
+// ===== B12: logvalet_issue_attachment_delete =====
+
+// TestIssueAttachmentDelete_Normal は正常系で DeleteIssueAttachment が呼ばれることを確認する。
+func TestIssueAttachmentDelete_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedIssueKey string
+	var capturedAttachmentID int64
+	mock.DeleteIssueAttachmentFunc = func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error) {
+		capturedIssueKey = issueKey
+		capturedAttachmentID = attachmentID
+		return &domain.IssueAttachment{ID: attachmentID, Name: "deleted.png", Size: 512}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{
+		"issue_key":     "PROJ-1",
+		"attachment_id": float64(99),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedIssueKey != "PROJ-1" {
+		t.Errorf("issueKey = %q, want %q", capturedIssueKey, "PROJ-1")
+	}
+	if capturedAttachmentID != 99 {
+		t.Errorf("attachmentID = %d, want 99", capturedAttachmentID)
+	}
+	if mock.GetCallCount("DeleteIssueAttachment") != 1 {
+		t.Errorf("expected DeleteIssueAttachment called 1 time, got %d", mock.GetCallCount("DeleteIssueAttachment"))
+	}
+}
+
+// TestIssueAttachmentDelete_MissingIssueKey は issue_key 未指定で IsError=true になることを確認する。
+func TestIssueAttachmentDelete_MissingIssueKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{"attachment_id": float64(99)})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// TestIssueAttachmentDelete_MissingAttachmentID は attachment_id 未指定で IsError=true になることを確認する。
+func TestIssueAttachmentDelete_MissingAttachmentID(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{"issue_key": "PROJ-1"})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// TestIssueAttachmentDelete_APIError は DeleteIssueAttachment がエラーの場合に IsError=true になることを確認する。
+func TestIssueAttachmentDelete_APIError(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.DeleteIssueAttachmentFunc = func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error) {
+		return nil, backlog.ErrNotFound
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{
+		"issue_key":     "PROJ-1",
+		"attachment_id": float64(99),
+	})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// ===== B13: logvalet_issue_attachment_download =====
+
+// TestIssueAttachmentDownload_Normal は正常系で base64 エンコード済みコンテンツが返ることを確認する。
+func TestIssueAttachmentDownload_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.DownloadIssueAttachmentBoundedFunc = func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error) {
+		if issueKey != "PROJ-1" {
+			t.Errorf("issueKey = %q, want %q", issueKey, "PROJ-1")
+		}
+		if attachmentID != 10 {
+			t.Errorf("attachmentID = %d, want 10", attachmentID)
+		}
+		return []byte("image data"), "screenshot.png", "image/png", nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{
+		"issue_key":     "PROJ-1",
+		"attachment_id": float64(10),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected non-empty result")
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &out); err != nil {
+		t.Fatalf("failed to parse result JSON: %v", err)
+	}
+	if _, ok := out["content_base64"]; !ok {
+		t.Error("expected content_base64 in result")
+	}
+	if out["filename"] != "screenshot.png" {
+		t.Errorf("filename = %v, want screenshot.png", out["filename"])
+	}
+	if out["content_type"] != "image/png" {
+		t.Errorf("content_type = %v, want image/png", out["content_type"])
+	}
+	if mock.GetCallCount("DownloadIssueAttachmentBounded") != 1 {
+		t.Errorf("expected DownloadIssueAttachmentBounded called 1 time, got %d", mock.GetCallCount("DownloadIssueAttachmentBounded"))
+	}
+}
+
+// TestIssueAttachmentDownload_TooLarge は ErrDownloadTooLarge で IsError=true になることを確認する。
+func TestIssueAttachmentDownload_TooLarge(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.DownloadIssueAttachmentBoundedFunc = func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error) {
+		return nil, "", "", backlog.ErrDownloadTooLarge
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{
+		"issue_key":     "PROJ-1",
+		"attachment_id": float64(10),
+	})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// TestIssueAttachmentDownload_MissingIssueKey は issue_key 未指定で IsError=true になることを確認する。
+func TestIssueAttachmentDownload_MissingIssueKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{"attachment_id": float64(10)})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// TestIssueAttachmentDownload_MissingAttachmentID は attachment_id 未指定で IsError=true になることを確認する。
+func TestIssueAttachmentDownload_MissingAttachmentID(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{"issue_key": "PROJ-1"})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
@@ -34,5 +35,33 @@ func RegisterSharedFileTools(r *ToolRegistry) {
 			opt.Offset = offset
 		}
 		return client.ListSharedFiles(ctx, projectKey, opt)
+	})
+
+	// logvalet_shared_file_download: B14
+	r.Register(gomcp.NewTool("logvalet_shared_file_download",
+		gomcp.WithDescription("Download a shared file (max 20MB, returned as base64)"),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		gomcp.WithNumber("file_id", gomcp.Required(), gomcp.Description("Shared file ID")),
+		readOnlyAnnotation("共有ファイルダウンロード"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		fileID, ok := intArg(args, "file_id")
+		if !ok || fileID == 0 {
+			return nil, fmt.Errorf("file_id is required")
+		}
+		const maxBytes = 20 * 1024 * 1024
+		content, filename, contentType, err := client.DownloadSharedFileBounded(ctx, projectKey, int64(fileID), maxBytes)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{
+			"content_base64": base64.StdEncoding.EncodeToString(content),
+			"filename":       filename,
+			"content_type":   contentType,
+			"size_bytes":     len(content),
+		}, nil
 	})
 }

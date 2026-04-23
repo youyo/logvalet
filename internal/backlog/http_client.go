@@ -838,6 +838,36 @@ func (c *HTTPClient) doDownload(req *http.Request) (io.ReadCloser, string, error
 	return resp.Body, filename, nil
 }
 
+// doDownloadBounded はリクエストを実行し、maxBytes 以内のコンテンツをバイト列で返す。
+// maxBytes を超えるレスポンスは ErrDownloadTooLarge を返す。
+// Content-Type も resp から取得して返す。
+func (c *HTTPClient) doDownloadBounded(req *http.Request, maxBytes int64) ([]byte, string, string, error) {
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("backlog: HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, "", "", c.normalizeError(resp.StatusCode, body)
+	}
+
+	filename := filenameFromResponse(resp)
+	contentType := resp.Header.Get("Content-Type")
+
+	// maxBytes+1 バイト読み込んで、超過を検出する
+	limited := io.LimitReader(resp.Body, maxBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("backlog: reading response body: %w", err)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, "", "", ErrDownloadTooLarge
+	}
+	return data, filename, contentType, nil
+}
+
 // filenameFromResponse は HTTP レスポンスからファイル名を取得する。
 // Content-Disposition ヘッダを優先し、取得できない場合は URL パス末尾を使用する。
 func filenameFromResponse(resp *http.Response) string {
@@ -894,6 +924,17 @@ func (c *HTTPClient) DownloadSharedFile(ctx context.Context, projectKey string, 
 	return c.doDownload(req)
 }
 
+// DownloadSharedFileBounded は指定共有ファイルのコンテンツをバイト列で返す。
+// GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}
+func (c *HTTPClient) DownloadSharedFileBounded(ctx context.Context, projectKey string, fileID int64, maxBytes int64) ([]byte, string, string, error) {
+	apiPath := fmt.Sprintf("/api/v2/projects/%s/files/%d", url.PathEscape(projectKey), fileID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return c.doDownloadBounded(req, maxBytes)
+}
+
 // ---- Issue attachments ----
 
 // ListIssueAttachments は指定課題の添付ファイル一覧を返す。
@@ -935,6 +976,17 @@ func (c *HTTPClient) DownloadIssueAttachment(ctx context.Context, issueKey strin
 		return nil, "", err
 	}
 	return c.doDownload(req)
+}
+
+// DownloadIssueAttachmentBounded は指定課題の添付ファイルコンテンツをバイト列で返す。
+// GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+func (c *HTTPClient) DownloadIssueAttachmentBounded(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error) {
+	apiPath := fmt.Sprintf("/api/v2/issues/%s/attachments/%d", url.PathEscape(issueKey), attachmentID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return c.doDownloadBounded(req, maxBytes)
 }
 
 // ---- Watchings ----

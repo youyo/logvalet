@@ -1376,3 +1376,96 @@ func TestHTTPClientGetMyselfParsesUserFields(t *testing.T) {
 		t.Errorf("UserID = %q, want %q", got.UserID, "testuser")
 	}
 }
+
+// TestHTTPClientDownloadIssueAttachmentBounded は DownloadIssueAttachmentBounded のテスト。
+func TestHTTPClientDownloadIssueAttachmentBounded(t *testing.T) {
+	t.Run("正常系: コンテンツ + filename + contentType が返る", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/issues/PROJ-1/attachments/10" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Content-Disposition", `attachment; filename="screenshot.png"`)
+			_, _ = w.Write([]byte("PNG data"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		data, filename, contentType, err := client.DownloadIssueAttachmentBounded(context.Background(), "PROJ-1", 10, 100)
+		if err != nil {
+			t.Fatalf("DownloadIssueAttachmentBounded() error = %v", err)
+		}
+		if string(data) != "PNG data" {
+			t.Errorf("data = %q, want %q", string(data), "PNG data")
+		}
+		if filename != "screenshot.png" {
+			t.Errorf("filename = %q, want %q", filename, "screenshot.png")
+		}
+		if contentType != "image/png" {
+			t.Errorf("contentType = %q, want %q", contentType, "image/png")
+		}
+	})
+
+	t.Run("サイズ超過: ErrDownloadTooLarge を返す", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Disposition", `attachment; filename="big.bin"`)
+			// maxBytes=10 に対して 11 バイト送る
+			_, _ = w.Write([]byte("12345678901"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, _, _, err := client.DownloadIssueAttachmentBounded(context.Background(), "PROJ-1", 10, 10)
+		if !errors.Is(err, backlog.ErrDownloadTooLarge) {
+			t.Errorf("expected ErrDownloadTooLarge, got %v", err)
+		}
+	})
+}
+
+// TestHTTPClientDownloadSharedFileBounded は DownloadSharedFileBounded のテスト。
+func TestHTTPClientDownloadSharedFileBounded(t *testing.T) {
+	t.Run("正常系: コンテンツ + filename + contentType が返る", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v2/projects/PROJ/files/42" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Content-Disposition", `attachment; filename="readme.txt"`)
+			_, _ = w.Write([]byte("hello"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		data, filename, contentType, err := client.DownloadSharedFileBounded(context.Background(), "PROJ", 42, 100)
+		if err != nil {
+			t.Fatalf("DownloadSharedFileBounded() error = %v", err)
+		}
+		if string(data) != "hello" {
+			t.Errorf("data = %q, want %q", string(data), "hello")
+		}
+		if filename != "readme.txt" {
+			t.Errorf("filename = %q, want %q", filename, "readme.txt")
+		}
+		if contentType != "text/plain" {
+			t.Errorf("contentType = %q, want %q", contentType, "text/plain")
+		}
+	})
+
+	t.Run("サイズ超過: ErrDownloadTooLarge を返す", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			// maxBytes=5 に対して 6 バイト送る
+			_, _ = w.Write([]byte("123456"))
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, _, _, err := client.DownloadSharedFileBounded(context.Background(), "PROJ", 42, 5)
+		if !errors.Is(err, backlog.ErrDownloadTooLarge) {
+			t.Errorf("expected ErrDownloadTooLarge, got %v", err)
+		}
+	})
+}

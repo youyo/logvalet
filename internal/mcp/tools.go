@@ -175,3 +175,20 @@ func parseCSVIntList(input, paramName string) ([]int, error) {
 	}
 	return ids, nil
 }
+
+// parseCSVStringList は "a,b,c" 形式の文字列を []string に変換する。
+// 空文字列は nil を返す（未指定扱い）。空要素はスキップする。
+func parseCSVStringList(input string) []string {
+	if input == "" {
+		return nil
+	}
+	parts := strings.Split(input, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}

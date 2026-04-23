@@ -16,10 +16,10 @@ type ToolCategorySpec struct {
 	Title    string // 日本語 UI タイトル（MCP クライアントが表示する）
 }
 
-// toolCategories は全 42 MCP ツールの annotation カテゴリと日本語 title を宣言する。
+// toolCategories は全 56 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
-	// Read-only (32)
+	// Read-only (32+14=46)
 	"logvalet_space_info":             {CategoryReadOnly, "スペース情報取得"},
 	"logvalet_project_list":           {CategoryReadOnly, "プロジェクト一覧取得"},
 	"logvalet_project_get":            {CategoryReadOnly, "プロジェクト詳細取得"},
@@ -52,6 +52,20 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_watching_list":          {CategoryReadOnly, "ウォッチ一覧取得"},
 	"logvalet_watching_get":           {CategoryReadOnly, "ウォッチ詳細取得"},
 	"logvalet_watching_count":         {CategoryReadOnly, "ウォッチ数取得"},
+	// M02 新規追加 (14)
+	"logvalet_user_me":                    {CategoryReadOnly, "認証ユーザー情報取得"},
+	"logvalet_user_activity":              {CategoryReadOnly, "ユーザーアクティビティ取得"},
+	"logvalet_digest_unified":             {CategoryReadOnly, "統合ダイジェスト生成"},
+	"logvalet_activity_digest":            {CategoryReadOnly, "アクティビティダイジェスト生成"},
+	"logvalet_document_tree":              {CategoryReadOnly, "ドキュメントツリー取得"},
+	"logvalet_document_digest":            {CategoryReadOnly, "ドキュメントダイジェスト生成"},
+	"logvalet_space_digest":               {CategoryReadOnly, "スペースダイジェスト生成"},
+	"logvalet_space_disk_usage":           {CategoryReadOnly, "スペースディスク使用量取得"},
+	"logvalet_meta_version":               {CategoryReadOnly, "バージョン一覧取得"},
+	"logvalet_meta_custom_field":          {CategoryReadOnly, "カスタムフィールド一覧取得"},
+	"logvalet_team_project":               {CategoryReadOnly, "プロジェクトチーム一覧取得"},
+	"logvalet_issue_attachment_download":  {CategoryReadOnly, "添付ファイルダウンロード"},
+	"logvalet_shared_file_download":       {CategoryReadOnly, "共有ファイルダウンロード"},
 
 	// Write non-idempotent (3)
 	"logvalet_issue_create":      {CategoryWriteNonIdempotent, "課題作成"},
@@ -66,6 +80,7 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_watching_update":       {CategoryWriteIdempotent, "ウォッチ更新"},
 	"logvalet_watching_mark_as_read": {CategoryWriteIdempotent, "ウォッチ既読化"},
 
-	// Destructive (1)
-	"logvalet_watching_delete": {CategoryDestructive, "ウォッチ削除"},
+	// Destructive (2)
+	"logvalet_watching_delete":          {CategoryDestructive, "ウォッチ削除"},
+	"logvalet_issue_attachment_delete":  {CategoryDestructive, "添付ファイル削除"},
 }

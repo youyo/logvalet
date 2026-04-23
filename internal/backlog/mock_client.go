@@ -63,13 +63,15 @@ type MockClient struct {
 	GetSpaceDiskUsageFunc func(ctx context.Context) (*domain.DiskUsage, error)
 
 	// Shared files
-	ListSharedFilesFunc    func(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
-	DownloadSharedFileFunc func(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
+	ListSharedFilesFunc           func(ctx context.Context, projectKey string, opt ListSharedFilesOptions) ([]domain.SharedFile, error)
+	DownloadSharedFileFunc        func(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
+	DownloadSharedFileBoundedFunc func(ctx context.Context, projectKey string, fileID int64, maxBytes int64) ([]byte, string, string, error)
 
 	// Issue attachments
-	ListIssueAttachmentsFunc    func(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)
-	DeleteIssueAttachmentFunc   func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error)
-	DownloadIssueAttachmentFunc func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
+	ListIssueAttachmentsFunc           func(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)
+	DeleteIssueAttachmentFunc          func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error)
+	DownloadIssueAttachmentFunc        func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
+	DownloadIssueAttachmentBoundedFunc func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error)
 
 	// Stars
 	AddStarFunc func(ctx context.Context, req AddStarRequest) error
@@ -374,6 +376,14 @@ func (m *MockClient) DownloadSharedFile(ctx context.Context, projectKey string, 
 	return nil, "", ErrNotFound
 }
 
+func (m *MockClient) DownloadSharedFileBounded(ctx context.Context, projectKey string, fileID int64, maxBytes int64) ([]byte, string, string, error) {
+	m.increment("DownloadSharedFileBounded")
+	if m.DownloadSharedFileBoundedFunc != nil {
+		return m.DownloadSharedFileBoundedFunc(ctx, projectKey, fileID, maxBytes)
+	}
+	return nil, "", "", ErrNotFound
+}
+
 func (m *MockClient) ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error) {
 	m.increment("ListIssueAttachments")
 	if m.ListIssueAttachmentsFunc != nil {
@@ -396,6 +406,14 @@ func (m *MockClient) DownloadIssueAttachment(ctx context.Context, issueKey strin
 		return m.DownloadIssueAttachmentFunc(ctx, issueKey, attachmentID)
 	}
 	return nil, "", ErrNotFound
+}
+
+func (m *MockClient) DownloadIssueAttachmentBounded(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error) {
+	m.increment("DownloadIssueAttachmentBounded")
+	if m.DownloadIssueAttachmentBoundedFunc != nil {
+		return m.DownloadIssueAttachmentBoundedFunc(ctx, issueKey, attachmentID, maxBytes)
+	}
+	return nil, "", "", ErrNotFound
 }
 
 func (m *MockClient) AddStar(ctx context.Context, req AddStarRequest) error {

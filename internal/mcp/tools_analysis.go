@@ -8,6 +8,7 @@ import (
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/analysis"
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
 )
 
 // RegisterAnalysisTools は分析系の MCP tools を ToolRegistry に登録する。
@@ -451,5 +452,82 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 
 		builder := analysis.NewMyTasksBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
 		return builder.Build(ctx, opts)
+	})
+
+	// logvalet_digest_unified: B3
+	r.Register(gomcp.NewTool("logvalet_digest_unified",
+		gomcp.WithDescription("Generate a unified digest across projects, users, teams, or issues"),
+		gomcp.WithString("since", gomcp.Required(), gomcp.Description("Start date (YYYY-MM-DD)")),
+		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),
+		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys")),
+		gomcp.WithString("user_ids", gomcp.Description("Comma-separated user IDs")),
+		gomcp.WithString("team_ids", gomcp.Description("Comma-separated team IDs")),
+		gomcp.WithString("issue_keys", gomcp.Description("Comma-separated issue keys")),
+		gomcp.WithString("due_date", gomcp.Description("Due date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)")),
+		gomcp.WithString("start_date", gomcp.Description("Start date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)")),
+		readOnlyAnnotation("統合ダイジェスト生成"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		sinceStr, ok := stringArg(args, "since")
+		if !ok || sinceStr == "" {
+			return nil, fmt.Errorf("since is required")
+		}
+		sinceTime, err := parseDateStr(sinceStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid since: %w", err)
+		}
+
+		scope := digest.UnifiedDigestScope{
+			Since: &sinceTime,
+		}
+
+		if untilStr, ok := stringArg(args, "until"); ok && untilStr != "" {
+			t, err := parseDateStr(untilStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid until: %w", err)
+			}
+			scope.Until = &t
+		}
+
+		// project_keys: CSV → []string → GetProject で ProjectIDs を解決
+		if projectKeysStr, ok := stringArg(args, "project_keys"); ok && projectKeysStr != "" {
+			for _, key := range strings.Split(projectKeysStr, ",") {
+				key = strings.TrimSpace(key)
+				if key == "" {
+					continue
+				}
+				proj, err := client.GetProject(ctx, key)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get project %s: %w", key, err)
+				}
+				scope.ProjectKeys = append(scope.ProjectKeys, key)
+				scope.ProjectIDs = append(scope.ProjectIDs, proj.ID)
+			}
+		}
+
+		// user_ids: CSV → []int
+		if userIDsStr, ok := stringArg(args, "user_ids"); ok && userIDsStr != "" {
+			ids, err := parseCSVIntList(userIDsStr, "user_ids")
+			if err != nil {
+				return nil, err
+			}
+			scope.UserIDs = ids
+		}
+
+		// team_ids: CSV → []int
+		if teamIDsStr, ok := stringArg(args, "team_ids"); ok && teamIDsStr != "" {
+			ids, err := parseCSVIntList(teamIDsStr, "team_ids")
+			if err != nil {
+				return nil, err
+			}
+			scope.TeamIDs = ids
+		}
+
+		// issue_keys: CSV → []string
+		if issueKeysStr, ok := stringArg(args, "issue_keys"); ok && issueKeysStr != "" {
+			scope.IssueKeys = parseCSVStringList(issueKeysStr)
+		}
+
+		builder := digest.NewUnifiedDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, scope)
 	})
 }

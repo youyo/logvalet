@@ -48,4 +48,30 @@ func RegisterMetaTools(r *ToolRegistry) {
 		}
 		return client.ListProjectCategories(ctx, projectKey)
 	})
+
+	// logvalet_meta_version: B9
+	r.Register(gomcp.NewTool("logvalet_meta_version",
+		gomcp.WithDescription("List versions for a project"),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("バージョン一覧取得"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		return client.ListProjectVersions(ctx, projectKey)
+	})
+
+	// logvalet_meta_custom_field: B10
+	r.Register(gomcp.NewTool("logvalet_meta_custom_field",
+		gomcp.WithDescription("List custom field definitions for a project"),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("カスタムフィールド一覧取得"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		return client.ListProjectCustomFields(ctx, projectKey)
+	})
 }

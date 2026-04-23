@@ -32,6 +32,9 @@ var (
 
 	// ErrAPI は HTTP 5xx 等の API エラーに対応する。
 	ErrAPI = errors.New("backlog: api error")
+
+	// ErrDownloadTooLarge はダウンロードコンテンツが最大サイズ制限を超えた場合に返される。
+	ErrDownloadTooLarge = errors.New("backlog: download too large")
 )
 
 // BacklogError は Backlog API から返されるエラー情報を保持する。

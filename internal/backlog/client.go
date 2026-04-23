@@ -167,6 +167,12 @@ type Client interface {
 	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}
 	DownloadSharedFile(ctx context.Context, projectKey string, fileID int64) (io.ReadCloser, string, error)
 
+	// DownloadSharedFileBounded は指定共有ファイルのコンテンツをバイト列で返す。
+	// maxBytes を超えるレスポンスは ErrDownloadTooLarge を返す。
+	// Content-Type も取得して返す。
+	// Backlog API: GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}
+	DownloadSharedFileBounded(ctx context.Context, projectKey string, fileID int64, maxBytes int64) (content []byte, filename, contentType string, err error)
+
 	// Issue attachments
 
 	// ListIssueAttachments は指定課題の添付ファイル一覧を返す。
@@ -181,6 +187,12 @@ type Client interface {
 	// 戻り値の string はファイル名（Content-Disposition から取得。失敗した場合は URL パス末尾）。
 	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
 	DownloadIssueAttachment(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
+
+	// DownloadIssueAttachmentBounded は指定課題の添付ファイルコンテンツをバイト列で返す。
+	// maxBytes を超えるレスポンスは ErrDownloadTooLarge を返す。
+	// Content-Type も取得して返す。
+	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
+	DownloadIssueAttachmentBounded(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) (content []byte, filename, contentType string, err error)
 
 	// Stars
 

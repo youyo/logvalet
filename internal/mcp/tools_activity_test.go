@@ -324,3 +324,51 @@ func TestActivityList_InvalidActivityTypeIDs(t *testing.T) {
 		t.Error("expected IsError=true for invalid activity_type_ids")
 	}
 }
+
+// ===== B4: logvalet_activity_digest =====
+
+// TestActivityDigest_Normal はパラメータなしで DefaultActivityDigestBuilder.Build が呼ばれることを確認する。
+func TestActivityDigest_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListSpaceActivitiesFunc = func(ctx context.Context, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		return []domain.Activity{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_digest", map[string]any{})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if mock.GetCallCount("ListSpaceActivities") != 1 {
+		t.Errorf("expected ListSpaceActivities called 1 time, got %d", mock.GetCallCount("ListSpaceActivities"))
+	}
+}
+
+// TestActivityDigest_WithProject は project パラメータ指定で ListProjectActivities が呼ばれることを確認する。
+func TestActivityDigest_WithProject(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedProjectKey string
+	var capturedCount int
+	mock.ListProjectActivitiesFunc = func(ctx context.Context, projectKey string, opt backlog.ListActivitiesOptions) ([]domain.Activity, error) {
+		capturedProjectKey = projectKey
+		capturedCount = opt.Count
+		return []domain.Activity{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_activity_digest", map[string]any{
+		"project": "PROJ",
+		"limit":   float64(50),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedProjectKey != "PROJ" {
+		t.Errorf("projectKey = %q, want %q", capturedProjectKey, "PROJ")
+	}
+	if capturedCount != 50 {
+		t.Errorf("count = %d, want 50", capturedCount)
+	}
+}

@@ -6,10 +6,11 @@ import (
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
 )
 
 // RegisterDocumentTools はドキュメント関連の MCP tools を ToolRegistry に登録する。
-func RegisterDocumentTools(r *ToolRegistry) {
+func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_document_get
 	r.Register(gomcp.NewTool("logvalet_document_get",
 		gomcp.WithDescription("Get document by document ID"),
@@ -77,5 +78,32 @@ func RegisterDocumentTools(r *ToolRegistry) {
 		}
 
 		return client.CreateDocument(ctx, req)
+	})
+
+	// logvalet_document_tree: B5
+	r.Register(gomcp.NewTool("logvalet_document_tree",
+		gomcp.WithDescription("Get the document tree for a project"),
+		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
+		readOnlyAnnotation("ドキュメントツリー取得"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		projectKey, ok := stringArg(args, "project_key")
+		if !ok || projectKey == "" {
+			return nil, fmt.Errorf("project_key is required")
+		}
+		return client.GetDocumentTree(ctx, projectKey)
+	})
+
+	// logvalet_document_digest: B6
+	r.Register(gomcp.NewTool("logvalet_document_digest",
+		gomcp.WithDescription("Generate a digest for a document"),
+		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
+		readOnlyAnnotation("ドキュメントダイジェスト生成"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		documentID, ok := stringArg(args, "document_id")
+		if !ok || documentID == "" {
+			return nil, fmt.Errorf("document_id is required")
+		}
+		builder := digest.NewDefaultDocumentDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		return builder.Build(ctx, documentID, digest.DocumentDigestOptions{})
 	})
 }

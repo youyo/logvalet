@@ -121,3 +121,40 @@ func TestTeamList_WithNoMembers_False(t *testing.T) {
 		t.Errorf("expected ListTeams called 1 time, got %d", mock.GetCallCount("ListTeams"))
 	}
 }
+
+// ===== B11: logvalet_team_project =====
+
+// TestTeamProject_Normal は project_key 指定で ListProjectTeams が呼ばれることを確認する。
+func TestTeamProject_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedProjectKey string
+	mock.ListProjectTeamsFunc = func(ctx context.Context, projectKey string) ([]domain.Team, error) {
+		capturedProjectKey = projectKey
+		return []domain.Team{{ID: 1, Name: "チームA"}, {ID: 2, Name: "チームB"}}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_team_project", map[string]any{"project_key": "PROJ"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedProjectKey != "PROJ" {
+		t.Errorf("projectKey = %q, want %q", capturedProjectKey, "PROJ")
+	}
+	if mock.GetCallCount("ListProjectTeams") != 1 {
+		t.Errorf("expected ListProjectTeams called 1 time, got %d", mock.GetCallCount("ListProjectTeams"))
+	}
+}
+
+// TestTeamProject_MissingProjectKey は project_key 未指定で IsError=true になることを確認する。
+func TestTeamProject_MissingProjectKey(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_team_project", map[string]any{})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
