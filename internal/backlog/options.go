@@ -81,3 +81,18 @@ type ListWatchingsOptions struct {
 	ResourceAlreadyRead      *bool  // true=既読のみ、false=未読のみ、nil=全件
 	IssueID                  int    // 特定課題 ID でフィルタ（0=フィルタなし）
 }
+
+// ListWikisOptions は ListWikis リクエストのオプション。
+// Backlog API: GET /api/v2/wikis
+type ListWikisOptions struct {
+	Keyword string // キーワード検索
+}
+
+// ListWikiHistoryOptions は GetWikiHistory リクエストのオプション。
+// Backlog API: GET /api/v2/wikis/{wikiId}/history
+type ListWikiHistoryOptions struct {
+	MinID int    // この ID 以上の履歴を取得（0 = 制限なし）
+	MaxID int    // この ID 以下の履歴を取得（0 = 制限なし）
+	Count int    // 取得件数（1-100、デフォルト 20）
+	Order string // "asc" or "desc"（空文字 = API デフォルト desc）
+}

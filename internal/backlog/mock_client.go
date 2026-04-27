@@ -73,6 +73,16 @@ type MockClient struct {
 	DownloadIssueAttachmentFunc        func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
 	DownloadIssueAttachmentBoundedFunc func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error)
 
+	// Wiki
+	ListWikisFunc          func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
+	CountWikisFunc         func(ctx context.Context, projectKey string) (int, error)
+	ListWikiTagsFunc       func(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
+	GetWikiFunc            func(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
+	GetWikiHistoryFunc     func(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
+	GetWikiStarsFunc       func(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
+	ListWikiAttachmentsFunc func(ctx context.Context, wikiID int64) ([]domain.Attachment, error)
+	ListWikiSharedFilesFunc func(ctx context.Context, wikiID int64) ([]domain.SharedFile, error)
+
 	// Stars
 	AddStarFunc func(ctx context.Context, req AddStarRequest) error
 
@@ -478,4 +488,68 @@ func (m *MockClient) MarkWatchingAsRead(ctx context.Context, watchingID int64) e
 		return m.MarkWatchingAsReadFunc(ctx, watchingID)
 	}
 	return ErrNotFound
+}
+
+func (m *MockClient) ListWikis(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error) {
+	m.increment("ListWikis")
+	if m.ListWikisFunc != nil {
+		return m.ListWikisFunc(ctx, projectKey, opt)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) CountWikis(ctx context.Context, projectKey string) (int, error) {
+	m.increment("CountWikis")
+	if m.CountWikisFunc != nil {
+		return m.CountWikisFunc(ctx, projectKey)
+	}
+	return 0, ErrNotFound
+}
+
+func (m *MockClient) ListWikiTags(ctx context.Context, projectKey string) ([]domain.WikiTag, error) {
+	m.increment("ListWikiTags")
+	if m.ListWikiTagsFunc != nil {
+		return m.ListWikiTagsFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) GetWiki(ctx context.Context, wikiID int64) (*domain.WikiPage, error) {
+	m.increment("GetWiki")
+	if m.GetWikiFunc != nil {
+		return m.GetWikiFunc(ctx, wikiID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) GetWikiHistory(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error) {
+	m.increment("GetWikiHistory")
+	if m.GetWikiHistoryFunc != nil {
+		return m.GetWikiHistoryFunc(ctx, wikiID, opt)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) GetWikiStars(ctx context.Context, wikiID int64) ([]domain.WikiStar, error) {
+	m.increment("GetWikiStars")
+	if m.GetWikiStarsFunc != nil {
+		return m.GetWikiStarsFunc(ctx, wikiID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListWikiAttachments(ctx context.Context, wikiID int64) ([]domain.Attachment, error) {
+	m.increment("ListWikiAttachments")
+	if m.ListWikiAttachmentsFunc != nil {
+		return m.ListWikiAttachmentsFunc(ctx, wikiID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListWikiSharedFiles(ctx context.Context, wikiID int64) ([]domain.SharedFile, error) {
+	m.increment("ListWikiSharedFiles")
+	if m.ListWikiSharedFilesFunc != nil {
+		return m.ListWikiSharedFilesFunc(ctx, wikiID)
+	}
+	return nil, ErrNotFound
 }

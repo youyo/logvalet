@@ -13,6 +13,7 @@ type CLI struct {
 	Activity    ActivityCmd   `cmd:"" help:"manage activities"`
 	User        UserCmd       `cmd:"" help:"manage users"`
 	Document    DocumentCmd    `cmd:"" help:"manage documents"`
+	Wiki        WikiCmd        `cmd:"" help:"manage Backlog wiki pages"`
 	SharedFile  SharedFileCmd  `cmd:"" help:"manage shared files"`
 	Star        StarCmd        `cmd:"" help:"manage stars"`
 	Watching    WatchingCmd    `cmd:"" help:"manage watchings"`

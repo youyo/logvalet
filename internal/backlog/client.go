@@ -194,6 +194,40 @@ type Client interface {
 	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
 	DownloadIssueAttachmentBounded(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) (content []byte, filename, contentType string, err error)
 
+	// Wiki
+
+	// ListWikis は指定プロジェクトの Wiki ページ一覧を返す。
+	// Backlog API: GET /api/v2/wikis?projectIdOrKey=KEY
+	ListWikis(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
+
+	// CountWikis は指定プロジェクトの Wiki ページ件数を返す。
+	// Backlog API: GET /api/v2/wikis/count?projectIdOrKey=KEY
+	CountWikis(ctx context.Context, projectKey string) (int, error)
+
+	// ListWikiTags は指定プロジェクトの Wiki タグ一覧を返す。
+	// Backlog API: GET /api/v2/wikis/tags?projectIdOrKey=KEY
+	ListWikiTags(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
+
+	// GetWiki は指定 Wiki ページを返す。
+	// Backlog API: GET /api/v2/wikis/{wikiId}
+	GetWiki(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
+
+	// GetWikiHistory は指定 Wiki ページの変更履歴を返す。
+	// Backlog API: GET /api/v2/wikis/{wikiId}/history
+	GetWikiHistory(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
+
+	// GetWikiStars は指定 Wiki ページのスター一覧を返す。
+	// Backlog API: GET /api/v2/wikis/{wikiId}/stars
+	GetWikiStars(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
+
+	// ListWikiAttachments は指定 Wiki ページの添付ファイル一覧を返す。
+	// Backlog API: GET /api/v2/wikis/{wikiId}/attachments
+	ListWikiAttachments(ctx context.Context, wikiID int64) ([]domain.Attachment, error)
+
+	// ListWikiSharedFiles は指定 Wiki ページの共有ファイル一覧を返す。
+	// Backlog API: GET /api/v2/wikis/{wikiId}/sharedFiles
+	ListWikiSharedFiles(ctx context.Context, wikiID int64) ([]domain.SharedFile, error)
+
 	// Stars
 
 	// AddStar は課題・コメント・Wiki 等にスターを追加する。

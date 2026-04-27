@@ -1134,6 +1134,149 @@ func (c *HTTPClient) MarkWatchingAsRead(ctx context.Context, watchingID int64) e
 	return c.do(req, nil)
 }
 
+// ---- Wiki ----
+
+// ListWikis は指定プロジェクトの Wiki ページ一覧を返す。
+// GET /api/v2/wikis?projectIdOrKey=KEY
+func (c *HTTPClient) ListWikis(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error) {
+	q := url.Values{}
+	q.Set("projectIdOrKey", projectKey)
+	if opt.Keyword != "" {
+		q.Set("keyword", opt.Keyword)
+	}
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/wikis", q)
+	if err != nil {
+		return nil, err
+	}
+	var pages []domain.WikiPage
+	if err := c.do(req, &pages); err != nil {
+		return nil, err
+	}
+	return pages, nil
+}
+
+// CountWikis は指定プロジェクトの Wiki ページ件数を返す。
+// GET /api/v2/wikis/count?projectIdOrKey=KEY
+func (c *HTTPClient) CountWikis(ctx context.Context, projectKey string) (int, error) {
+	q := url.Values{}
+	q.Set("projectIdOrKey", projectKey)
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/wikis/count", q)
+	if err != nil {
+		return 0, err
+	}
+	var result struct {
+		Count int `json:"count"`
+	}
+	if err := c.do(req, &result); err != nil {
+		return 0, err
+	}
+	return result.Count, nil
+}
+
+// ListWikiTags は指定プロジェクトの Wiki タグ一覧を返す。
+// GET /api/v2/wikis/tags?projectIdOrKey=KEY
+func (c *HTTPClient) ListWikiTags(ctx context.Context, projectKey string) ([]domain.WikiTag, error) {
+	q := url.Values{}
+	q.Set("projectIdOrKey", projectKey)
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/wikis/tags", q)
+	if err != nil {
+		return nil, err
+	}
+	var tags []domain.WikiTag
+	if err := c.do(req, &tags); err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+// GetWiki は指定 Wiki ページを返す。
+// GET /api/v2/wikis/{wikiId}
+func (c *HTTPClient) GetWiki(ctx context.Context, wikiID int64) (*domain.WikiPage, error) {
+	apiPath := fmt.Sprintf("/api/v2/wikis/%d", wikiID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var page domain.WikiPage
+	if err := c.do(req, &page); err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
+// GetWikiHistory は指定 Wiki ページの変更履歴を返す。
+// GET /api/v2/wikis/{wikiId}/history
+func (c *HTTPClient) GetWikiHistory(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error) {
+	q := url.Values{}
+	if opt.MinID > 0 {
+		q.Set("minId", strconv.Itoa(opt.MinID))
+	}
+	if opt.MaxID > 0 {
+		q.Set("maxId", strconv.Itoa(opt.MaxID))
+	}
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
+	}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
+	}
+	apiPath := fmt.Sprintf("/api/v2/wikis/%d/history", wikiID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, q)
+	if err != nil {
+		return nil, err
+	}
+	var histories []domain.WikiHistory
+	if err := c.do(req, &histories); err != nil {
+		return nil, err
+	}
+	return histories, nil
+}
+
+// GetWikiStars は指定 Wiki ページのスター一覧を返す。
+// GET /api/v2/wikis/{wikiId}/stars
+func (c *HTTPClient) GetWikiStars(ctx context.Context, wikiID int64) ([]domain.WikiStar, error) {
+	apiPath := fmt.Sprintf("/api/v2/wikis/%d/stars", wikiID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var stars []domain.WikiStar
+	if err := c.do(req, &stars); err != nil {
+		return nil, err
+	}
+	return stars, nil
+}
+
+// ListWikiAttachments は指定 Wiki ページの添付ファイル一覧を返す。
+// GET /api/v2/wikis/{wikiId}/attachments
+func (c *HTTPClient) ListWikiAttachments(ctx context.Context, wikiID int64) ([]domain.Attachment, error) {
+	apiPath := fmt.Sprintf("/api/v2/wikis/%d/attachments", wikiID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var attachments []domain.Attachment
+	if err := c.do(req, &attachments); err != nil {
+		return nil, err
+	}
+	return attachments, nil
+}
+
+// ListWikiSharedFiles は指定 Wiki ページの共有ファイル一覧を返す。
+// GET /api/v2/wikis/{wikiId}/sharedFiles
+func (c *HTTPClient) ListWikiSharedFiles(ctx context.Context, wikiID int64) ([]domain.SharedFile, error) {
+	apiPath := fmt.Sprintf("/api/v2/wikis/%d/sharedFiles", wikiID)
+	req, err := c.newRequest(ctx, http.MethodGet, apiPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	var files []domain.SharedFile
+	if err := c.do(req, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
 // ---- Stars ----
 
 // AddStar は課題・コメント・Wiki 等にスターを追加する。

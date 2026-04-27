@@ -62,5 +62,6 @@ func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterSharedFileTools(reg)
 	RegisterStarTools(reg)
 	RegisterWatchingTools(reg)
+	RegisterWikiTools(reg)
 	RegisterAnalysisTools(reg, cfg)
 }
