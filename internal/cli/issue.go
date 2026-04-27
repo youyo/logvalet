@@ -328,7 +328,7 @@ type IssueUpdateCmd struct {
 	DueDate         *string  `help:"due date (YYYY-MM-DD)"`
 	StartDate       *string  `help:"start date (YYYY-MM-DD)"`
 	NotifiedUserID  []int    `help:"notify user IDs (multiple allowed)"`
-	Comment         *string  `help:"comment when updating"`
+	Comment         *string  `aliases:"body" help:"comment when updating. --body is an alias."`
 }
 
 // Run は issue update コマンドの実行（spec §14.5）。
@@ -566,8 +566,8 @@ func (c *IssueCommentListCmd) Run(g *GlobalFlags) error {
 type IssueCommentAddCmd struct {
 	WriteFlags
 	IssueIDOrKey   string `arg:"" required:"" help:"issue ID or key"`
-	Content        string `help:"comment body (mutually exclusive with --content-file)"`
-	ContentFile    string `help:"read comment body from file (mutually exclusive with --content)"`
+	Content        string `aliases:"body" help:"comment body (mutually exclusive with --content-file). --body is an alias."`
+	ContentFile    string `aliases:"body-file" help:"read comment body from file (mutually exclusive with --content). --body-file is an alias."`
 	NotifiedUserID []int  `help:"notify user IDs (multiple allowed)"`
 }
 
@@ -618,8 +618,8 @@ type IssueCommentUpdateCmd struct {
 	WriteFlags
 	IssueIDOrKey string `arg:"" required:"" help:"issue ID or key"`
 	CommentID    int    `arg:"" required:"" help:"comment ID"`
-	Content      string `help:"comment body (mutually exclusive with --content-file)"`
-	ContentFile  string `help:"read comment body from file (mutually exclusive with --content)"`
+	Content      string `aliases:"body" help:"comment body (mutually exclusive with --content-file). --body is an alias."`
+	ContentFile  string `aliases:"body-file" help:"read comment body from file (mutually exclusive with --content). --body-file is an alias."`
 }
 
 // Run は issue comment update コマンドの実行（spec §14.8）。
