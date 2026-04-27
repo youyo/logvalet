@@ -897,21 +897,19 @@ lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
 lv issue attachment delete PROJ-123 12345 --dry-run
 ```
 
-## Skills
+## Claude Code Skills
 
-logvalet includes agent skills that teach AI coding agents how to use logvalet commands effectively.
+logvalet's Claude Code skills (14 skills covering PM workflows, project health, risk analysis, activity intelligence, issue triage, and periodic digests) are distributed through the [`youyo/claude-plugins`](https://github.com/youyo/claude-plugins) marketplace.
 
-### Install (all supported agents)
-
-```bash
-npx skills add youyo/logvalet
-```
-
-### Install (Claude Code only)
+### Install
 
 ```bash
-npx skills add youyo/logvalet -a claude-code
+# In Claude Code
+/plugin marketplace add youyo/claude-plugins
+/plugin install logvalet@youyo
 ```
+
+The CLI binary must still be installed separately (see [Installation](#installation) above).
 
 ### Available Skills
 
@@ -932,7 +930,9 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet:intelligence` | Analyze activity statistics to detect anomalies, biases, and risks |
 | `logvalet:risk` | Generate integrated risk assessment and recommended actions for a project |
 
-After installation, your coding agent will automatically know how to use logvalet commands for Backlog operations.
+### Migration from previous installs
+
+If you previously installed via `npx skills add youyo/logvalet` or `/plugin install logvalet@<old-source>`, uninstall the old version first and then re-install via the `claude-plugins` marketplace as shown above. Skills are no longer distributed from this repository directly — this repository now focuses on the CLI binary and MCP server implementation.
 
 ## License
 

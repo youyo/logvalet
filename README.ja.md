@@ -860,21 +860,19 @@ lv issue comment add PROJ-123 --content-file ./comment.md --dry-run
 lv issue attachment delete PROJ-123 12345 --dry-run
 ```
 
-## スキル
+## Claude Code スキル
 
-logvalet には、AI コーディングエージェントに logvalet コマンドの効果的な使用方法を教えるエージェントスキルが含まれます。
+logvalet の Claude Code スキル（PM ワークフロー・プロジェクト健全性・リスク分析・アクティビティ分析・課題トリアージ・定期ダイジェストをカバーする 14 スキル）は [`youyo/claude-plugins`](https://github.com/youyo/claude-plugins) マーケットプレース経由で配布しています。
 
-### インストール（全サポートエージェント）
-
-```bash
-npx skills add youyo/logvalet
-```
-
-### インストール（Claude Code のみ）
+### インストール
 
 ```bash
-npx skills add youyo/logvalet -a claude-code
+# Claude Code 内で
+/plugin marketplace add youyo/claude-plugins
+/plugin install logvalet@youyo
 ```
+
+CLI バイナリは別途インストールが必要です（上記「インストール」セクション参照）。
 
 ### 利用可能なスキル
 
@@ -895,7 +893,9 @@ npx skills add youyo/logvalet -a claude-code
 | `logvalet:intelligence` | アクティビティ統計を分析して偏り・異常・リスクを検出 |
 | `logvalet:risk` | プロジェクトの統合リスク評価・推奨アクションを生成 |
 
-インストール後、コーディングエージェントは Backlog 操作用の logvalet コマンドを自動的に認識します。
+### 旧インストールからの移行
+
+`npx skills add youyo/logvalet` や `/plugin install logvalet@<旧>` で導入していた場合は、先に旧版をアンインストールしてから上記の `claude-plugins` マーケットプレース経由で再インストールしてください。スキルは本リポジトリから直接配布しなくなりました — 本リポジトリは CLI バイナリと MCP サーバー実装に集中します。
 
 ## ライセンス
 
