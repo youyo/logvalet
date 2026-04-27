@@ -906,7 +906,7 @@ logvalet's Claude Code skills (14 skills covering PM workflows, project health, 
 ```bash
 # In Claude Code
 /plugin marketplace add youyo/claude-plugins
-/plugin install logvalet@heptagon-inc
+/plugin install logvalet@youyo
 ```
 
 The CLI binary must still be installed separately (see [Installation](#installation) above).
