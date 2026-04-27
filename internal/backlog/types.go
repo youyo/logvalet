@@ -20,6 +20,7 @@ type CreateIssueRequest struct {
 	ParentIssueID   int // 0 = 未指定
 	NotifiedUserIDs []int
 	CustomFields    map[string]string
+	AttachmentIDs   []int64 // UploadAttachment で取得した添付 ID
 }
 
 // UpdateIssueRequest は UpdateIssue リクエストのパラメータ。
@@ -39,6 +40,7 @@ type UpdateIssueRequest struct {
 	NotifiedUserIDs []int
 	Comment         *string
 	CustomFields    map[string]string
+	AttachmentIDs   []int64 // UploadAttachment で取得した添付 ID
 }
 
 // AddCommentRequest は AddIssueComment リクエストのパラメータ。

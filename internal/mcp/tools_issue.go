@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -360,7 +363,8 @@ func RegisterIssueTools(r *ToolRegistry) {
 	r.Register(gomcp.NewTool("logvalet_issue_comment_add",
 		gomcp.WithDescription("Add a comment to an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("content", gomcp.Required(), gomcp.Description("Comment content")),
+		gomcp.WithString("content", gomcp.Description("Comment content (alias: body)")),
+		gomcp.WithString("body", gomcp.Description("Alias for content")),
 		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
 		writeAnnotation("課題コメント追加", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
@@ -370,7 +374,10 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		content, ok := stringArg(args, "content")
 		if !ok || content == "" {
-			return nil, fmt.Errorf("content is required")
+			content, ok = stringArg(args, "body")
+		}
+		if !ok || content == "" {
+			return nil, fmt.Errorf("content (or body) is required")
 		}
 		req := backlog.AddCommentRequest{Content: content}
 		if notifiedUserIDsStr, ok := stringArg(args, "notified_user_ids"); ok && notifiedUserIDsStr != "" {
@@ -388,7 +395,8 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithDescription("Update a comment on an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("comment_id", gomcp.Required(), gomcp.Description("Comment ID")),
-		gomcp.WithString("content", gomcp.Required(), gomcp.Description("New comment content")),
+		gomcp.WithString("content", gomcp.Description("New comment content (alias: body)")),
+		gomcp.WithString("body", gomcp.Description("Alias for content")),
 		writeAnnotation("課題コメント更新", true),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
@@ -401,7 +409,10 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		content, ok := stringArg(args, "content")
 		if !ok || content == "" {
-			return nil, fmt.Errorf("content is required")
+			content, ok = stringArg(args, "body")
+		}
+		if !ok || content == "" {
+			return nil, fmt.Errorf("content (or body) is required")
 		}
 		req := backlog.UpdateCommentRequest{Content: content}
 		return client.UpdateIssueComment(ctx, issueKey, int64(commentID), req)
@@ -438,6 +449,47 @@ func RegisterIssueTools(r *ToolRegistry) {
 		return client.DeleteIssueAttachment(ctx, issueKey, int64(attachmentID))
 	})
 
+	// logvalet_issue_attachment_upload
+	r.Register(gomcp.NewTool("logvalet_issue_attachment_upload",
+		gomcp.WithDescription("Upload local file(s) and attach them to an issue. Accepts absolute file paths accessible to the agent."),
+		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
+		gomcp.WithString("file_paths", gomcp.Required(), gomcp.Description("Comma-separated absolute file paths to upload")),
+		writeAnnotation("添付ファイルアップロード", false),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		filePathsStr, ok := stringArg(args, "file_paths")
+		if !ok || filePathsStr == "" {
+			return nil, fmt.Errorf("file_paths is required")
+		}
+
+		filePaths := parseCSVStringList(filePathsStr)
+		if len(filePaths) == 0 {
+			return nil, fmt.Errorf("file_paths must contain at least one path")
+		}
+
+		var attachmentIDs []int64
+		for _, fp := range filePaths {
+			f, err := openFile(fp)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file %q: %w", fp, err)
+			}
+			defer f.Close() //nolint:errcheck
+
+			filename := fileBase(fp)
+			att, err := client.UploadAttachment(ctx, filename, f)
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload %q: %w", fp, err)
+			}
+			attachmentIDs = append(attachmentIDs, att.ID)
+		}
+
+		req := backlogUpdateIssueReqWithAttachments(attachmentIDs)
+		return client.UpdateIssue(ctx, issueKey, req)
+	})
+
 	// logvalet_issue_attachment_download: B13
 	r.Register(gomcp.NewTool("logvalet_issue_attachment_download",
 		gomcp.WithDescription("Download an attachment from an issue (max 20MB, returned as base64)"),
@@ -465,6 +517,21 @@ func RegisterIssueTools(r *ToolRegistry) {
 			"size_bytes":     len(content),
 		}, nil
 	})
+}
+
+// openFile はファイルを開くヘルパー（テスト差し替えを簡単にするため分離）。
+func openFile(path string) (io.ReadCloser, error) {
+	return os.Open(path)
+}
+
+// fileBase はファイルパスからベース名を返すヘルパー。
+func fileBase(path string) string {
+	return filepath.Base(path)
+}
+
+// backlogUpdateIssueReqWithAttachments は AttachmentIDs を持つ UpdateIssueRequest を生成する。
+func backlogUpdateIssueReqWithAttachments(ids []int64) backlog.UpdateIssueRequest {
+	return backlog.UpdateIssueRequest{AttachmentIDs: ids}
 }
 
 // resolveAssigneeIDForMCP resolves assignee_id param to AssigneeIDs for MCP.

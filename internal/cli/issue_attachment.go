@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/render"
 )
 
 // IssueAttachmentCmd は issue attachment コマンド群のルート。
@@ -11,6 +15,7 @@ type IssueAttachmentCmd struct {
 	List     IssueAttachmentListCmd     `cmd:"" help:"list issue attachments"`
 	Delete   IssueAttachmentDeleteCmd   `cmd:"" help:"delete issue attachment"`
 	Download IssueAttachmentDownloadCmd `cmd:"" help:"download issue attachment"`
+	Upload   IssueAttachmentUploadCmd   `cmd:"" help:"upload file(s) and attach to issue"`
 }
 
 // IssueAttachmentListCmd は issue attachment list コマンド。
@@ -90,4 +95,71 @@ func (c *IssueAttachmentDownloadCmd) Run(g *GlobalFlags) error {
 	}
 	fmt.Fprintf(os.Stderr, "saved: %s\n", dest)
 	return nil
+}
+
+// IssueAttachmentUploadCmd は issue attachment upload コマンド。
+// lv issue attachment upload ISSUE-KEY FILE [FILE...]
+type IssueAttachmentUploadCmd struct {
+	WriteFlags
+	IssueIDOrKey string   `arg:"" required:"" help:"issue ID or key (e.g., PROJ-123)"`
+	Files        []string `arg:"" required:"" help:"file path(s) to upload"`
+}
+
+func (c *IssueAttachmentUploadCmd) Run(g *GlobalFlags) error {
+	if c.DryRun {
+		params := map[string]interface{}{
+			"issue_key": c.IssueIDOrKey,
+			"files":     c.Files,
+		}
+		data, err := formatDryRun("upload_issue_attachment", params)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, string(data))
+		return nil
+	}
+
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	return runIssueAttachmentUploadWithClient(rc.Client, c)
+}
+
+// runIssueAttachmentUploadWithClient はテスト可能な実行ヘルパー。
+// 各ファイルをアップロードし、取得した ID で UpdateIssue を呼ぶ。
+func runIssueAttachmentUploadWithClient(client backlog.Client, cmd *IssueAttachmentUploadCmd) error {
+	ctx := context.Background()
+
+	var attachmentIDs []int64
+	for _, filePath := range cmd.Files {
+		f, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file %q: %w", filePath, err)
+		}
+		defer f.Close() //nolint:errcheck
+
+		filename := filepath.Base(filePath)
+		att, err := client.UploadAttachment(ctx, filename, f)
+		if err != nil {
+			return fmt.Errorf("failed to upload %q: %w", filePath, err)
+		}
+		attachmentIDs = append(attachmentIDs, att.ID)
+		fmt.Fprintf(os.Stderr, "uploaded: %s (id=%d)\n", filename, att.ID)
+	}
+
+	// attachmentId[] を指定して UpdateIssue を呼び、課題に添付する
+	req := backlog.UpdateIssueRequest{
+		AttachmentIDs: attachmentIDs,
+	}
+	issue, err := client.UpdateIssue(ctx, cmd.IssueIDOrKey, req)
+	if err != nil {
+		return fmt.Errorf("failed to attach files to %s: %w", cmd.IssueIDOrKey, err)
+	}
+
+	renderer, err := render.NewRenderer("json", false, "")
+	if err != nil {
+		return err
+	}
+	return renderer.Render(os.Stdout, issue)
 }

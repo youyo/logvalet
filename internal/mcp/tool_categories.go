@@ -16,7 +16,7 @@ type ToolCategorySpec struct {
 	Title    string // 日本語 UI タイトル（MCP クライアントが表示する）
 }
 
-// toolCategories は全 64 MCP ツールの annotation カテゴリと日本語 title を宣言する。
+// toolCategories は全 65 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
 	// Read-only (32+14=46)
@@ -76,10 +76,11 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_wiki_attachment_list":  {CategoryReadOnly, "Wiki 添付ファイル一覧取得"},
 	"logvalet_wiki_sharedfile_list":  {CategoryReadOnly, "Wiki 共有ファイル一覧取得"},
 
-	// Write non-idempotent (3)
-	"logvalet_issue_create":      {CategoryWriteNonIdempotent, "課題作成"},
-	"logvalet_issue_comment_add": {CategoryWriteNonIdempotent, "課題コメント追加"},
-	"logvalet_document_create":   {CategoryWriteNonIdempotent, "ドキュメント作成"},
+	// Write non-idempotent (4)
+	"logvalet_issue_create":             {CategoryWriteNonIdempotent, "課題作成"},
+	"logvalet_issue_comment_add":        {CategoryWriteNonIdempotent, "課題コメント追加"},
+	"logvalet_document_create":          {CategoryWriteNonIdempotent, "ドキュメント作成"},
+	"logvalet_issue_attachment_upload":  {CategoryWriteNonIdempotent, "添付ファイルアップロード"},
 
 	// Write idempotent (6)
 	"logvalet_issue_update":          {CategoryWriteIdempotent, "課題更新"},

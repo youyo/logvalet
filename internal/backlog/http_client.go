@@ -1,11 +1,13 @@
 package backlog
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -347,6 +349,9 @@ func (c *HTTPClient) CreateIssue(ctx context.Context, reqBody CreateIssueRequest
 	if reqBody.StartDate != nil {
 		q.Set("startDate", reqBody.StartDate.Format("2006-01-02"))
 	}
+	for _, id := range reqBody.AttachmentIDs {
+		q.Add("attachmentId[]", strconv.FormatInt(id, 10))
+	}
 
 	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/issues", q)
 	if err != nil {
@@ -401,6 +406,9 @@ func (c *HTTPClient) UpdateIssue(ctx context.Context, issueKey string, reqBody U
 	}
 	if reqBody.Comment != nil {
 		q.Set("comment", *reqBody.Comment)
+	}
+	for _, id := range reqBody.AttachmentIDs {
+		q.Add("attachmentId[]", strconv.FormatInt(id, 10))
 	}
 
 	req, err := c.newRequest(ctx, http.MethodPatch, "/api/v2/issues/"+url.PathEscape(issueKey), q)
@@ -936,6 +944,52 @@ func (c *HTTPClient) DownloadSharedFileBounded(ctx context.Context, projectKey s
 }
 
 // ---- Issue attachments ----
+
+// UploadAttachment はファイルを一時領域にアップロードし、添付 ID を返す。
+// POST /api/v2/space/attachment (multipart/form-data)
+func (c *HTTPClient) UploadAttachment(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+	// multipart ボディを構築する
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	fw, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		return nil, fmt.Errorf("backlog: failed to create form file: %w", err)
+	}
+	if _, err := io.Copy(fw, content); err != nil {
+		return nil, fmt.Errorf("backlog: failed to write file content: %w", err)
+	}
+	if err := mw.Close(); err != nil {
+		return nil, fmt.Errorf("backlog: failed to close multipart writer: %w", err)
+	}
+
+	// URL 構築（認証用クエリパラメータを付与）
+	u, err := url.Parse(c.baseURL + "/api/v2/space/attachment")
+	if err != nil {
+		return nil, fmt.Errorf("backlog: invalid URL: %w", err)
+	}
+	q := url.Values{}
+	if c.cred != nil && c.cred.AuthType == credentials.AuthTypeAPIKey && c.cred.APIKey != "" {
+		q.Set("apiKey", c.cred.APIKey)
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), &buf)
+	if err != nil {
+		return nil, fmt.Errorf("backlog: failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("User-Agent", c.userAgent)
+	if c.cred != nil && c.cred.AuthType == credentials.AuthTypeOAuth && c.cred.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cred.AccessToken)
+	}
+
+	var att domain.UploadedAttachment
+	if err := c.do(req, &att); err != nil {
+		return nil, err
+	}
+	return &att, nil
+}
 
 // ListIssueAttachments は指定課題の添付ファイル一覧を返す。
 // GET /api/v2/issues/{issueIdOrKey}/attachments

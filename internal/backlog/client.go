@@ -175,6 +175,11 @@ type Client interface {
 
 	// Issue attachments
 
+	// UploadAttachment はファイルを一時領域にアップロードし、添付 ID を返す。
+	// Backlog API: POST /api/v2/space/attachment (multipart/form-data)
+	// 返された ID を CreateIssue / UpdateIssue の AttachmentIDs に渡すことで課題に添付できる。
+	UploadAttachment(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error)
+
 	// ListIssueAttachments は指定課題の添付ファイル一覧を返す。
 	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments
 	ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)

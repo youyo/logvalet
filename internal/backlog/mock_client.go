@@ -68,6 +68,7 @@ type MockClient struct {
 	DownloadSharedFileBoundedFunc func(ctx context.Context, projectKey string, fileID int64, maxBytes int64) ([]byte, string, string, error)
 
 	// Issue attachments
+	UploadAttachmentFunc               func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error)
 	ListIssueAttachmentsFunc           func(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error)
 	DeleteIssueAttachmentFunc          func(ctx context.Context, issueKey string, attachmentID int64) (*domain.IssueAttachment, error)
 	DownloadIssueAttachmentFunc        func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
@@ -392,6 +393,14 @@ func (m *MockClient) DownloadSharedFileBounded(ctx context.Context, projectKey s
 		return m.DownloadSharedFileBoundedFunc(ctx, projectKey, fileID, maxBytes)
 	}
 	return nil, "", "", ErrNotFound
+}
+
+func (m *MockClient) UploadAttachment(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+	m.increment("UploadAttachment")
+	if m.UploadAttachmentFunc != nil {
+		return m.UploadAttachmentFunc(ctx, filename, content)
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockClient) ListIssueAttachments(ctx context.Context, issueKey string) ([]domain.IssueAttachment, error) {
