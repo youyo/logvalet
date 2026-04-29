@@ -169,6 +169,24 @@ func TestBuildAuthConfig_IDProxyStore_Memory(t *testing.T) {
 	defer cfg.Store.Close()
 }
 
+func TestBuildAuthConfig_IDProxyStore_SQLiteMemory(t *testing.T) {
+	cmd := &cli.McpCmd{
+		CookieSecret:           strings.Repeat("ab", 32),
+		OIDCIssuer:             "https://example.com",
+		OIDCClientID:           "id",
+		IDProxyStore:           "sqlite",
+		IDProxyStoreSQLitePath: ":memory:",
+	}
+	cfg, err := cli.BuildAuthConfig(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Store == nil {
+		t.Fatal("Store is nil")
+	}
+	defer cfg.Store.Close()
+}
+
 func TestBuildAuthConfig_IDProxyStore_Invalid(t *testing.T) {
 	cmd := &cli.McpCmd{
 		CookieSecret: strings.Repeat("ab", 32),

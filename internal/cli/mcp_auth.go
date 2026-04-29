@@ -12,6 +12,8 @@ import (
 
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/idproxy/store"
+	redisstore "github.com/youyo/idproxy/store/redis"
+	sqlitestore "github.com/youyo/idproxy/store/sqlite"
 )
 
 // parseSigningKey は PEM 形式の ECDSA P-256 秘密鍵をパースする。
@@ -49,6 +51,24 @@ func buildIDProxyStore(c *McpCmd) (idproxy.Store, error) {
 		s, err := store.NewDynamoDBStore(c.IDProxyStoreDynamoDBTable, c.IDProxyStoreDynamoDBRegion)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create idproxy dynamodb store: %w", err)
+		}
+		return s, nil
+	case "sqlite":
+		s, err := sqlitestore.New(c.IDProxyStoreSQLitePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create idproxy sqlite store: %w", err)
+		}
+		return s, nil
+	case "redis":
+		s, err := redisstore.New(redisstore.Options{
+			Addr:      c.IDProxyStoreRedisAddr,
+			Password:  c.IDProxyStoreRedisPassword,
+			DB:        c.IDProxyStoreRedisDB,
+			TLS:       c.IDProxyStoreRedisTLS,
+			KeyPrefix: c.IDProxyStoreRedisKeyPrefix,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create idproxy redis store: %w", err)
 		}
 		return s, nil
 	default:

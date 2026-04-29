@@ -124,10 +124,61 @@ func TestMcpCmd_Validate_IDProxyStoreDynamoDB_RequiresSigningKey(t *testing.T) {
 }
 
 func TestMcpCmd_Validate_IDProxyStore_InvalidValue(t *testing.T) {
-	cmd := &cli.McpCmd{IDProxyStore: "redis"}
+	cmd := &cli.McpCmd{IDProxyStore: "postgres"}
 	err := cmd.Validate()
 	if err == nil || !strings.Contains(err.Error(), "invalid --idproxy-store") {
 		t.Fatalf("expected invalid-store error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreSQLite_RequiresPath(t *testing.T) {
+	cmd := &cli.McpCmd{IDProxyStore: "sqlite"}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "idproxy-store-sqlite-path") {
+		t.Fatalf("expected sqlite-path-required error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreSQLite_OK(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore:           "sqlite",
+		IDProxyStoreSQLitePath: ":memory:",
+	}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreRedis_RequiresAddr(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore: "redis",
+		SigningKey:   "dummy-pem",
+	}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "idproxy-store-redis-addr") {
+		t.Fatalf("expected redis-addr-required error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreRedis_RequiresSigningKey(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore:          "redis",
+		IDProxyStoreRedisAddr: "localhost:6379",
+	}
+	err := cmd.Validate()
+	if err == nil || !strings.Contains(err.Error(), "signing-key") {
+		t.Fatalf("expected signing-key-required error, got: %v", err)
+	}
+}
+
+func TestMcpCmd_Validate_IDProxyStoreRedis_OK(t *testing.T) {
+	cmd := &cli.McpCmd{
+		IDProxyStore:          "redis",
+		IDProxyStoreRedisAddr: "localhost:6379",
+		SigningKey:            "dummy-pem",
+	}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

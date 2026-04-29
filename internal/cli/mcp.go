@@ -50,9 +50,19 @@ type McpCmd struct {
 	// idproxy Store / JWT 署名鍵フラグ (Lambda マルチインスタンス対応)
 	SigningKey                 string        `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
 	RefreshTokenTTL            time.Duration `name:"refresh-token-ttl" help:"MCP OAuth refresh token TTL (e.g. 720h for 30d). 0 = idproxy default (30 days)" group:"auth" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
-	IDProxyStore               string `name:"idproxy-store" help:"idproxy store type (memory|dynamodb)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
+	IDProxyStore               string `name:"idproxy-store" help:"idproxy store type (memory|dynamodb|sqlite|redis)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
 	IDProxyStoreDynamoDBTable  string `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
 	IDProxyStoreDynamoDBRegion string `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`
+
+	// idproxy SQLite Store フラグ (単一ノード永続化用)
+	IDProxyStoreSQLitePath string `name:"idproxy-store-sqlite-path" help:"SQLite DB file path for idproxy store (use ':memory:' for ephemeral)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_SQLITE_PATH"`
+
+	// idproxy Redis Store フラグ (分散 KV による複数インスタンス共有用)
+	IDProxyStoreRedisAddr      string `name:"idproxy-store-redis-addr" help:"Redis host:port for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_ADDR"`
+	IDProxyStoreRedisPassword  string `name:"idproxy-store-redis-password" help:"Redis password for idproxy store (optional)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_PASSWORD"`
+	IDProxyStoreRedisDB        int    `name:"idproxy-store-redis-db" help:"Redis DB number for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_DB"`
+	IDProxyStoreRedisTLS       bool   `name:"idproxy-store-redis-tls" help:"enable TLS for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_TLS"`
+	IDProxyStoreRedisKeyPrefix string `name:"idproxy-store-redis-key-prefix" help:"key prefix for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_KEY_PREFIX"`
 }
 
 // Validate は McpCmd のフィールドを検証する。
@@ -74,8 +84,20 @@ func (c *McpCmd) Validate() error {
 			return fmt.Errorf("--signing-key is required when --idproxy-store=dynamodb " +
 				"(random signing key cannot be shared across Lambda containers)")
 		}
+	case "sqlite":
+		if c.IDProxyStoreSQLitePath == "" {
+			return fmt.Errorf("--idproxy-store-sqlite-path is required when --idproxy-store=sqlite")
+		}
+	case "redis":
+		if c.IDProxyStoreRedisAddr == "" {
+			return fmt.Errorf("--idproxy-store-redis-addr is required when --idproxy-store=redis")
+		}
+		if c.SigningKey == "" {
+			return fmt.Errorf("--signing-key is required when --idproxy-store=redis " +
+				"(random signing key cannot be shared across instances)")
+		}
 	default:
-		return fmt.Errorf("invalid --idproxy-store: %q (must be memory or dynamodb)", c.IDProxyStore)
+		return fmt.Errorf("invalid --idproxy-store: %q (must be memory, dynamodb, sqlite, or redis)", c.IDProxyStore)
 	}
 
 	// Backlog OAuth fast-fail: --auth なしに --backlog-client-id を設定しても動かない
