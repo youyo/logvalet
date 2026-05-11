@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -14,6 +15,11 @@ import (
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
+
+// maxUploadInlineDecodedBytes は file_content_base64 経由のインラインアップロードで許容する
+// デコード後最大バイト数。直接 Lambda invoke のリクエストペイロード上限（6MB）と
+// JSON エンベロープ/Base64 33% 膨張を加味した安全圏として 4MB を採用。
+const maxUploadInlineDecodedBytes = 4 * 1024 * 1024
 
 // RegisterIssueTools は課題関連の MCP tools を ToolRegistry に登録する。
 // logvalet_issue_get, list, create, update, comment 系, attachment 系 を含む。
@@ -451,39 +457,71 @@ func RegisterIssueTools(r *ToolRegistry) {
 
 	// logvalet_issue_attachment_upload
 	r.Register(gomcp.NewTool("logvalet_issue_attachment_upload",
-		gomcp.WithDescription("Upload local file(s) and attach them to an issue. Accepts absolute file paths accessible to the agent."),
+		gomcp.WithDescription("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("file_paths", gomcp.Required(), gomcp.Description("Comma-separated absolute file paths to upload")),
+		gomcp.WithString("file_paths", gomcp.Description("Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64.")),
+		gomcp.WithString("file_name", gomcp.Description("File name for inline upload (e.g. asset9.png). Required when file_content_base64 is set.")),
+		gomcp.WithString("file_content_base64", gomcp.Description("Base64-encoded file content for inline upload. Decoded size must be <= 4MB. Mutually exclusive with file_paths.")),
+		gomcp.WithString("mime_type", gomcp.Description("MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename.")),
 		writeAnnotation("添付ファイルアップロード", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
 			return nil, fmt.Errorf("issue_key is required")
 		}
-		filePathsStr, ok := stringArg(args, "file_paths")
-		if !ok || filePathsStr == "" {
-			return nil, fmt.Errorf("file_paths is required")
-		}
+		filePathsStr, _ := stringArg(args, "file_paths")
+		fileName, _ := stringArg(args, "file_name")
+		fileContentB64, hasB64Arg := stringArg(args, "file_content_base64")
+		_, _ = stringArg(args, "mime_type") // advisory; currently ignored
 
-		filePaths := parseCSVStringList(filePathsStr)
-		if len(filePaths) == 0 {
-			return nil, fmt.Errorf("file_paths must contain at least one path")
+		hasPaths := filePathsStr != ""
+		// 0 バイトファイル（base64 が空文字）も有効入力として扱うため、引数の存在で判定する。
+		hasB64 := hasB64Arg
+		if hasPaths && hasB64 {
+			return nil, fmt.Errorf("specify exactly one of file_paths or file_content_base64, not both")
+		}
+		if !hasPaths && !hasB64 {
+			return nil, fmt.Errorf("exactly one of file_paths or file_content_base64 is required")
 		}
 
 		var attachmentIDs []int64
-		for _, fp := range filePaths {
-			f, err := openFile(fp)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open file %q: %w", fp, err)
-			}
-			defer f.Close() //nolint:errcheck
 
-			filename := fileBase(fp)
-			att, err := client.UploadAttachment(ctx, filename, f)
+		if hasB64 {
+			if fileName == "" {
+				return nil, fmt.Errorf("file_name is required when file_content_base64 is set")
+			}
+			// パス区切り混入を防ぐためベース名に正規化。filepath.Base は実行 OS の区切りしか
+			// 扱わないため、Windows 形式 (\) と POSIX (/) の両方を考慮して正規化する。
+			safeName := sanitizeAttachmentName(fileName)
+			// デコード前に Base64 文字列長から推定サイズを早期チェック（大きすぎる入力で
+			// 無駄に大量メモリを確保しないため）。Base64 は 4 文字 → 3 バイト。
+			if estimatedDecodedSize(fileContentB64) > maxUploadInlineDecodedBytes {
+				return nil, fmt.Errorf("decoded file content would exceed %d bytes (estimated from base64 length)", maxUploadInlineDecodedBytes)
+			}
+			data, err := base64.StdEncoding.DecodeString(fileContentB64)
 			if err != nil {
-				return nil, fmt.Errorf("failed to upload %q: %w", fp, err)
+				return nil, fmt.Errorf("file_content_base64 is not valid base64: %w", err)
+			}
+			if len(data) > maxUploadInlineDecodedBytes {
+				return nil, fmt.Errorf("decoded file content exceeds %d bytes (got %d)", maxUploadInlineDecodedBytes, len(data))
+			}
+			att, err := client.UploadAttachment(ctx, safeName, bytes.NewReader(data))
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload %q: %w", safeName, err)
 			}
 			attachmentIDs = append(attachmentIDs, att.ID)
+		} else {
+			filePaths := parseCSVStringList(filePathsStr)
+			if len(filePaths) == 0 {
+				return nil, fmt.Errorf("file_paths must contain at least one path")
+			}
+			for _, fp := range filePaths {
+				id, err := uploadSinglePath(ctx, client, fp)
+				if err != nil {
+					return nil, err
+				}
+				attachmentIDs = append(attachmentIDs, id)
+			}
 		}
 
 		req := backlogUpdateIssueReqWithAttachments(attachmentIDs)
@@ -517,6 +555,35 @@ func RegisterIssueTools(r *ToolRegistry) {
 			"size_bytes":     len(content),
 		}, nil
 	})
+}
+
+// uploadSinglePath は単一ファイルパスを開いてアップロードし、添付 ID を返す。
+// defer がループのスコープから抜けてしまう問題を避けるため、関数として切り出している。
+func uploadSinglePath(ctx context.Context, client backlog.Client, fp string) (int64, error) {
+	f, err := openFile(fp)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file %q: %w", fp, err)
+	}
+	defer f.Close() //nolint:errcheck
+
+	att, err := client.UploadAttachment(ctx, fileBase(fp), f)
+	if err != nil {
+		return 0, fmt.Errorf("failed to upload %q: %w", fp, err)
+	}
+	return att.ID, nil
+}
+
+// sanitizeAttachmentName は file_name から経路区切り文字（POSIX の / および Windows の \）を
+// 取り除き、添付ファイル名として安全なベース名のみを返す。
+func sanitizeAttachmentName(name string) string {
+	normalized := strings.ReplaceAll(name, "\\", "/")
+	return filepath.Base(normalized)
+}
+
+// estimatedDecodedSize は Base64 文字列長からデコード後のおおよそのバイト数を推定する。
+// 標準 Base64 は 4 文字 → 3 バイト。パディング/改行等を含む上振れ気味の推定で十分。
+func estimatedDecodedSize(b64 string) int {
+	return (len(b64) / 4) * 3
 }
 
 // openFile はファイルを開くヘルパー（テスト差し替えを簡単にするため分離）。
