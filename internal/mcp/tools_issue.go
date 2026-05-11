@@ -480,7 +480,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 			return nil, fmt.Errorf("specify exactly one of file_paths or file_content_base64, not both")
 		}
 		if !hasPaths && !hasB64 {
-			return nil, fmt.Errorf("file_paths is required")
+			return nil, fmt.Errorf("exactly one of file_paths or file_content_base64 is required")
 		}
 
 		var attachmentIDs []int64
@@ -489,6 +489,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 			if fileName == "" {
 				return nil, fmt.Errorf("file_name is required when file_content_base64 is set")
 			}
+			// パス区切り混入を防ぐためベース名に正規化（path-based モードと一貫）
+			safeName := fileBase(fileName)
+			// デコード前に Base64 文字列長から推定サイズを早期チェック（大きすぎる入力で
+			// 無駄に大量メモリを確保しないため）。Base64 は 4 文字 → 3 バイト。
+			if estimatedDecodedSize(fileContentB64) > maxUploadInlineDecodedBytes {
+				return nil, fmt.Errorf("decoded file content would exceed %d bytes (estimated from base64 length)", maxUploadInlineDecodedBytes)
+			}
 			data, err := base64.StdEncoding.DecodeString(fileContentB64)
 			if err != nil {
 				return nil, fmt.Errorf("file_content_base64 is not valid base64: %w", err)
@@ -496,9 +503,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 			if len(data) > maxUploadInlineDecodedBytes {
 				return nil, fmt.Errorf("decoded file content exceeds %d bytes (got %d)", maxUploadInlineDecodedBytes, len(data))
 			}
-			att, err := client.UploadAttachment(ctx, fileName, bytes.NewReader(data))
+			att, err := client.UploadAttachment(ctx, safeName, bytes.NewReader(data))
 			if err != nil {
-				return nil, fmt.Errorf("failed to upload %q: %w", fileName, err)
+				return nil, fmt.Errorf("failed to upload %q: %w", safeName, err)
 			}
 			attachmentIDs = append(attachmentIDs, att.ID)
 		} else {
@@ -507,18 +514,11 @@ func RegisterIssueTools(r *ToolRegistry) {
 				return nil, fmt.Errorf("file_paths must contain at least one path")
 			}
 			for _, fp := range filePaths {
-				f, err := openFile(fp)
+				id, err := uploadSinglePath(ctx, client, fp)
 				if err != nil {
-					return nil, fmt.Errorf("failed to open file %q: %w", fp, err)
+					return nil, err
 				}
-				defer f.Close() //nolint:errcheck
-
-				filename := fileBase(fp)
-				att, err := client.UploadAttachment(ctx, filename, f)
-				if err != nil {
-					return nil, fmt.Errorf("failed to upload %q: %w", fp, err)
-				}
-				attachmentIDs = append(attachmentIDs, att.ID)
+				attachmentIDs = append(attachmentIDs, id)
 			}
 		}
 
@@ -553,6 +553,28 @@ func RegisterIssueTools(r *ToolRegistry) {
 			"size_bytes":     len(content),
 		}, nil
 	})
+}
+
+// uploadSinglePath は単一ファイルパスを開いてアップロードし、添付 ID を返す。
+// defer がループのスコープから抜けてしまう問題を避けるため、関数として切り出している。
+func uploadSinglePath(ctx context.Context, client backlog.Client, fp string) (int64, error) {
+	f, err := openFile(fp)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file %q: %w", fp, err)
+	}
+	defer f.Close() //nolint:errcheck
+
+	att, err := client.UploadAttachment(ctx, fileBase(fp), f)
+	if err != nil {
+		return 0, fmt.Errorf("failed to upload %q: %w", fp, err)
+	}
+	return att.ID, nil
+}
+
+// estimatedDecodedSize は Base64 文字列長からデコード後のおおよそのバイト数を推定する。
+// 標準 Base64 は 4 文字 → 3 バイト。パディング/改行等を含む上振れ気味の推定で十分。
+func estimatedDecodedSize(b64 string) int {
+	return (len(b64) / 4) * 3
 }
 
 // openFile はファイルを開くヘルパー（テスト差し替えを簡単にするため分離）。

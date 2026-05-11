@@ -3,6 +3,7 @@ package mcp_test
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -110,7 +111,10 @@ func TestIssueAttachmentUpload_Base64_Normal(t *testing.T) {
 	var uploadedBody string
 	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
 		uploadedFilename = filename
-		b, _ := io.ReadAll(content)
+		b, err := io.ReadAll(content)
+		if err != nil {
+			t.Fatalf("io.ReadAll: %v", err)
+		}
 		uploadedBody = string(b)
 		return &domain.UploadedAttachment{ID: 99, Name: filename, Size: int64(len(b))}, nil
 	}
@@ -208,6 +212,70 @@ func TestIssueAttachmentUpload_Base64_OversizeRejected(t *testing.T) {
 	}
 	if mock.GetCallCount("UploadAttachment") != 0 {
 		t.Errorf("UploadAttachment should not be called on size rejection, got %d", mock.GetCallCount("UploadAttachment"))
+	}
+}
+
+// TestIssueAttachmentUpload_Base64_FileNameSanitized は file_name にパス区切りが含まれていてもベース名に正規化されることを確認する。
+func TestIssueAttachmentUpload_Base64_FileNameSanitized(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte("x"))
+	mock := backlog.NewMockClient()
+	var got string
+	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+		got = filename
+		return &domain.UploadedAttachment{ID: 1, Name: filename}, nil
+	}
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		return &domain.Issue{IssueKey: issueKey}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":           "PROJ-1",
+		"file_name":           "/tmp/evil/path/asset.png",
+		"file_content_base64": encoded,
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if got != "asset.png" {
+		t.Errorf("uploaded filename = %q, want sanitized to asset.png", got)
+	}
+}
+
+// TestIssueAttachmentUpload_Base64_OversizePreDecode はデコード前のサイズ推定で 4MB 超を拒否することを確認する。
+func TestIssueAttachmentUpload_Base64_OversizePreDecode(t *testing.T) {
+	// 4MB + α の Base64 文字列（不正でも構わない、サイズ推定で弾かれるべき）
+	huge := strings.Repeat("A", (4*1024*1024+1024)*4/3+8)
+	mock := backlog.NewMockClient()
+	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+		t.Fatal("UploadAttachment must not be called when oversize is rejected pre-decode")
+		return nil, nil
+	}
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":           "PROJ-1",
+		"file_name":           "big.bin",
+		"file_content_base64": huge,
+	})
+	if !result.IsError {
+		t.Fatal("expected tool error for pre-decode oversize but got none")
+	}
+}
+
+// TestIssueAttachmentUpload_NeitherSpecified_ErrorMessage は両モード未指定エラーが両方のモードに言及することを確認する。
+func TestIssueAttachmentUpload_NeitherSpecified_ErrorMessage(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key": "PROJ-1",
+	})
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+	// エラーメッセージに file_content_base64 が含まれていることを確認（両モードへの言及）
+	msg := fmt.Sprintf("%v", result.Content)
+	if !strings.Contains(msg, "file_content_base64") {
+		t.Errorf("error message should mention file_content_base64; got: %s", msg)
 	}
 }
 
