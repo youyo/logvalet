@@ -242,6 +242,63 @@ func TestIssueAttachmentUpload_Base64_FileNameSanitized(t *testing.T) {
 	}
 }
 
+// TestIssueAttachmentUpload_Base64_EmptyFile は 0 バイトファイル（空文字 Base64）を有効入力として扱うことを確認する。
+func TestIssueAttachmentUpload_Base64_EmptyFile(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var gotSize int64
+	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+		b, err := io.ReadAll(content)
+		if err != nil {
+			t.Fatalf("io.ReadAll: %v", err)
+		}
+		gotSize = int64(len(b))
+		return &domain.UploadedAttachment{ID: 1, Name: filename, Size: gotSize}, nil
+	}
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		return &domain.Issue{IssueKey: issueKey}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":           "PROJ-1",
+		"file_name":           "empty.txt",
+		"file_content_base64": "",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error for empty file: %v", result.Content)
+	}
+	if gotSize != 0 {
+		t.Errorf("uploaded size = %d, want 0", gotSize)
+	}
+}
+
+// TestIssueAttachmentUpload_Base64_WindowsStyleFileName は Windows 形式の file_name もベース名に正規化されることを確認する。
+func TestIssueAttachmentUpload_Base64_WindowsStyleFileName(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte("x"))
+	mock := backlog.NewMockClient()
+	var got string
+	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+		got = filename
+		return &domain.UploadedAttachment{ID: 1, Name: filename}, nil
+	}
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		return &domain.Issue{IssueKey: issueKey}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":           "PROJ-1",
+		"file_name":           `C:\Users\me\asset.png`,
+		"file_content_base64": encoded,
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if got != "asset.png" {
+		t.Errorf("uploaded filename = %q, want sanitized to asset.png", got)
+	}
+}
+
 // TestIssueAttachmentUpload_Base64_OversizePreDecode はデコード前のサイズ推定で 4MB 超を拒否することを確認する。
 func TestIssueAttachmentUpload_Base64_OversizePreDecode(t *testing.T) {
 	// 4MB + α の Base64 文字列（不正でも構わない、サイズ推定で弾かれるべき）

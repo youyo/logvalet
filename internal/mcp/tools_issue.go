@@ -471,11 +471,12 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		filePathsStr, _ := stringArg(args, "file_paths")
 		fileName, _ := stringArg(args, "file_name")
-		fileContentB64, _ := stringArg(args, "file_content_base64")
+		fileContentB64, hasB64Arg := stringArg(args, "file_content_base64")
 		_, _ = stringArg(args, "mime_type") // advisory; currently ignored
 
 		hasPaths := filePathsStr != ""
-		hasB64 := fileContentB64 != ""
+		// 0 バイトファイル（base64 が空文字）も有効入力として扱うため、引数の存在で判定する。
+		hasB64 := hasB64Arg
 		if hasPaths && hasB64 {
 			return nil, fmt.Errorf("specify exactly one of file_paths or file_content_base64, not both")
 		}
@@ -489,8 +490,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 			if fileName == "" {
 				return nil, fmt.Errorf("file_name is required when file_content_base64 is set")
 			}
-			// パス区切り混入を防ぐためベース名に正規化（path-based モードと一貫）
-			safeName := fileBase(fileName)
+			// パス区切り混入を防ぐためベース名に正規化。filepath.Base は実行 OS の区切りしか
+			// 扱わないため、Windows 形式 (\) と POSIX (/) の両方を考慮して正規化する。
+			safeName := sanitizeAttachmentName(fileName)
 			// デコード前に Base64 文字列長から推定サイズを早期チェック（大きすぎる入力で
 			// 無駄に大量メモリを確保しないため）。Base64 は 4 文字 → 3 バイト。
 			if estimatedDecodedSize(fileContentB64) > maxUploadInlineDecodedBytes {
@@ -569,6 +571,13 @@ func uploadSinglePath(ctx context.Context, client backlog.Client, fp string) (in
 		return 0, fmt.Errorf("failed to upload %q: %w", fp, err)
 	}
 	return att.ID, nil
+}
+
+// sanitizeAttachmentName は file_name から経路区切り文字（POSIX の / および Windows の \）を
+// 取り除き、添付ファイル名として安全なベース名のみを返す。
+func sanitizeAttachmentName(name string) string {
+	normalized := strings.ReplaceAll(name, "\\", "/")
+	return filepath.Base(normalized)
 }
 
 // estimatedDecodedSize は Base64 文字列長からデコード後のおおよそのバイト数を推定する。
