@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -14,6 +15,11 @@ import (
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
+
+// maxUploadInlineDecodedBytes は file_content_base64 経由のインラインアップロードで許容する
+// デコード後最大バイト数。直接 Lambda invoke のリクエストペイロード上限（6MB）と
+// JSON エンベロープ/Base64 33% 膨張を加味した安全圏として 4MB を採用。
+const maxUploadInlineDecodedBytes = 4 * 1024 * 1024
 
 // RegisterIssueTools は課題関連の MCP tools を ToolRegistry に登録する。
 // logvalet_issue_get, list, create, update, comment 系, attachment 系 を含む。
@@ -451,39 +457,69 @@ func RegisterIssueTools(r *ToolRegistry) {
 
 	// logvalet_issue_attachment_upload
 	r.Register(gomcp.NewTool("logvalet_issue_attachment_upload",
-		gomcp.WithDescription("Upload local file(s) and attach them to an issue. Accepts absolute file paths accessible to the agent."),
+		gomcp.WithDescription("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("file_paths", gomcp.Required(), gomcp.Description("Comma-separated absolute file paths to upload")),
+		gomcp.WithString("file_paths", gomcp.Description("Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64.")),
+		gomcp.WithString("file_name", gomcp.Description("File name for inline upload (e.g. asset9.png). Required when file_content_base64 is set.")),
+		gomcp.WithString("file_content_base64", gomcp.Description("Base64-encoded file content for inline upload. Decoded size must be <= 4MB. Mutually exclusive with file_paths.")),
+		gomcp.WithString("mime_type", gomcp.Description("MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename.")),
 		writeAnnotation("添付ファイルアップロード", false),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
 			return nil, fmt.Errorf("issue_key is required")
 		}
-		filePathsStr, ok := stringArg(args, "file_paths")
-		if !ok || filePathsStr == "" {
+		filePathsStr, _ := stringArg(args, "file_paths")
+		fileName, _ := stringArg(args, "file_name")
+		fileContentB64, _ := stringArg(args, "file_content_base64")
+		_, _ = stringArg(args, "mime_type") // advisory; currently ignored
+
+		hasPaths := filePathsStr != ""
+		hasB64 := fileContentB64 != ""
+		if hasPaths && hasB64 {
+			return nil, fmt.Errorf("specify exactly one of file_paths or file_content_base64, not both")
+		}
+		if !hasPaths && !hasB64 {
 			return nil, fmt.Errorf("file_paths is required")
 		}
 
-		filePaths := parseCSVStringList(filePathsStr)
-		if len(filePaths) == 0 {
-			return nil, fmt.Errorf("file_paths must contain at least one path")
-		}
-
 		var attachmentIDs []int64
-		for _, fp := range filePaths {
-			f, err := openFile(fp)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open file %q: %w", fp, err)
-			}
-			defer f.Close() //nolint:errcheck
 
-			filename := fileBase(fp)
-			att, err := client.UploadAttachment(ctx, filename, f)
+		if hasB64 {
+			if fileName == "" {
+				return nil, fmt.Errorf("file_name is required when file_content_base64 is set")
+			}
+			data, err := base64.StdEncoding.DecodeString(fileContentB64)
 			if err != nil {
-				return nil, fmt.Errorf("failed to upload %q: %w", fp, err)
+				return nil, fmt.Errorf("file_content_base64 is not valid base64: %w", err)
+			}
+			if len(data) > maxUploadInlineDecodedBytes {
+				return nil, fmt.Errorf("decoded file content exceeds %d bytes (got %d)", maxUploadInlineDecodedBytes, len(data))
+			}
+			att, err := client.UploadAttachment(ctx, fileName, bytes.NewReader(data))
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload %q: %w", fileName, err)
 			}
 			attachmentIDs = append(attachmentIDs, att.ID)
+		} else {
+			filePaths := parseCSVStringList(filePathsStr)
+			if len(filePaths) == 0 {
+				return nil, fmt.Errorf("file_paths must contain at least one path")
+			}
+			for _, fp := range filePaths {
+				f, err := openFile(fp)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open file %q: %w", fp, err)
+				}
+				defer f.Close() //nolint:errcheck
+
+				filename := fileBase(fp)
+				att, err := client.UploadAttachment(ctx, filename, f)
+				if err != nil {
+					return nil, fmt.Errorf("failed to upload %q: %w", fp, err)
+				}
+				attachmentIDs = append(attachmentIDs, att.ID)
+			}
 		}
 
 		req := backlogUpdateIssueReqWithAttachments(attachmentIDs)
