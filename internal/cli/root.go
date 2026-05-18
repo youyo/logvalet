@@ -21,5 +21,6 @@ type CLI struct {
 	Team        TeamCmd        `cmd:"" help:"manage teams"`
 	Space       SpaceCmd       `cmd:"" help:"manage spaces"`
 	Mcp         McpCmd         `cmd:"" help:"start MCP server (Streamable HTTP)"`
+	McpStdio    McpStdioCmd    `cmd:"" name:"mcp-stdio" help:"start MCP server (stdio transport)"`
 	VersionInfo VersionCmd     `cmd:"" name:"version" help:"display version information"`
 }
