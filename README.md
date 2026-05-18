@@ -548,13 +548,15 @@ Claude Desktop / Claude Code はこのヒントを参照してツールの自動
 
 `logvalet mcp-stdio` は stdio トランスポートで MCP サーバーを起動します。HTTP サーバーを立てずにローカル MCP クライアントと通信できるため、Claude Desktop との統合に適しています。
 
-```bash
-# 事前に configure を実行して認証情報を設定しておく
-logvalet configure
+**方法 1: `configure` でプロファイルを事前設定する（推奨）**
 
-# stdio モードで起動（通常は Claude Desktop が自動起動する）
+```bash
+# 一度だけ実行してプロファイルを作成
+logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
+
+# Claude Desktop が自動起動するので手動実行は不要
 logvalet mcp-stdio
-logvalet mcp-stdio --profile my-profile
+logvalet mcp-stdio --profile default
 ```
 
 Claude Desktop の設定例 (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -565,6 +567,48 @@ Claude Desktop の設定例 (`~/Library/Application Support/Claude/claude_deskto
     "logvalet": {
       "command": "/absolute/path/to/logvalet",
       "args": ["mcp-stdio", "--profile", "default"]
+    }
+  }
+}
+```
+
+**方法 2: 環境変数で直接 API キーを渡す（configure 不要）**
+
+```bash
+LOGVALET_API_KEY=your-api-key LOGVALET_SPACE=your-space logvalet mcp-stdio
+```
+
+Claude Desktop の設定例（`env` キーでシークレットを安全に渡す）:
+
+```json
+{
+  "mcpServers": {
+    "logvalet": {
+      "command": "/absolute/path/to/logvalet",
+      "args": ["mcp-stdio"],
+      "env": {
+        "LOGVALET_API_KEY": "your-api-key",
+        "LOGVALET_SPACE": "your-space"
+      }
+    }
+  }
+}
+```
+
+**方法 3: フラグで直接指定**
+
+```bash
+logvalet mcp-stdio --api-key YOUR_API_KEY --space YOUR_SPACE
+```
+
+Claude Desktop の設定例:
+
+```json
+{
+  "mcpServers": {
+    "logvalet": {
+      "command": "/absolute/path/to/logvalet",
+      "args": ["mcp-stdio", "--api-key", "YOUR_API_KEY", "--space", "YOUR_SPACE"]
     }
   }
 }
