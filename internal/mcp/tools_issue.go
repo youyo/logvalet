@@ -511,6 +511,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 			}
 			attachmentIDs = append(attachmentIDs, att.ID)
 		} else {
+			if r.disableFilePaths {
+				return nil, fmt.Errorf("file_paths is disabled in stdio mode for security reasons; use file_content_base64 instead")
+			}
 			filePaths := parseCSVStringList(filePathsStr)
 			if len(filePaths) == 0 {
 				return nil, fmt.Errorf("file_paths must contain at least one path")

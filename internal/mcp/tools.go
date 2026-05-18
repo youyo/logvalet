@@ -27,6 +27,7 @@ type ToolRegistry struct {
 	client           backlog.Client
 	factory          func(ctx context.Context) (backlog.Client, error)
 	authorizationURL string
+	disableFilePaths bool // stdio モードでローカルファイルシステムへのアクセスを防止する
 }
 
 // NewToolRegistry は新しい ToolRegistry を返す。

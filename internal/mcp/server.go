@@ -14,6 +14,7 @@ type ServerConfig struct {
 	Space            string
 	BaseURL          string
 	AuthorizationURL string
+	DisableFilePaths bool // stdio モードでローカルファイルシステムへのアクセスを防止する
 }
 
 // NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
@@ -26,6 +27,7 @@ func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.M
 		mcpserver.WithToolCapabilities(true),
 	)
 	reg := NewToolRegistry(s, client, cfg.AuthorizationURL)
+	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
 	return s
 }
@@ -44,6 +46,7 @@ func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, err
 		mcpserver.WithToolCapabilities(true),
 	)
 	reg := NewToolRegistryWithFactory(s, factory, cfg.AuthorizationURL)
+	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
 	return s
 }

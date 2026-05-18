@@ -551,6 +551,43 @@ Claude Desktop / Claude Code はこのヒントを参照してツールの自動
 > annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。
 > セキュリティはバックエンドの API キーまたは OAuth スコープで担保されます。
 
+### stdio トランスポート（Claude Desktop 向け）
+
+`logvalet mcp-stdio` は stdio トランスポートで MCP サーバーを起動します。HTTP サーバーを立てずにローカル MCP クライアントと通信できるため、Claude Desktop との統合に適しています。
+
+```bash
+# 事前に configure を実行して認証情報を設定しておく
+logvalet configure
+
+# stdio モードで起動（通常は Claude Desktop が自動起動する）
+logvalet mcp-stdio
+logvalet mcp-stdio --profile my-profile
+```
+
+Claude Desktop の設定例 (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "logvalet": {
+      "command": "/absolute/path/to/logvalet",
+      "args": ["mcp-stdio", "--profile", "default"]
+    }
+  }
+}
+```
+
+> **セキュリティ注意**
+>
+> stdio モードでは MCP クライアントが選択されたプロファイルのトークンをそのまま使って Backlog API を呼び出します。
+> 次のいずれも守ってください:
+>
+> - 専用プロファイルを作成し、必要最小限の権限を持つ Backlog API キーを設定する
+> - 信頼できる MCP クライアントのみ起動コマンドに登録する
+> - チーム共有マシンでは利用しない
+>
+> **注意**: stdio モードでは `logvalet_issue_attachment_upload` の `file_paths` パラメータは使用できません。代わりに `file_content_base64` を使用してください。
+
 ### v0.16.0 の破壊的変更
 
 v0.16.0 では MCP ツールのパラメータ命名・型を CLI と揃えるための破壊的変更が含まれます。旧パラメータ名を使っている MCP クライアントは呼び出しを更新してください。
