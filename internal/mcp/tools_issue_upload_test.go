@@ -336,6 +336,56 @@ func TestIssueAttachmentUpload_NeitherSpecified_ErrorMessage(t *testing.T) {
 	}
 }
 
+// TestIssueAttachmentUpload_DisableFilePaths_RejectsFilePaths は DisableFilePaths=true のとき
+// file_paths を使うとエラーが返り、エラーメッセージに file_content_base64 の代替手段が含まれることを確認する。
+func TestIssueAttachmentUpload_DisableFilePaths_RejectsFilePaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	f1 := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(f1, []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	mock := backlog.NewMockClient()
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{DisableFilePaths: true})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":  "PROJ-1",
+		"file_paths": f1,
+	})
+	if !result.IsError {
+		t.Fatal("expected tool error when file_paths is used with DisableFilePaths=true")
+	}
+	msg := fmt.Sprintf("%v", result.Content)
+	if !strings.Contains(msg, "file_content_base64") {
+		t.Errorf("error message should mention file_content_base64 as alternative; got: %s", msg)
+	}
+	if mock.GetCallCount("UploadAttachment") != 0 {
+		t.Errorf("UploadAttachment must not be called when file_paths is disabled, got %d", mock.GetCallCount("UploadAttachment"))
+	}
+}
+
+// TestIssueAttachmentUpload_DisableFilePaths_AllowsBase64 は DisableFilePaths=true のとき
+// file_content_base64 モードは引き続き使用できることを確認する。
+func TestIssueAttachmentUpload_DisableFilePaths_AllowsBase64(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte("safe content"))
+	mock := backlog.NewMockClient()
+	mock.UploadAttachmentFunc = func(ctx context.Context, filename string, content io.Reader) (*domain.UploadedAttachment, error) {
+		return &domain.UploadedAttachment{ID: 10, Name: filename}, nil
+	}
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		return &domain.Issue{IssueKey: issueKey}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{DisableFilePaths: true})
+	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
+		"issue_key":           "PROJ-1",
+		"file_name":           "safe.txt",
+		"file_content_base64": encoded,
+	})
+	if result.IsError {
+		t.Fatalf("expected base64 mode to succeed even with DisableFilePaths=true; got error: %v", result.Content)
+	}
+}
+
 // TestIssueAttachmentUpload_BothModesSpecified は file_paths と file_content_base64 を両方指定するとエラーになることを確認する。
 func TestIssueAttachmentUpload_BothModesSpecified(t *testing.T) {
 	tmpDir := t.TempDir()
