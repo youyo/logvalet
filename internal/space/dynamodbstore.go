@@ -68,7 +68,7 @@ func (s *DynamoDBStore) List(ctx context.Context, userID string) ([]SpaceRegistr
 	}
 
 	pk := spacePK(userID)
-	var result []SpaceRegistration
+	result := make([]SpaceRegistration, 0)
 	var lastKey map[string]types.AttributeValue
 
 	for {
