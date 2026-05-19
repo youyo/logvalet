@@ -1021,6 +1021,46 @@ The CLI binary must still be installed separately (see [Installation](#installat
 
 If you previously installed via `npx skills add youyo/logvalet` or `/plugin install logvalet@<old-source>`, uninstall the old version first and then re-install via the `claude-plugins` marketplace as shown above. Skills are no longer distributed from this repository directly — this repository now focuses on the CLI binary and MCP server implementation.
 
+## Multi-Space Support
+
+logvalet supports managing multiple Backlog spaces from a single CLI or MCP session.
+
+### Register spaces
+
+```bash
+# OAuth (opens browser)
+lv spaces connect --base-url https://foo.backlog.com --alias foo
+
+# API key
+lv spaces add --alias bar --base-url https://bar.backlog.com --auth-type api_key --auth-profile bar
+
+# List registered spaces
+lv spaces list
+
+# Set default space
+lv spaces use foo
+```
+
+### Cross-space operations
+
+```bash
+# Specify spaces explicitly
+lv issue list --spaces foo,bar
+
+# Target all registered spaces
+lv issue list --all-spaces
+
+# Project list across spaces
+lv project list --spaces foo,bar
+```
+
+### Notes
+
+- Read-only commands (`issue list`, `project list`, etc.) support `--spaces` and `--all-spaces`.
+- Write operations (issue create/update) do not support multi-space targeting.
+- When no space is specified, the default space (set via `lv spaces use`) is used.
+- In partial failure scenarios (e.g., one space returns 401), successful results from other spaces are still returned; exit code is 8.
+
 ## License
 
 MIT

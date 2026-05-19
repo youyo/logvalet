@@ -2666,20 +2666,18 @@ MVP でやらないこと:
 
 以下を満たしたら完了。
 
-```text
-1. ローカル CLI で複数 API key space を登録できる
-2. CLI で --spaces foo,bar により横断 read-only 操作ができる
-3. CLI で --all-spaces により登録済み全スペースを対象にできる
-4. OAuth callback 成功時に SpaceRegistry が自動更新される
-5. remote MCP でユーザーごとに space registry が分離される
-6. MCP all_spaces が現在ユーザーの登録済みスペースだけを対象にする
-7. default space がユーザーごとに保存され、spaces 未指定時に使われる
-8. API key で credential が無いスペースは not_configured になる
-9. 認証失敗は space 単位の partial failure として返る
-10. write 操作で multi-space 指定は安全に拒否される
-11. token/API key がログに出ない
-12. unit/integration/security tests が通る
-```
+- [x] 1. ローカル CLI で複数 API key space を登録できる（MS12: lv spaces add）
+- [x] 2. CLI で --spaces foo,bar により横断 read-only 操作ができる（MS13: ExecuteAcrossSpaces）
+- [x] 3. CLI で --all-spaces により登録済み全スペースを対象にできる（MS11: --all-spaces フラグ）
+- [x] 4. OAuth callback 成功時に SpaceRegistry が自動更新される（MS10: MultiSpaceOAuthHandler.HandleCallback）
+- [x] 5. remote MCP でユーザーごとに space registry が分離される（MS14: MCP userID isolation）
+- [x] 6. MCP all_spaces が現在ユーザーの登録済みスペースだけを対象にする（MS14: Resolver + all_spaces）
+- [x] 7. default space がユーザーごとに保存され、spaces 未指定時に使われる（MS12: lv spaces use）
+- [x] 8. API key で credential が無いスペースは not_configured になる（MS08: SpaceAwareClientFactory）
+- [x] 9. 認証失敗は space 単位の partial failure として返る（MS09: Result.OK=false + ErrorCode=unauthorized）
+- [x] 10. write 操作で multi-space 指定は安全に拒否される（MS14: write guard）
+- [x] 11. token/API key がログに出ない（MS16: TestSecurity_NoTokenInLogs）
+- [x] 12. unit/integration/security tests が通る（MS15/MS16: go test ./... pass）
 
 ---
 
