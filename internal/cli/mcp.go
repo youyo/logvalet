@@ -16,6 +16,7 @@ import (
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
+	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
 )
 
@@ -134,6 +135,16 @@ func (c *McpCmd) Validate() error {
 	if len(secret) < 32 {
 		return fmt.Errorf("--cookie-secret: must be at least 32 bytes (64 hex chars), got %d bytes", len(secret))
 	}
+
+	// C1: remote MCP モードでは SpaceStore が dynamodb である必要がある
+	spaceStoreType := os.Getenv("LOGVALET_SPACE_STORE_TYPE")
+	if spaceStoreType == "" {
+		spaceStoreType = "sqlite"
+	}
+	if err := space.ValidateSpaceStoreConfig(spaceStoreType, true); err != nil {
+		return fmt.Errorf("startup validation failed: %w", err)
+	}
+
 	return nil
 }
 
