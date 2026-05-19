@@ -39,7 +39,7 @@ func issueTestSession(t *testing.T, sm *idproxy.SessionManager, w http.ResponseW
 		Email:   "test@example.com",
 		Name:    "Test User",
 	}
-	sess, err := sm.IssueSession(context.Background(), user, "https://issuer.example.com", "id-token")
+	sess, err := sm.IssueSession(context.Background(), user, "https://issuer.example.com", "id-token", "")
 	if err != nil {
 		t.Fatalf("IssueSession: %v", err)
 	}
