@@ -20,6 +20,7 @@ type CLI struct {
 	Meta        MetaCmd        `cmd:"" help:"get metadata (statuses, categories, etc.)"`
 	Team        TeamCmd        `cmd:"" help:"manage teams"`
 	Space       SpaceCmd       `cmd:"" help:"manage spaces"`
+	Spaces      SpacesCmd      `cmd:"" help:"manage space registry (list/add/connect/use/remove/verify)"`
 	Mcp         McpCmd         `cmd:"" help:"start MCP server (Streamable HTTP)"`
 	McpStdio    McpStdioCmd    `cmd:"" name:"mcp-stdio" help:"start MCP server (stdio transport)"`
 	VersionInfo VersionCmd     `cmd:"" name:"version" help:"display version information"`
