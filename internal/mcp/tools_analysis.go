@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/analysis"
@@ -68,7 +67,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			return nil, fmt.Errorf("project_keys is required")
 		}
 
-		projectKeys := strings.Split(projectKeysStr, ",")
+		projectKeys := parseCSVStringList(projectKeysStr)
 
 		blockerCfg := analysis.BlockerConfig{}
 		if days, ok := intArg(args, "days"); ok && days > 0 {
@@ -78,7 +77,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			blockerCfg.IncludeComments = includeComments
 		}
 		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
-			blockerCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+			blockerCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
 		detector := analysis.NewBlockerDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
@@ -105,14 +104,14 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			return nil, fmt.Errorf("project_keys is required")
 		}
 
-		projectKeys := strings.Split(projectKeysStr, ",")
+		projectKeys := parseCSVStringList(projectKeysStr)
 
 		staleCfg := analysis.StaleConfig{}
 		if days, ok := intArg(args, "days"); ok && days > 0 {
 			staleCfg.DefaultDays = days
 		}
 		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
-			staleCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+			staleCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
 		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
@@ -144,7 +143,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 
 		var excludeStatus []string
 		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
-			excludeStatus = strings.Split(excludeStatusStr, ",")
+			excludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
 		days := 0
@@ -425,7 +424,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			workloadCfg.StaleDays = days
 		}
 		if excludeStatusStr, ok := stringArg(args, "exclude_status"); ok && excludeStatusStr != "" {
-			workloadCfg.ExcludeStatus = strings.Split(excludeStatusStr, ",")
+			workloadCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
 		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, cfg.Space, cfg.BaseURL)
@@ -490,11 +489,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 
 		// project_keys: CSV → []string → GetProject で ProjectIDs を解決
 		if projectKeysStr, ok := stringArg(args, "project_keys"); ok && projectKeysStr != "" {
-			for _, key := range strings.Split(projectKeysStr, ",") {
-				key = strings.TrimSpace(key)
-				if key == "" {
-					continue
-				}
+			for _, key := range parseCSVStringList(projectKeysStr) {
 				proj, err := client.GetProject(ctx, key)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get project %s: %w", key, err)
