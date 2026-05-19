@@ -10,6 +10,7 @@ import (
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
+	"github.com/youyo/logvalet/internal/space"
 )
 
 // IssueCmd は issue コマンド群のルート。
@@ -32,6 +33,13 @@ type IssueGetCmd struct {
 }
 
 func (c *IssueGetCmd) Run(g *GlobalFlags) error {
+	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.Issue, error) {
+		return client.GetIssue(ctx, c.IssueIDOrKey)
+	})
+	if fanoutDone {
+		return err
+	}
+
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
 	if err != nil {
@@ -57,36 +65,54 @@ type IssueListCmd struct {
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
+	// --spaces / --all-spaces が指定された場合は fan-out 実行
+	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) ([]domain.Issue, error) {
+		return c.listIssues(ctx, client)
+	})
+	if fanoutDone {
+		return err
+	}
+
+	// 既存の単一スペース動作（後方互換）
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
 	}
+	issues, err := c.listIssues(ctx, rc.Client)
+	if err != nil {
+		return err
+	}
+	return rc.Renderer.Render(os.Stdout, issues)
+}
+
+// listIssues はオプション構築と API 呼び出しを行うヘルパー。
+func (c *IssueListCmd) listIssues(ctx context.Context, client backlog.Client) ([]domain.Issue, error) {
 	opt := backlog.ListIssuesOptions{
 		Limit:  c.Count,
 		Offset: c.Offset,
 	}
 	// projectKey → projectId 変換
 	for _, key := range c.ProjectKey {
-		proj, err := rc.Client.GetProject(ctx, key)
+		proj, err := client.GetProject(ctx, key)
 		if err != nil {
-			return fmt.Errorf("failed to resolve project key %q: %w", key, err)
+			return nil, fmt.Errorf("failed to resolve project key %q: %w", key, err)
 		}
 		opt.ProjectIDs = append(opt.ProjectIDs, proj.ID)
 	}
 	// --assignee 解決
 	if c.Assignee != "" {
-		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, rc.Client)
+		assigneeIDs, err := resolveAssignee(ctx, c.Assignee, client)
 		if err != nil {
-			return fmt.Errorf("failed to resolve assignee: %w", err)
+			return nil, fmt.Errorf("failed to resolve assignee: %w", err)
 		}
 		opt.AssigneeIDs = assigneeIDs
 	}
 	// --status 解決
 	if c.Status != "" {
-		statusIDs, err := resolveStatuses(ctx, c.Status, c.ProjectKey, rc.Client)
+		statusIDs, err := resolveStatuses(ctx, c.Status, c.ProjectKey, client)
 		if err != nil {
-			return fmt.Errorf("failed to resolve status: %w", err)
+			return nil, fmt.Errorf("failed to resolve status: %w", err)
 		}
 		opt.StatusIDs = statusIDs
 	}
@@ -94,7 +120,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.DueDate != "" {
 		since, until, err := resolveDueDate(c.DueDate)
 		if err != nil {
-			return fmt.Errorf("failed to resolve due date: %w", err)
+			return nil, fmt.Errorf("failed to resolve due date: %w", err)
 		}
 		opt.DueDateSince = since
 		opt.DueDateUntil = until
@@ -103,7 +129,7 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	if c.StartDate != "" {
 		since, until, err := resolveStartDate(c.StartDate)
 		if err != nil {
-			return fmt.Errorf("failed to resolve start date: %w", err)
+			return nil, fmt.Errorf("failed to resolve start date: %w", err)
 		}
 		opt.StartDateSince = since
 		opt.StartDateUntil = until
@@ -111,16 +137,10 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 	// sort/order 設定
 	opt.Sort = c.Sort
 	opt.Order = c.Order
-	var issues []domain.Issue
 	if c.DueDate != "" || c.StartDate != "" {
-		issues, err = fetchAllIssues(ctx, rc.Client, opt)
-	} else {
-		issues, err = rc.Client.ListIssues(ctx, opt)
+		return fetchAllIssues(ctx, client, opt)
 	}
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, issues)
+	return client.ListIssues(ctx, opt)
 }
 
 // IssueCreateCmd は issue create コマンド（spec §14.4）。

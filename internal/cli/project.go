@@ -3,6 +3,10 @@ package cli
 import (
 	"context"
 	"os"
+
+	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/domain"
+	"github.com/youyo/logvalet/internal/space"
 )
 
 // ProjectCmd は project コマンド群のルート。
@@ -19,6 +23,13 @@ type ProjectGetCmd struct {
 }
 
 func (c *ProjectGetCmd) Run(g *GlobalFlags) error {
+	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.Project, error) {
+		return client.GetProject(ctx, c.ProjectKeyOrID)
+	})
+	if fanoutDone {
+		return err
+	}
+
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
 	if err != nil {
@@ -37,6 +48,13 @@ type ProjectListCmd struct {
 }
 
 func (c *ProjectListCmd) Run(g *GlobalFlags) error {
+	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) ([]domain.Project, error) {
+		return client.ListProjects(ctx)
+	})
+	if fanoutDone {
+		return err
+	}
+
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
 	if err != nil {
