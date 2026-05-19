@@ -3,6 +3,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/alecthomas/kong"
 )
@@ -38,6 +39,14 @@ type GlobalFlags struct {
 	// env 処理は config.Resolve() で行う（プロファイル設定より低優先）。
 	Space string `short:"s" help:"specify Backlog space name directly (env: LOGVALET_SPACE)"`
 
+	// Spaces は comma-separated なスペース alias 指定（マルチスペース操作用）。
+	// 注意: --spaces foo --spaces bar のように2回渡すと後者で上書きされます。
+	// 複数スペースは --spaces foo,bar のように comma-separated で指定してください。
+	Spaces string `help:"comma-separated space aliases for multi-space operations (e.g. foo,bar). Cannot be combined with --all-spaces." env:"LOGVALET_SPACES"`
+
+	// AllSpaces はユーザーの登録済み全スペースを対象にする。--spaces との同時指定不可。
+	AllSpaces bool `help:"run against all spaces registered for the current user. Cannot be combined with --spaces." env:"LOGVALET_ALL_SPACES" name:"all-spaces"`
+
 	// Verbose は詳細なデバッグ出力を有効にする (stderr)。
 	Verbose bool `short:"v" help:"enable verbose debug output" env:"LOGVALET_VERBOSE"`
 
@@ -56,7 +65,34 @@ func (g *GlobalFlags) Validate() error {
 	if g.APIKey != "" && g.AccessToken != "" {
 		return fmt.Errorf("--api-key and --access-token are mutually exclusive")
 	}
+	if g.Spaces != "" && g.AllSpaces {
+		return fmt.Errorf("--spaces and --all-spaces are mutually exclusive")
+	}
 	return nil
+}
+
+// ParseSpacesFlag は "--spaces foo,bar" を []string{"foo","bar"} に変換する。
+// 空文字列は nil を返す（指定なし扱い）。
+// 空要素（"foo,,bar" 等）は error。重複は静かにスキップ。
+func ParseSpacesFlag(s string) ([]string, error) {
+	if s == "" {
+		return nil, nil
+	}
+	parts := strings.Split(s, ",")
+	seen := make(map[string]bool, len(parts))
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return nil, fmt.Errorf("--spaces: empty alias in %q (use comma-separated list like 'foo,bar')", s)
+		}
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		result = append(result, p)
+	}
+	return result, nil
 }
 
 // DigestFlags は digest コマンドで共通するフラグ。

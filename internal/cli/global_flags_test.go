@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -243,6 +244,157 @@ func TestGlobalFlags_EnvOverride(t *testing.T) {
 		}
 		if flags.Profile != "myspace" {
 			t.Errorf("Profile = %q, want %q via env LOGVALET_PROFILE", flags.Profile, "myspace")
+		}
+	})
+}
+
+// ---- MS11: --spaces / --all-spaces フラグ テスト ----
+
+func TestParseSpacesFlag_SingleAlias(t *testing.T) {
+	result, err := cli.ParseSpacesFlag("foo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 || result[0] != "foo" {
+		t.Errorf("got %v, want [foo]", result)
+	}
+}
+
+func TestParseSpacesFlag_MultipleAliases(t *testing.T) {
+	result, err := cli.ParseSpacesFlag("foo,bar,baz")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 3 || result[0] != "foo" || result[1] != "bar" || result[2] != "baz" {
+		t.Errorf("got %v, want [foo bar baz]", result)
+	}
+}
+
+func TestParseSpacesFlag_EmptyString(t *testing.T) {
+	result, err := cli.ParseSpacesFlag("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("got %v, want nil", result)
+	}
+}
+
+func TestParseSpacesFlag_EmptyElement(t *testing.T) {
+	cases := []string{"foo,,bar", ",", "foo,"}
+	for _, s := range cases {
+		result, err := cli.ParseSpacesFlag(s)
+		if err == nil {
+			t.Errorf("ParseSpacesFlag(%q) = %v, want error", s, result)
+		}
+	}
+}
+
+func TestParseSpacesFlag_Whitespace_Trimmed(t *testing.T) {
+	result, err := cli.ParseSpacesFlag("foo, bar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 2 || result[0] != "foo" || result[1] != "bar" {
+		t.Errorf("got %v, want [foo bar]", result)
+	}
+}
+
+func TestParseSpacesFlag_Deduplication(t *testing.T) {
+	result, err := cli.ParseSpacesFlag("foo,foo,bar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 2 || result[0] != "foo" || result[1] != "bar" {
+		t.Errorf("got %v, want [foo bar]", result)
+	}
+}
+
+func TestGlobalFlags_Validate_SpacesAndAllSpaces_Conflict(t *testing.T) {
+	flags := cli.GlobalFlags{Spaces: "foo", AllSpaces: true}
+	err := flags.Validate()
+	if err == nil {
+		t.Fatal("expected error for --spaces + --all-spaces, got nil")
+	}
+	if !strings.Contains(err.Error(), "--spaces and --all-spaces") {
+		t.Errorf("error message %q does not contain '--spaces and --all-spaces'", err.Error())
+	}
+}
+
+func TestGlobalFlags_Validate_SpacesOnly_OK(t *testing.T) {
+	flags := cli.GlobalFlags{Spaces: "foo"}
+	if err := flags.Validate(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGlobalFlags_Validate_AllSpacesOnly_OK(t *testing.T) {
+	flags := cli.GlobalFlags{AllSpaces: true}
+	if err := flags.Validate(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGlobalFlags_Validate_SpaceAndSpaces_Independent(t *testing.T) {
+	// --space と --spaces の同時指定は許可（--spaces が優先される）
+	flags := cli.GlobalFlags{Space: "foo", Spaces: "bar"}
+	if err := flags.Validate(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGlobalFlags_Spaces_CLIParse(t *testing.T) {
+	t.Run("--spaces が正しくパースされる", func(t *testing.T) {
+		t.Setenv("LOGVALET_API_KEY", "")
+		t.Setenv("LOGVALET_ACCESS_TOKEN", "")
+
+		var flags cli.GlobalFlags
+		p, err := kong.New(&flags)
+		if err != nil {
+			t.Fatalf("kong.New() error: %v", err)
+		}
+		if _, err := p.Parse([]string{"--spaces", "foo,bar"}); err != nil {
+			t.Fatalf("Parse() error: %v", err)
+		}
+		if flags.Spaces != "foo,bar" {
+			t.Errorf("Spaces = %q, want %q", flags.Spaces, "foo,bar")
+		}
+	})
+
+	t.Run("--all-spaces が正しくパースされる", func(t *testing.T) {
+		t.Setenv("LOGVALET_API_KEY", "")
+		t.Setenv("LOGVALET_ACCESS_TOKEN", "")
+
+		var flags cli.GlobalFlags
+		p, err := kong.New(&flags)
+		if err != nil {
+			t.Fatalf("kong.New() error: %v", err)
+		}
+		if _, err := p.Parse([]string{"--all-spaces"}); err != nil {
+			t.Fatalf("Parse() error: %v", err)
+		}
+		if !flags.AllSpaces {
+			t.Error("AllSpaces = false, want true")
+		}
+	})
+
+	// --spaces foo --spaces bar のように2回渡すと後者で上書きされる（Kong string 型の仕様）
+	// 複数スペースは --spaces foo,bar のように comma-separated で指定すること
+	t.Run("--spaces を2回渡すと後者で上書きされる（Kong string 型仕様）", func(t *testing.T) {
+		t.Setenv("LOGVALET_API_KEY", "")
+		t.Setenv("LOGVALET_ACCESS_TOKEN", "")
+
+		var flags cli.GlobalFlags
+		p, err := kong.New(&flags)
+		if err != nil {
+			t.Fatalf("kong.New() error: %v", err)
+		}
+		if _, err := p.Parse([]string{"--spaces", "foo", "--spaces", "bar"}); err != nil {
+			t.Fatalf("Parse() error: %v", err)
+		}
+		// Kong の string フラグは後勝ち: "bar" になる
+		if flags.Spaces != "bar" {
+			t.Errorf("Spaces = %q, want %q (last-wins behavior)", flags.Spaces, "bar")
 		}
 	})
 }
