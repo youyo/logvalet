@@ -25,6 +25,9 @@ type StateClaims struct {
 	Tenant   string `json:"tenant"`
 	Nonce    string `json:"nonce"`
 	Continue string `json:"continue,omitempty"`
+	// multi-space 登録フロー用（既存フローでは空でよい: omitempty で後方互換）
+	BaseURL string `json:"base_url,omitempty"`
+	Alias   string `json:"alias,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -78,6 +81,54 @@ func GenerateStateWithContinue(userID, tenant, continueURL string, secret []byte
 		Tenant:   tenant,
 		Nonce:    nonce,
 		Continue: continueURL,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedString, err := token.SignedString(secret)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrStateInvalid, err)
+	}
+
+	return signedString, nil
+}
+
+// GenerateStateWithSpaceInfo は multi-space 登録フロー用 state JWT を生成する。
+// alias は authorize 前に確定している必要がある（callback 側での alias 生成禁止: C2）。
+// baseURL と alias が空の場合は ErrStateInvalid を返す。
+// その他の引数は GenerateState と同様。
+func GenerateStateWithSpaceInfo(userID, tenant, baseURL, alias string, secret []byte, ttl time.Duration) (string, error) {
+	if userID == "" {
+		return "", ErrUnauthenticated
+	}
+	if tenant == "" {
+		return "", ErrInvalidTenant
+	}
+	if baseURL == "" || alias == "" {
+		return "", fmt.Errorf("%w: baseURL and alias must not be empty", ErrStateInvalid)
+	}
+	if len(secret) == 0 {
+		return "", ErrStateInvalid
+	}
+	if ttl <= 0 {
+		return "", ErrStateInvalid
+	}
+
+	nonce, err := generateNonce()
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrStateInvalid, err)
+	}
+
+	now := time.Now()
+	claims := &StateClaims{
+		UserID:  userID,
+		Tenant:  tenant,
+		Nonce:   nonce,
+		BaseURL: baseURL,
+		Alias:   alias,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),

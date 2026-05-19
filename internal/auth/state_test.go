@@ -289,3 +289,53 @@ func TestValidateContinueURL_EmptyAllowed(t *testing.T) {
 		t.Errorf("ValidateContinueURL(%q) = %v, want nil", "", err)
 	}
 }
+
+// ============================================================================
+// T1-T2: GenerateStateWithSpaceInfo / StateClaims 拡張テスト（MS10）
+// ============================================================================
+
+// T1: GenerateStateWithSpaceInfo で生成した JWT に BaseURL/Alias が含まれること。
+func TestGenerateStateWithSpaceInfo_ContainsBaseURLAndAlias(t *testing.T) {
+	baseURL := "https://foo.backlog.com"
+	alias := "foo"
+
+	state, err := GenerateStateWithSpaceInfo(testUserID, testTenant, baseURL, alias, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo() error = %v, want nil", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v, want nil", err)
+	}
+	if claims.BaseURL != baseURL {
+		t.Errorf("claims.BaseURL = %q, want %q", claims.BaseURL, baseURL)
+	}
+	if claims.Alias != alias {
+		t.Errorf("claims.Alias = %q, want %q", claims.Alias, alias)
+	}
+	if claims.UserID != testUserID {
+		t.Errorf("claims.UserID = %q, want %q", claims.UserID, testUserID)
+	}
+	if claims.Tenant != testTenant {
+		t.Errorf("claims.Tenant = %q, want %q", claims.Tenant, testTenant)
+	}
+}
+
+// T2: 既存 GenerateState で生成した JWT を ValidateState で検証でき、
+// BaseURL/Alias は空でエラーにならない（omitempty による後方互換）。
+func TestStateClaims_BackwardCompat_ExistingFields(t *testing.T) {
+	state, err := GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState() error = %v, want nil", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v, want nil", err)
+	}
+	if claims.BaseURL != "" {
+		t.Errorf("claims.BaseURL = %q, want empty string (backward compat)", claims.BaseURL)
+	}
+	if claims.Alias != "" {
+		t.Errorf("claims.Alias = %q, want empty string (backward compat)", claims.Alias)
+	}
+}
