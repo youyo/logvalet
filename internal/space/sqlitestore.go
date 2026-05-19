@@ -67,9 +67,18 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("sqlite space store: ping: %w", err)
 	}
 
+	// WAL モードで並行読み取りを改善し、単一接続でライタ競合を防ぐ
+	db.SetMaxOpenConns(1)
+
 	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("sqlite space store: set WAL mode: %w", err)
+	}
+
+	ctx := context.Background()
+	if _, err := db.ExecContext(ctx, "PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("sqlite space store: set busy_timeout: %w", err)
 	}
 
 	for _, ddl := range []string{createSpacesSQL, createUserPrefsSQL, createNoncesSQL} {
@@ -77,6 +86,12 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 			db.Close()
 			return nil, fmt.Errorf("sqlite space store: migrate: %w", err)
 		}
+	}
+
+	// 起動時に期限切れ nonce を削除（エラーは無視してサービスを継続）
+	if _, err := db.ExecContext(ctx, "DELETE FROM nonces WHERE expires_at < datetime('now')"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("sqlite space store: gc expired nonces: %w", err)
 	}
 
 	return &SQLiteStore{db: db}, nil

@@ -1,6 +1,7 @@
 package space
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -20,6 +21,12 @@ func NormalizeBaseURL(raw string) (string, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "", fmt.Errorf("space: invalid base URL %q: %w", raw, err)
+	}
+	if u.Scheme != "https" {
+		return "", fmt.Errorf("space: base URL must use https scheme, got %q", u.Scheme)
+	}
+	if u.Host == "" {
+		return "", errors.New("space: base URL must have a host")
 	}
 	if u.Path != "" && u.Path != "/" && strings.TrimRight(u.Path, "/") != "" {
 		return "", fmt.Errorf("space: base URL must not have a path: %q", raw)

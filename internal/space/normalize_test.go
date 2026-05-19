@@ -94,6 +94,20 @@ func TestNormalizeBaseURL_EmptyRejected(t *testing.T) {
 	}
 }
 
+func TestNormalizeBaseURL_HTTPRejected(t *testing.T) {
+	_, err := NormalizeBaseURL("http://foo.backlog.com")
+	if err == nil {
+		t.Error("expected error for http scheme, got nil")
+	}
+}
+
+func TestNormalizeBaseURL_EmptyHost(t *testing.T) {
+	_, err := NormalizeBaseURL("https://")
+	if err == nil {
+		t.Error("expected error for empty host, got nil")
+	}
+}
+
 func TestNormalizeBaseURL_CustomDomain(t *testing.T) {
 	got, err := NormalizeBaseURL("https://backlog.example.com")
 	if err != nil {

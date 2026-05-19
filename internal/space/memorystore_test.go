@@ -278,3 +278,18 @@ func TestMemoryStore_NonceStore_UserIsolation(t *testing.T) {
 		t.Errorf("expected ErrNonceAlreadyUsed for different user, got %v", err)
 	}
 }
+
+func TestMemoryStore_Nonce_Expiry(t *testing.T) {
+	s := NewMemoryStore()
+	ctx := context.Background()
+
+	if err := s.Store(ctx, "u1", "nonce1", 1*time.Millisecond); err != nil {
+		t.Fatalf("Store: %v", err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	if err := s.Consume(ctx, "u1", "nonce1"); err != ErrNonceAlreadyUsed {
+		t.Errorf("expected ErrNonceAlreadyUsed for expired nonce, got %v", err)
+	}
+}

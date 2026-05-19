@@ -111,7 +111,12 @@ func (s *MemoryStore) Consume(ctx context.Context, userID, nonce string) error {
 	if !ok {
 		return ErrNonceAlreadyUsed
 	}
-	if _, exists := userNonces[nonce]; !exists {
+	exp, exists := userNonces[nonce]
+	if !exists {
+		return ErrNonceAlreadyUsed
+	}
+	if time.Now().After(exp) {
+		delete(userNonces, nonce)
 		return ErrNonceAlreadyUsed
 	}
 	delete(userNonces, nonce)
