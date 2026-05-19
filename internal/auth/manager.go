@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // defaultRefreshMargin はトークンリフレッシュのデフォルト安全マージン。
@@ -57,6 +59,7 @@ type tokenManager struct {
 	store         TokenStore
 	providers     map[string]TokenRefresher
 	refreshMargin time.Duration
+	sfGroup       singleflight.Group
 }
 
 // NewTokenManager は新しい TokenManager を返す。
@@ -92,38 +95,48 @@ func (tm *tokenManager) GetValidToken(ctx context.Context, userID, provider, ten
 		return nil, fmt.Errorf("provider %q not registered: %w", provider, ErrProviderNotConnected)
 	}
 
-	// リフレッシュ実行
-	refreshed, err := refresher.RefreshToken(ctx, rec.RefreshToken)
-	if err != nil {
-		slog.Warn("token refresh failed",
+	// (userID, provider, tenant) キーで refresh を 1 度だけ実行する。
+	// Backlog OAuth はリフレッシュトークンを rotate するため、
+	// 並行リクエストが同時に古い refresh_token を使うと 2 件目が認証不能になる。
+	sfKey := userID + ":" + provider + ":" + tenant
+	result, err, _ := tm.sfGroup.Do(sfKey, func() (any, error) {
+		refreshed, err := refresher.RefreshToken(ctx, rec.RefreshToken)
+		if err != nil {
+			slog.Warn("token refresh failed",
+				"provider", provider,
+				"user_id", userID,
+				"tenant", tenant,
+				"error", err,
+			)
+			return nil, fmt.Errorf("refresh token for provider %q: %w", provider, ErrTokenRefreshFailed)
+		}
+
+		// identity fields をコピー（M05: RefreshToken は UserID/ProviderUserID を設定しない）
+		refreshed.UserID = rec.UserID
+		refreshed.Provider = rec.Provider
+		refreshed.Tenant = rec.Tenant
+		refreshed.ProviderUserID = rec.ProviderUserID
+		refreshed.CreatedAt = rec.CreatedAt
+		refreshed.UpdatedAt = time.Now()
+
+		if err := tm.store.Put(ctx, refreshed); err != nil {
+			return nil, fmt.Errorf("save refreshed token: %w", err)
+		}
+
+		slog.Info("token refreshed",
 			"provider", provider,
 			"user_id", userID,
 			"tenant", tenant,
-			"error", err,
+			"access_token", maskToken(refreshed.AccessToken),
 		)
-		return nil, fmt.Errorf("refresh token for provider %q: %w", provider, ErrTokenRefreshFailed)
+
+		return refreshed, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	// identity fields をコピー（M05: RefreshToken は UserID/ProviderUserID を設定しない）
-	refreshed.UserID = rec.UserID
-	refreshed.Provider = rec.Provider
-	refreshed.Tenant = rec.Tenant
-	refreshed.ProviderUserID = rec.ProviderUserID
-	refreshed.CreatedAt = rec.CreatedAt
-	refreshed.UpdatedAt = time.Now()
-
-	if err := tm.store.Put(ctx, refreshed); err != nil {
-		return nil, fmt.Errorf("save refreshed token: %w", err)
-	}
-
-	slog.Info("token refreshed",
-		"provider", provider,
-		"user_id", userID,
-		"tenant", tenant,
-		"access_token", maskToken(refreshed.AccessToken),
-	)
-
-	return refreshed, nil
+	return result.(*TokenRecord), nil
 }
 
 // SaveToken はトークンレコードを保存する。

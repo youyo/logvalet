@@ -3,6 +3,8 @@ package auth_test
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 
 // mockStore は TokenStore のテスト用モック。
 type mockStore struct {
+	mu      sync.RWMutex
 	records map[string]*auth.TokenRecord
 	putErr  error
 	getErr  error
@@ -24,6 +27,8 @@ func newMockStore() *mockStore {
 }
 
 func (m *mockStore) Get(_ context.Context, userID, provider, tenant string) (*auth.TokenRecord, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -37,6 +42,8 @@ func (m *mockStore) Get(_ context.Context, userID, provider, tenant string) (*au
 }
 
 func (m *mockStore) Put(_ context.Context, record *auth.TokenRecord) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.putErr != nil {
 		return m.putErr
 	}
@@ -47,6 +54,8 @@ func (m *mockStore) Put(_ context.Context, record *auth.TokenRecord) error {
 }
 
 func (m *mockStore) Delete(_ context.Context, userID, provider, tenant string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.delErr != nil {
 		return m.delErr
 	}
@@ -72,6 +81,28 @@ func (m *mockRefresher) RefreshToken(_ context.Context, refreshToken string) (*a
 	if m.err != nil {
 		return nil, m.err
 	}
+	cp := *m.record
+	return &cp, nil
+}
+
+// concurrentMockRefresher は並行呼び出し回数をカウントする TokenRefresher モック。
+// gate チャネルを使って全 goroutine が同時に RefreshToken に到達するまでブロックする。
+type concurrentMockRefresher struct {
+	name    string
+	record  *auth.TokenRecord
+	callCnt atomic.Int64
+	// ready は goroutine が RefreshToken に到達したことを通知する
+	ready chan struct{}
+	// gate を close すると全 goroutine が一斉に進む
+	gate chan struct{}
+}
+
+func (m *concurrentMockRefresher) Name() string { return m.name }
+
+func (m *concurrentMockRefresher) RefreshToken(_ context.Context, _ string) (*auth.TokenRecord, error) {
+	m.callCnt.Add(1)
+	m.ready <- struct{}{}
+	<-m.gate
 	cp := *m.record
 	return &cp, nil
 }
@@ -408,5 +439,84 @@ func TestRevokeToken(t *testing.T) {
 	stored, _ := store.Get(context.Background(), "user1", "backlog", "example.backlog.com")
 	if stored != nil {
 		t.Error("store should not contain the record after revoke")
+	}
+}
+
+// TestGetValidToken_ConcurrentRefresh は同じキーで並行して GetValidToken を呼んだとき
+// RefreshToken が 1 度だけ呼ばれることを検証する（singleflight による排他）。
+func TestGetValidToken_ConcurrentRefresh(t *testing.T) {
+	const goroutines = 10
+
+	store := newMockStore()
+	rec := &auth.TokenRecord{
+		UserID:         "user1",
+		Provider:       "backlog",
+		Tenant:         "example.backlog.com",
+		AccessToken:    "old-access-token",
+		RefreshToken:   "old-refresh-token",
+		TokenType:      "Bearer",
+		Expiry:         time.Now().Add(1 * time.Minute), // リフレッシュ対象
+		ProviderUserID: "provider-user-1",
+		CreatedAt:      time.Now().Add(-24 * time.Hour),
+		UpdatedAt:      time.Now().Add(-1 * time.Hour),
+	}
+	key := auth.StoreKey("user1", "backlog", "example.backlog.com")
+	store.records[key] = rec
+
+	refreshedRec := &auth.TokenRecord{
+		AccessToken:  "new-access-token",
+		RefreshToken: "new-refresh-token",
+		TokenType:    "Bearer",
+		Expiry:       time.Now().Add(1 * time.Hour),
+	}
+	refresher := &concurrentMockRefresher{
+		name:   "backlog",
+		record: refreshedRec,
+		// ready バッファは goroutines 分確保（デッドロック防止）
+		ready: make(chan struct{}, goroutines),
+		gate:  make(chan struct{}),
+	}
+	providers := map[string]auth.TokenRefresher{"backlog": refresher}
+
+	mgr := auth.NewTokenManager(store, providers)
+
+	results := make([]*auth.TokenRecord, goroutines)
+	errs := make([]error, goroutines)
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			results[i], errs[i] = mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+		}()
+	}
+
+	// 少なくとも 1 goroutine が RefreshToken に到達するのを待ってから gate を開放
+	<-refresher.ready
+	close(refresher.gate)
+
+	wg.Wait()
+
+	// 全 goroutine がエラーなく新しいトークンを受け取っていること
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: unexpected error: %v", i, err)
+		}
+	}
+	for i, r := range results {
+		if r == nil {
+			t.Errorf("goroutine %d: result is nil", i)
+			continue
+		}
+		if r.AccessToken != "new-access-token" {
+			t.Errorf("goroutine %d: AccessToken = %q, want %q", i, r.AccessToken, "new-access-token")
+		}
+	}
+
+	// RefreshToken は singleflight により 1 度だけ呼ばれること
+	if cnt := refresher.callCnt.Load(); cnt != 1 {
+		t.Errorf("RefreshToken called %d times, want 1", cnt)
 	}
 }
