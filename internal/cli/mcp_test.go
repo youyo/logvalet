@@ -37,6 +37,8 @@ func TestMcpCmd_Validate_CookieSecretTooShort(t *testing.T) {
 }
 
 func TestMcpCmd_Validate_ValidAuth(t *testing.T) {
+	// remote MCP は DynamoDB が必須（C1 対応）
+	t.Setenv("LOGVALET_SPACE_STORE_TYPE", "dynamodb")
 	cmd := &cli.McpCmd{
 		Auth:         true,
 		ExternalURL:  "https://example.com",
