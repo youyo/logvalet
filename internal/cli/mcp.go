@@ -295,7 +295,14 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 	}
 
-	srv := &http.Server{Addr: addr, Handler: handler}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

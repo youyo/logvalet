@@ -70,7 +70,7 @@ func ExchangeCode(ctx context.Context, tokenURL, clientID, clientSecret, code, r
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("oauth: token endpoint returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("oauth: token endpoint returned status %d", resp.StatusCode)
 	}
 
 	var tokenResp TokenResponse

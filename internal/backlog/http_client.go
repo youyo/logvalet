@@ -133,6 +133,8 @@ type backlogAPIError struct {
 	} `json:"errors"`
 }
 
+const maxAPIResponseBytes = 32 * 1024 * 1024 // 32MB
+
 // do はリクエストを実行し、レスポンスボディを out にデシリアライズする。
 // HTTP エラーは typed errors に変換する。
 func (c *HTTPClient) do(req *http.Request, out interface{}) error {
@@ -142,7 +144,7 @@ func (c *HTTPClient) do(req *http.Request, out interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseBytes))
 	if err != nil {
 		return fmt.Errorf("backlog: failed to read response body: %w", err)
 	}
