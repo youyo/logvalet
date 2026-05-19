@@ -73,11 +73,7 @@ func NewProjectHealthBuilder(client backlog.Client, profile, space, baseURL stri
 }
 
 // Build はプロジェクトの健全性評価を実行する。
-// 各分析器（StaleIssueDetector, BlockerDetector, WorkloadCalculator）を goroutine で並列実行し、
-// 結果を集約して AnalysisEnvelope を返す。
-// 各分析器の失敗は error を返さず warnings に追加する（partial result）。
 func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, config ProjectHealthConfig) (*AnalysisEnvelope, error) {
-	// clock を各分析器に伝播する
 	clockOpt := WithClock(b.now)
 
 	staleDetector := NewStaleIssueDetector(b.client, b.profile, b.space, b.baseURL, clockOpt)
@@ -93,7 +89,6 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		wg          sync.WaitGroup
 	)
 
-	// goroutine 1: StaleIssueDetector
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -113,7 +108,6 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		allWarnings = append(allWarnings, env.Warnings...)
 	}()
 
-	// goroutine 2: BlockerDetector
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -133,7 +127,6 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		allWarnings = append(allWarnings, env.Warnings...)
 	}()
 
-	// goroutine 3: WorkloadCalculator
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -155,9 +148,6 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 
 	wg.Wait()
 
-	// GetProject/ListIssues 失敗の検出:
-	// 全分析器から project_fetch_failed / issues_fetch_failed の warning が返った場合は
-	// 情報がないため最悪ケースを仮定して health_score=0, health_level="critical" を返す
 	fetchFailureCount := 0
 	for _, w := range allWarnings {
 		if w.Code == "project_fetch_failed" || w.Code == "issues_fetch_failed" {
@@ -165,8 +155,6 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		}
 	}
 
-	// 3分析器全てが同じプロジェクトを参照しているため、
-	// project_fetch_failed or issues_fetch_failed が1件でもあれば情報不足とみなす
 	if fetchFailureCount > 0 {
 		result := &ProjectHealthResult{
 			ProjectKey:      projectKey,
@@ -177,15 +165,13 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 			HealthLevel:     "critical",
 			LLMHints:        buildHealthLLMHints(projectKey, StaleSummary{}, BlockerSummary{}, WorkloadSummary{}),
 		}
-		return b.newEnvelope("project_health", result, deduplicateWarnings(allWarnings)), nil
+		return b.newEnvelope("project_health", result, allWarnings), nil
 	}
 
-	// サマリーを集約
 	staleSummary := aggregateStaleSummary(staleEnv)
 	blockerSummary := aggregateBlockerSummary(blockerEnv)
 	workloadSummary := aggregateWorkloadSummary(workloadEnv)
 
-	// health_score 計算
 	score := calcHealthScore(
 		staleSummary.TotalCount,
 		blockerSummary.HighCount,
@@ -206,7 +192,7 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		LLMHints:        buildHealthLLMHints(projectKey, staleSummary, blockerSummary, workloadSummary),
 	}
 
-	return b.newEnvelope("project_health", result, deduplicateWarnings(allWarnings)), nil
+	return b.newEnvelope("project_health", result, allWarnings), nil
 }
 
 // aggregateStaleSummary は stale 分析結果から StaleSummary を組み立てる。
@@ -285,37 +271,23 @@ func aggregateWorkloadSummary(env *AnalysisEnvelope) WorkloadSummary {
 // calcHealthScore はサマリーから health_score を計算する（減点方式、下限0）。
 func calcHealthScore(staleCount, blockerHigh, blockerMedium, overloadedCount, unassignedCount, totalIssues int) int {
 	score := 100
-
-	// stale issue 1件ごと -5
 	score -= staleCount * PenaltyPerStale
-
-	// blocker HIGH 1件ごと -10
 	score -= blockerHigh * PenaltyBlockerHigh
-
-	// blocker MEDIUM 1件ごと -5
 	score -= blockerMedium * PenaltyBlockerMedium
-
-	// overloaded メンバー 1人ごと -8
 	score -= overloadedCount * PenaltyPerOverloaded
-
-	// unassigned 課題が total の 20% 超 → -10
 	if totalIssues > 0 {
 		ratio := unassignedCount * 100 / totalIssues
 		if ratio > UnassignedRatioThreshold {
 			score -= PenaltyUnassignedRatio
 		}
 	}
-
-	// 下限 0
 	if score < 0 {
 		score = 0
 	}
-
 	return score
 }
 
 // calcHealthLevel は score から health_level を決定する。
-// 80-100: "healthy", 60-79: "warning", 0-59: "critical"
 func calcHealthLevel(score int) string {
 	switch {
 	case score >= 80:
@@ -350,13 +322,4 @@ func buildHealthLLMHints(projectKey string, stale StaleSummary, blocker BlockerS
 		OpenQuestions:        openQuestions,
 		SuggestedNextActions: []string{},
 	}
-}
-
-// deduplicateWarnings は warnings の重複を除去せずにそのまま返す（情報欠損を避ける）。
-// 複数の分析器が同じ project_fetch_failed を返す場合も全てマージして返す。
-func deduplicateWarnings(warnings []domain.Warning) []domain.Warning {
-	if warnings == nil {
-		return []domain.Warning{}
-	}
-	return warnings
 }
