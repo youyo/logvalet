@@ -106,32 +106,6 @@ func (d *StaleIssueDetector) Detect(ctx context.Context, projectKeys []string, c
 	return d.newEnvelope("stale_issues", result, warnings), nil
 }
 
-// fetchProjectIssues はプロジェクトの課題一覧を取得する。エラー時は warnings を返す。
-func (d *StaleIssueDetector) fetchProjectIssues(ctx context.Context, projectKey string) ([]domain.Issue, []domain.Warning) {
-	project, err := d.client.GetProject(ctx, projectKey)
-	if err != nil {
-		return nil, []domain.Warning{{
-			Code:      "project_fetch_failed",
-			Message:   fmt.Sprintf("failed to get project %s: %v", projectKey, err),
-			Component: "project",
-			Retryable: true,
-		}}
-	}
-
-	issues, err := d.client.ListIssues(ctx, backlog.ListIssuesOptions{
-		ProjectIDs: []int{project.ID},
-	})
-	if err != nil {
-		return nil, []domain.Warning{{
-			Code:      "issues_fetch_failed",
-			Message:   fmt.Sprintf("failed to list issues for project %s: %v", projectKey, err),
-			Component: "issues",
-			Retryable: true,
-		}}
-	}
-
-	return issues, nil
-}
 
 // classifyIssue は個別課題を stale 判定し、該当する場合は StaleIssue を返す。
 func classifyIssue(issue *domain.Issue, now time.Time, defaultDays int, statusDays map[string]int, excludeSet map[string]bool) (StaleIssue, bool) {

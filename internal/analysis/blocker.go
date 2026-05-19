@@ -190,32 +190,6 @@ func (d *BlockerDetector) Detect(ctx context.Context, projectKeys []string, conf
 	return d.newEnvelope("project_blockers", result, warnings), nil
 }
 
-// fetchProjectIssues はプロジェクトの課題一覧を取得する。エラー時は warnings を返す。
-func (d *BlockerDetector) fetchProjectIssues(ctx context.Context, projectKey string) ([]domain.Issue, []domain.Warning) {
-	project, err := d.client.GetProject(ctx, projectKey)
-	if err != nil {
-		return nil, []domain.Warning{{
-			Code:      "project_fetch_failed",
-			Message:   fmt.Sprintf("failed to get project %s: %v", projectKey, err),
-			Component: "project",
-			Retryable: true,
-		}}
-	}
-
-	issues, err := d.client.ListIssues(ctx, backlog.ListIssuesOptions{
-		ProjectIDs: []int{project.ID},
-	})
-	if err != nil {
-		return nil, []domain.Warning{{
-			Code:      "issues_fetch_failed",
-			Message:   fmt.Sprintf("failed to list issues for project %s: %v", projectKey, err),
-			Component: "issues",
-			Retryable: true,
-		}}
-	}
-
-	return issues, nil
-}
 
 // classifyBlocker は個別課題のシグナルを検出する。
 func (d *BlockerDetector) classifyBlocker(

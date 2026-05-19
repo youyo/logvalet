@@ -65,6 +65,30 @@ func NewHTTPClient(cfg ClientConfig) *HTTPClient {
 	}
 }
 
+// ---- アクティビティクエリヘルパー ----
+
+// buildActivityQuery は activityTypeId[], minId, maxId, count, order の共通クエリを構築する。
+// ListActivitiesOptions / ListUserActivitiesOptions 両型で同一ロジックが必要なため分離。
+func buildActivityQuery(typeIDs []int, minID, maxID, count int, order string) url.Values {
+	q := url.Values{}
+	for _, id := range typeIDs {
+		q.Add("activityTypeId[]", strconv.Itoa(id))
+	}
+	if minID > 0 {
+		q.Set("minId", strconv.Itoa(minID))
+	}
+	if maxID > 0 {
+		q.Set("maxId", strconv.Itoa(maxID))
+	}
+	if count > 0 {
+		q.Set("count", strconv.Itoa(count))
+	}
+	if order != "" {
+		q.Set("order", order)
+	}
+	return q
+}
+
 // ---- リクエストヘルパー ----
 
 // newRequest は認証情報付きの *http.Request を生成する。
@@ -217,23 +241,7 @@ func (c *HTTPClient) GetUser(ctx context.Context, userID string) (*domain.User, 
 // ListUserActivities は指定ユーザーのアクティビティ一覧を返す。
 // GET /api/v2/users/{userID}/activities
 func (c *HTTPClient) ListUserActivities(ctx context.Context, userID string, opt ListUserActivitiesOptions) ([]domain.Activity, error) {
-	q := url.Values{}
-	for _, id := range opt.ActivityTypeIDs {
-		q.Add("activityTypeId[]", strconv.Itoa(id))
-	}
-	if opt.MinId > 0 {
-		q.Set("minId", strconv.Itoa(opt.MinId))
-	}
-	if opt.MaxId > 0 {
-		q.Set("maxId", strconv.Itoa(opt.MaxId))
-	}
-	if opt.Count > 0 {
-		q.Set("count", strconv.Itoa(opt.Count))
-	}
-	if opt.Order != "" {
-		q.Set("order", opt.Order)
-	}
-
+	q := buildActivityQuery(opt.ActivityTypeIDs, opt.MinId, opt.MaxId, opt.Count, opt.Order)
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/users/"+url.PathEscape(userID)+"/activities", q)
 	if err != nil {
 		return nil, err
@@ -510,22 +518,7 @@ func (c *HTTPClient) ListProjects(ctx context.Context) ([]domain.Project, error)
 // ListProjectActivities は指定プロジェクトのアクティビティ一覧を返す。
 // GET /api/v2/projects/{projectKey}/activities
 func (c *HTTPClient) ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error) {
-	q := url.Values{}
-	for _, id := range opt.ActivityTypeIDs {
-		q.Add("activityTypeId[]", strconv.Itoa(id))
-	}
-	if opt.MinId > 0 {
-		q.Set("minId", strconv.Itoa(opt.MinId))
-	}
-	if opt.MaxId > 0 {
-		q.Set("maxId", strconv.Itoa(opt.MaxId))
-	}
-	if opt.Count > 0 {
-		q.Set("count", strconv.Itoa(opt.Count))
-	}
-	if opt.Order != "" {
-		q.Set("order", opt.Order)
-	}
+	q := buildActivityQuery(opt.ActivityTypeIDs, opt.MinId, opt.MaxId, opt.Count, opt.Order)
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/activities", q)
 	if err != nil {
 		return nil, err
@@ -540,22 +533,7 @@ func (c *HTTPClient) ListProjectActivities(ctx context.Context, projectKey strin
 // ListSpaceActivities はスペースのアクティビティ一覧を返す。
 // GET /api/v2/space/activities
 func (c *HTTPClient) ListSpaceActivities(ctx context.Context, opt ListActivitiesOptions) ([]domain.Activity, error) {
-	q := url.Values{}
-	for _, id := range opt.ActivityTypeIDs {
-		q.Add("activityTypeId[]", strconv.Itoa(id))
-	}
-	if opt.MinId > 0 {
-		q.Set("minId", strconv.Itoa(opt.MinId))
-	}
-	if opt.MaxId > 0 {
-		q.Set("maxId", strconv.Itoa(opt.MaxId))
-	}
-	if opt.Count > 0 {
-		q.Set("count", strconv.Itoa(opt.Count))
-	}
-	if opt.Order != "" {
-		q.Set("order", opt.Order)
-	}
+	q := buildActivityQuery(opt.ActivityTypeIDs, opt.MinId, opt.MaxId, opt.Count, opt.Order)
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/space/activities", q)
 	if err != nil {
 		return nil, err

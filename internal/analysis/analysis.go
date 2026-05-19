@@ -6,6 +6,8 @@
 package analysis
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
@@ -78,6 +80,33 @@ func (b *BaseAnalysisBuilder) newEnvelope(resource string, analysis any, warning
 		Warnings:      warnings,
 		Analysis:      analysis,
 	}
+}
+
+// fetchProjectIssues はプロジェクトの課題一覧を取得する。エラー時は warnings を返す。
+func (b *BaseAnalysisBuilder) fetchProjectIssues(ctx context.Context, projectKey string) ([]domain.Issue, []domain.Warning) {
+	project, err := b.client.GetProject(ctx, projectKey)
+	if err != nil {
+		return nil, []domain.Warning{{
+			Code:      "project_fetch_failed",
+			Message:   fmt.Sprintf("failed to get project %s: %v", projectKey, err),
+			Component: "project",
+			Retryable: true,
+		}}
+	}
+
+	issues, err := b.client.ListIssues(ctx, backlog.ListIssuesOptions{
+		ProjectIDs: []int{project.ID},
+	})
+	if err != nil {
+		return nil, []domain.Warning{{
+			Code:      "issues_fetch_failed",
+			Message:   fmt.Sprintf("failed to list issues for project %s: %v", projectKey, err),
+			Component: "issues",
+			Retryable: true,
+		}}
+	}
+
+	return issues, nil
 }
 
 // toUserRef は domain.User を domain.UserRef に変換する（nil 安全）。
