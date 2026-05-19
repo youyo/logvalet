@@ -38,8 +38,6 @@ func uniqueInts(ids []int) []int {
 }
 
 // resolveAssignee は --assignee フラグの値を AssigneeIDs に変換する。
-// "me" → GetMyself、数値文字列 → そのまま ID、それ以外 → ListUsers で名前検索 →
-// 一致なしの場合は ListTeams でチーム名（部分一致）検索 → GetTeam でメンバー展開。
 func resolveAssignee(ctx context.Context, input string, client backlog.Client) ([]int, error) {
 	if input == "me" {
 		user, err := client.GetMyself(ctx)
@@ -51,7 +49,6 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 	if id, err := strconv.Atoi(input); err == nil {
 		return []int{id}, nil
 	}
-	// ユーザー名検索
 	users, err := client.ListUsers(ctx)
 	if err != nil {
 		return nil, err
@@ -71,7 +68,6 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 		}
 	}
 
-	// ユーザー名一致なし → チーム名フォールバック
 	teams, err := client.ListTeams(ctx, backlog.ListTeamsOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get teams: %w", err)
@@ -84,7 +80,6 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 	}
 	switch len(matchedTeams) {
 	case 0:
-		// どちらも一致なし → エラー（ユーザー名+チーム名の一覧）
 		userNames := make([]string, len(users))
 		for i, u := range users {
 			userNames[i] = u.Name
@@ -111,13 +106,8 @@ func resolveAssignee(ctx context.Context, input string, client backlog.Client) (
 }
 
 // resolveStatuses は --status フラグの値を StatusIDs に変換する。
-// "not-closed" → Backlog 標準の未完了ステータス [1,2,3]（projectKeys 不要）
-// "open" → 完了以外のステータス（projectKeys 必須）
-// カンマ区切り → 各要素を数値または名前で解決
-// 単一数値 → そのまま ID（projectKeys 不要）
 func resolveStatuses(ctx context.Context, input string, projectKeys []string, client backlog.Client) ([]int, error) {
 	if input == "not-closed" {
-		// Backlog 標準ステータス: 1=未対応, 2=処理中, 3=処理済み（4=完了を除外）
 		return []int{1, 2, 3}, nil
 	}
 	if input == "open" {
@@ -138,13 +128,11 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 		}
 		result := uniqueInts(ids)
 		if len(result) == 0 {
-			// 全ステータスが完了の場合、存在しないIDで0件を保証
 			return []int{-1}, nil
 		}
 		return result, nil
 	}
 
-	// カンマ区切りまたは単一値の処理
 	parts := strings.Split(input, ",")
 	var ids []int
 	for _, part := range parts {
@@ -152,16 +140,13 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 		if part == "" {
 			continue
 		}
-		// 数値なら直接 ID
 		if id, err := strconv.Atoi(part); err == nil {
 			ids = append(ids, id)
 			continue
 		}
-		// 名前 → projectKeys 必須
 		if len(projectKeys) == 0 {
 			return nil, fmt.Errorf("resolving status name %q requires --project-key (-k)", part)
 		}
-		// 各プロジェクトのステータスで名前解決
 		resolved := false
 		for _, key := range projectKeys {
 			statuses, err := client.ListProjectStatuses(ctx, key)
@@ -183,21 +168,12 @@ func resolveStatuses(ctx context.Context, input string, projectKeys []string, cl
 }
 
 // resolveDueDate は --due-date フラグの値を DueDateSince / DueDateUntil に変換する。
-// "" → nil, nil, nil
-// "today" → Since=Until=今日
-// "overdue" → Since=nil, Until=昨日
-// "this-week" → Since=今週月曜, Until=今週日曜
-// "this-month" → Since=今月1日, Until=今月末日
-// "YYYY-MM-DD" → Since=Until=指定日
-// "YYYY-MM-DD:YYYY-MM-DD" → Since=左側, Until=右側
-// "YYYY-MM-DD:" → Since のみ
-// ":YYYY-MM-DD" → Until のみ
 func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 	if input == "" {
 		return nil, nil, nil
 	}
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	switch input {
 	case "today":
 		return &today, &today, nil
@@ -213,7 +189,6 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
 		return &firstDay, &lastDay, nil
 	default:
-		// コロン区切りの範囲指定を試みる
 		if strings.Contains(input, ":") {
 			since, until, err := parseDateRange(input)
 			if err != nil {
@@ -230,21 +205,12 @@ func resolveDueDate(input string) (*time.Time, *time.Time, error) {
 }
 
 // resolveStartDate は --start-date フラグの値を StartDateSince / StartDateUntil に変換する。
-// "" → nil, nil, nil
-// "today" → Since=Until=今日
-// "this-week" → Since=今週月曜, Until=今週日曜
-// "this-month" → Since=今月1日, Until=今月末日
-// "YYYY-MM-DD" → Since=Until=指定日
-// "YYYY-MM-DD:YYYY-MM-DD" → Since=左側, Until=右側
-// "YYYY-MM-DD:" → Since のみ
-// ":YYYY-MM-DD" → Until のみ
-// "overdue" → エラー（startDate では非対応）
 func resolveStartDate(input string) (*time.Time, *time.Time, error) {
 	if input == "" {
 		return nil, nil, nil
 	}
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	switch input {
 	case "today":
 		return &today, &today, nil
@@ -259,7 +225,6 @@ func resolveStartDate(input string) (*time.Time, *time.Time, error) {
 		lastDay := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, today.Location())
 		return &firstDay, &lastDay, nil
 	default:
-		// コロン区切りの範囲指定を試みる
 		if strings.Contains(input, ":") {
 			since, until, err := parseDateRange(input)
 			if err != nil {
@@ -276,14 +241,9 @@ func resolveStartDate(input string) (*time.Time, *time.Time, error) {
 }
 
 // resolvePeriod は --since / --until フラグの値をそれぞれ *time.Time に変換する。
-// "" → nil
-// "today" → 今日
-// "this-week" → since の場合は今週月曜、until の場合は今週日曜
-// "this-month" → since の場合は今月1日、until の場合は今月末日
-// "YYYY-MM-DD" → その日付
 func resolvePeriod(since, until string) (*time.Time, *time.Time, error) {
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	var sinceTime *time.Time
 	if since != "" {
@@ -330,7 +290,6 @@ func resolvePeriod(since, until string) (*time.Time, *time.Time, error) {
 }
 
 // weekStart は月曜始まりの週開始日（月曜日）を返す。
-// Go の time.Weekday(): Sunday=0, Monday=1, ..., Saturday=6
 func weekStart(t time.Time) time.Time {
 	weekday := t.Weekday()
 	var offset int
@@ -343,10 +302,6 @@ func weekStart(t time.Time) time.Time {
 }
 
 // parseDateRange はコロン区切りの日付範囲文字列をパースする。
-// "A:B" → Since=A, Until=B
-// "A:" → Since=A, Until=nil
-// ":B" → Since=nil, Until=B
-// ":" → エラー（両側空）
 func parseDateRange(input string) (*time.Time, *time.Time, error) {
 	parts := strings.SplitN(input, ":", 2)
 	if len(parts) != 2 {
@@ -376,27 +331,19 @@ func parseDateRange(input string) (*time.Time, *time.Time, error) {
 }
 
 // resolveNameOrID は入力文字列を ID に変換する。
-// 数値ならそのまま ID として返却、文字列なら case-insensitive 完全一致検索。
-// 一致 0 件 → エラー（利用可能一覧を含む）
-// 一致 2 件以上 → エラー
 func resolveNameOrID(input string, items []domain.IDName) (int, error) {
 	if input == "" {
 		return 0, fmt.Errorf("input is empty")
 	}
-
-	// 数値として解析できる場合はそのまま ID として返す
 	if id, err := strconv.Atoi(input); err == nil {
 		return id, nil
 	}
-
-	// case-insensitive 完全一致検索
 	var matched []domain.IDName
 	for _, item := range items {
 		if strings.EqualFold(item.Name, input) {
 			matched = append(matched, item)
 		}
 	}
-
 	switch len(matched) {
 	case 0:
 		names := make([]string, len(items))
@@ -464,26 +411,21 @@ func toIDNamesFromStatuses(items []domain.Status) []domain.IDName {
 }
 
 // resolveTeamIDs は --team フラグの値（[]string）を TeamID の []int に変換する。
-// 数値文字列 → そのまま ID
-// 文字列 → ListTeams() で全チーム取得、名前で case-insensitive 部分一致
-// 一致なし → エラー（利用可能なチーム名一覧を表示）
-// 複数一致 → エラー
 func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client) ([]int, error) {
 	if len(inputs) == 0 {
 		return nil, nil
 	}
 
-	// 全て数値かチェック、非数値があれば ListTeams で名前解決が必要
 	ids := make([]int, 0, len(inputs))
 	var nameInputs []string
-	nameInputIdx := make(map[string]int) // 名前 → inputs スライス中のインデックス
+	nameInputIdx := make(map[string]int)
 
 	for _, input := range inputs {
 		if id, err := strconv.Atoi(input); err == nil {
 			ids = append(ids, id)
 		} else {
 			nameInputs = append(nameInputs, input)
-			nameInputIdx[input] = len(ids) // 後でマージするため位置を記録
+			nameInputIdx[input] = len(ids)
 		}
 	}
 
@@ -491,19 +433,16 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 		return ids, nil
 	}
 
-	// 名前解決が必要: ListTeams を呼び出す
 	teams, err := client.ListTeams(ctx, backlog.ListTeamsOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get teams: %w", err)
 	}
 
-	// チーム名の一覧を作成（エラーメッセージ用）
 	teamNames := make([]string, len(teams))
 	for i, t := range teams {
 		teamNames[i] = t.Name
 	}
 
-	// 各名前入力を解決し、元の入力順序を維持するため一時マップに格納
 	resolvedNames := make(map[string]int)
 	for _, name := range nameInputs {
 		var matched []domain.TeamWithMembers
@@ -518,7 +457,6 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 		case 1:
 			resolvedNames[name] = matched[0].ID
 		default:
-			// 完全一致を試みる
 			var exactMatched []domain.TeamWithMembers
 			for _, t := range matched {
 				if strings.EqualFold(t.Name, name) {
@@ -533,7 +471,6 @@ func resolveTeamIDs(ctx context.Context, inputs []string, client backlog.Client)
 		}
 	}
 
-	// 元の入力順序で結果を組み立てる
 	result := make([]int, 0, len(inputs))
 	for _, input := range inputs {
 		if id, err := strconv.Atoi(input); err == nil {
