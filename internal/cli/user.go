@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/domain"
 	"github.com/youyo/logvalet/internal/render"
 )
 
@@ -96,13 +98,85 @@ func (c *UserActivityCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	opt := backlog.ListUserActivitiesOptions{
-		Count: c.Limit,
+	return c.run(ctx, rc.Client, rc.Renderer, os.Stdout)
+}
+
+func (c *UserActivityCmd) run(ctx context.Context, client backlog.Client, renderer render.Renderer, out io.Writer) error {
+	var since, until *time.Time
+	if c.Since != "" {
+		t, err := time.Parse(time.RFC3339, c.Since)
+		if err != nil {
+			return fmt.Errorf("invalid --since: %w", err)
+		}
+		since = &t
 	}
-	activities, err := rc.Client.ListUserActivities(ctx, c.UserID, opt)
+	if c.Until != "" {
+		t, err := time.Parse(time.RFC3339, c.Until)
+		if err != nil {
+			return fmt.Errorf("invalid --until: %w", err)
+		}
+		until = &t
+	}
+	activities, err := fetchUserActivities(ctx, client, c.UserID, since, until, c.Limit)
 	if err != nil {
 		return err
 	}
-	return rc.Renderer.Render(os.Stdout, activities)
+	return renderer.Render(out, activities)
+}
+
+// fetchUserActivities は Since/Until に基づいてページネーションしながらアクティビティを取得する。
+// Backlog API はアクティビティの日付フィルタを持たないため、maxId によるカーソルページネーションと
+// クライアントサイドの日付フィルタリングで対応する。
+func fetchUserActivities(ctx context.Context, client backlog.Client, userID string, since, until *time.Time, limit int) ([]domain.Activity, error) {
+	const batchSize = 100
+	var result []domain.Activity
+	var maxID int64 = 0
+
+	for {
+		opt := backlog.ListUserActivitiesOptions{
+			Count: batchSize,
+			MaxId: int(maxID),
+		}
+		batch, err := client.ListUserActivities(ctx, userID, opt)
+		if err != nil {
+			return nil, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		done := false
+		for _, a := range batch {
+			if a.Created == nil {
+				continue
+			}
+			// Activities are returned newest first. Skip those after Until.
+			if until != nil && a.Created.After(*until) {
+				continue
+			}
+			// Stop when we reach activities older than Since.
+			if since != nil && a.Created.Before(*since) {
+				done = true
+				break
+			}
+			result = append(result, a)
+			// When no date filter, stop once limit is reached.
+			if since == nil && until == nil && limit > 0 && len(result) >= limit {
+				done = true
+				break
+			}
+		}
+
+		if done || len(batch) < batchSize {
+			break
+		}
+		// Cursor for next page: fetch activities older than the last one.
+		maxID = batch[len(batch)-1].ID - 1
+		if maxID <= 0 {
+			break
+		}
+	}
+
+	return result, nil
 }
 
