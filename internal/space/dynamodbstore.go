@@ -68,25 +68,33 @@ func (s *DynamoDBStore) List(ctx context.Context, userID string) ([]SpaceRegistr
 	}
 
 	pk := spacePK(userID)
-	out, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              &s.tableName,
-		KeyConditionExpression: aws.String("pk = :pk AND begins_with(sk, :sk_prefix)"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":        &types.AttributeValueMemberS{Value: pk},
-			":sk_prefix": &types.AttributeValueMemberS{Value: "SPACE#"},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("dynamodb space store: list: %w", err)
-	}
+	var result []SpaceRegistration
+	var lastKey map[string]types.AttributeValue
 
-	result := make([]SpaceRegistration, 0, len(out.Items))
-	for _, item := range out.Items {
-		reg, err := itemToSpaceRegistration(item)
+	for {
+		out, err := s.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              &s.tableName,
+			KeyConditionExpression: aws.String("pk = :pk AND begins_with(sk, :sk_prefix)"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":pk":        &types.AttributeValueMemberS{Value: pk},
+				":sk_prefix": &types.AttributeValueMemberS{Value: "SPACE#"},
+			},
+			ExclusiveStartKey: lastKey,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("dynamodb space store: list unmarshal: %w", err)
+			return nil, fmt.Errorf("dynamodb space store: list: %w", err)
 		}
-		result = append(result, *reg)
+		for _, item := range out.Items {
+			reg, err := itemToSpaceRegistration(item)
+			if err != nil {
+				return nil, fmt.Errorf("dynamodb space store: list unmarshal: %w", err)
+			}
+			result = append(result, *reg)
+		}
+		if out.LastEvaluatedKey == nil {
+			break
+		}
+		lastKey = out.LastEvaluatedKey
 	}
 	return result, nil
 }

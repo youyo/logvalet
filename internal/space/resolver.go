@@ -115,7 +115,7 @@ func (r *Resolver) Resolve(ctx context.Context, userID string, scope Scope) ([]S
 
 	// fallback 5: legacy profile
 	if r.legacyCfg != nil && len(spaces) == 0 {
-		reg, err := resolveFromLegacyProfile(r.legacyCfg)
+		reg, err := resolveFromLegacyProfile(r.legacyCfg, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +126,7 @@ func (r *Resolver) Resolve(ctx context.Context, userID string, scope Scope) ([]S
 }
 
 // resolveFromLegacyProfile は legacy config から SpaceRegistration を生成する（BC 対応）。
-func resolveFromLegacyProfile(cfg *config.ResolvedConfig) (*SpaceRegistration, error) {
+func resolveFromLegacyProfile(cfg *config.ResolvedConfig, userID string) (*SpaceRegistration, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" && cfg.Space != "" {
 		baseURL = fmt.Sprintf("https://%s.backlog.com", cfg.Space)
@@ -136,7 +136,7 @@ func resolveFromLegacyProfile(cfg *config.ResolvedConfig) (*SpaceRegistration, e
 	}
 	tenant := cfg.Space
 	return &SpaceRegistration{
-		UserID:      "local",
+		UserID:      userID,
 		Alias:       tenant,
 		Tenant:      tenant,
 		BaseURL:     baseURL,
