@@ -211,16 +211,11 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	// --spaces 未指定の場合は result を rc.Renderer で出力
-	if g.Spaces == "" && !g.AllSpaces {
-		issue, ok := result.(*domain.Issue)
-		if !ok {
-			return fmt.Errorf("unexpected result type")
-		}
-		return rc.Renderer.Render(os.Stdout, issue)
+	issue, ok := result.(*domain.Issue)
+	if !ok {
+		return fmt.Errorf("unexpected result type")
 	}
-	// --spaces 1件指定の場合は result をそのまま JSON 出力（fan-out 形式）
-	return nil
+	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // createIssue は client を使って課題を作成するヘルパー。
@@ -444,14 +439,11 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	if g.Spaces == "" && !g.AllSpaces {
-		issue, ok := result.(*domain.Issue)
-		if !ok {
-			return fmt.Errorf("unexpected result type")
-		}
-		return rc.Renderer.Render(os.Stdout, issue)
+	issue, ok := result.(*domain.Issue)
+	if !ok {
+		return fmt.Errorf("unexpected result type")
 	}
-	return nil
+	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // updateIssue は client を使って課題を更新するヘルパー。
@@ -658,14 +650,11 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	if g.Spaces == "" && !g.AllSpaces {
-		comment, ok := result.(*domain.Comment)
-		if !ok {
-			return fmt.Errorf("unexpected result type")
-		}
-		return rc.Renderer.Render(os.Stdout, comment)
+	comment, ok := result.(*domain.Comment)
+	if !ok {
+		return fmt.Errorf("unexpected result type")
 	}
-	return nil
+	return rc.Renderer.Render(os.Stdout, comment)
 }
 
 // IssueCommentUpdateCmd は issue comment update コマンド（spec §14.8）。
@@ -718,14 +707,11 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	if g.Spaces == "" && !g.AllSpaces {
-		comment, ok := result.(*domain.Comment)
-		if !ok {
-			return fmt.Errorf("unexpected result type")
-		}
-		return rc.Renderer.Render(os.Stdout, comment)
+	comment, ok := result.(*domain.Comment)
+	if !ok {
+		return fmt.Errorf("unexpected result type")
 	}
-	return nil
+	return rc.Renderer.Render(os.Stdout, comment)
 }
 
 // ---- ヘルパー ----
