@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.24.0] - 2026-05-20
+
+Multi-space Backlog OAuth フロー（M18）リリース。`logvalet_space_connect_url` で生成した URL からブラウザ OAuth フローを完走し、複数の Backlog スペースを登録できるようになった。
+
+### Added
+- feat(auth): bootstrap_token 生成・検証・HKDF 鍵派生（`GenerateBootstrapToken`, `ValidateBootstrapToken`, `DeriveBootstrapKey`）
+- feat(http): `MultiSpaceOAuthHandler.HandleAuthorize` に bootstrap_token 検証を統合
+- feat(auth): `StateClaims.Flow` フィールド追加 + callback dispatcher（multi/single フロー振り分け）
+- feat(auth): state JWT に Typ/Aud/Iss フィールドを追加（H1 backward compat 維持）
+- feat(mcp): `spaceConnectURL` に bootstrap_token 統合（NonceStore.Store + jti one-time 管理）
+- feat(cli): `GET /oauth/backlog/multi/authorize` を topMux に直登録（idproxy ラップ外）
+- feat(cli): `LOGVALET_SPACE_STORE_TYPE=memory` + auth モード起動時に replay detection 制約警告を出力
+
+### Fixed
+- fix(space): DynamoDB `Consume` の ConditionExpression に `AND expires_at > :now` を追加（TTL 遅延期間中の期限切れ jti replay を防止）
+
+### Refactor
+- refactor(auth): `hashValue` のハッシュ長を 8→16 バイトに拡張
+- refactor(cli): `InstallOAuthRoutes` を 2-arg に変更（multiSpaceHandler 引数撤去）
+
 ## [0.16.0] - 2026-04-23
 
 CLI/MCP パラメータ統一リリース。MCP ツールを CLI と同等以上の機能セットに拡張し、命名・型の不整合を解消。
