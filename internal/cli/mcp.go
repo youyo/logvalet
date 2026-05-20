@@ -15,6 +15,7 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
+	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
@@ -194,6 +195,21 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		BaseURL: rc.Config.BaseURL,
 	}
 
+	// SpaceStore / Resolver / ClientFactory を設定（space 管理ツール有効化）。
+	// 失敗しても MCP サーバー起動は継続し、space 管理ツールのみ無効になる。
+	if spaceStore, storeErr := buildSpaceStore(); storeErr != nil {
+		slog.Warn("space store init failed, space management tools disabled", "error", storeErr)
+	} else {
+		cfg.SpaceStore = spaceStore
+		cfg.SpaceResolver = space.NewResolver(spaceStore)
+		// ClientFactory は後述の oauthDeps 確定後に設定するため、ここでは buildCLIClientFactory を使用
+		if cliFactory, factoryErr := buildCLIClientFactory(); factoryErr != nil {
+			slog.Warn("space client factory init failed", "error", factoryErr)
+		} else {
+			cfg.SpaceClientFactory = cliFactory
+		}
+	}
+
 	// OAuth モード判定（--auth かつ BacklogClientID 設定時のみ有効）。
 	// 既存 CLI / 既存 MCP パスは一切変更しない。
 	var oauthDeps *OAuthDeps
@@ -215,9 +231,13 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		}
 	}
 
-	// OAuth 有効時は AuthorizationURL を ServerConfig に設定
+	// OAuth 有効時は AuthorizationURL と SpaceClientFactory を ServerConfig に設定
 	if oauthDeps != nil {
 		cfg.AuthorizationURL = oauthDeps.AuthorizeURL
+		// OAuth モードでは per-user factory を使って space ごとのトークンを解決する
+		cfg.SpaceClientFactory = space.ClientFactory(func(ctx context.Context, _ space.SpaceRegistration) (backlog.Client, error) {
+			return oauthDeps.Factory(ctx)
+		})
 	}
 
 	// MCP サーバー構築（OAuth 有無で分岐）
