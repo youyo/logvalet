@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.29.0] - 2026-05-21
+
+multi-space 呼び出し時に `AnalysisEnvelope` の `result.space` / `result.base_url` メタデータがスタートアップ設定値（heptagon）のままになっていた問題を修正（M22 secondary）。
+`callWithSpaceClient` で `SpaceRegistration` を context に注入し、各 builder call site で `spaceInfoFromContext` を介して正しい space/baseURL を取得するよう変更。
+`logvalet_my_tasks spaces=["megumilog"]` 時に `result.space == "megumilog"`、`result.base_url == "https://megumilog.backlog.jp"` が返るようになった。
+
+### Fixed
+- fix(mcp): multi-space 呼び出し時に `AnalysisEnvelope.Space`/`BaseURL` が常にスタートアップ設定値になっていた問題を修正（M22 secondary）
+  - `callWithSpaceClient` / fan-out クロージャで `SpaceRegistration` を context に注入
+  - `tools_analysis.go`（12箇所）・`tools_space.go`・`tools_activity.go`・`tools_document.go` の builder call site を `spaceInfoFromContext` 経由に変更
+- fix(mcp): `callWithSpaceClient` / fan-out で `r.spaceFactory == nil` の場合に panic していた問題を修正（nil guard 追加）
+- fix(test): `my_tasks_test.go` の `callCount` データレースを `sync/atomic.Int32` で修正
+
+### Added
+- test(mcp): `spaceInfoFromContext` の単体テスト（T1: fallback / reg-in-context / empty-reg）
+- test(mcp): `callWithSpaceClient` / fan-out の context 注入テスト（T2〜T3）
+- test(mcp): `MyTasksBuilder` / `ProjectHealthBuilder` の envelope メタデータ回帰テスト（T4）
+- test(mcp): digest builder 3種（SpaceDigest / ActivityDigest / DocumentDigest）の envelope メタデータ回帰テスト（TD-1〜TD-3）
+- test(mcp): single-space / resolver=nil 時の backward compat テスト（T5）
+
+### Changed
+- feat(mcp): `spaceInfoFromContext` が不完全な reg（Alias or BaseURL 空）を検出した場合 `slog.Warn` でログ出力
+
 ## [0.28.0] - 2026-05-21
 
 `spaces=["megumilog"]` 指定時に megumilog の API を呼ぶよう修正（M22）。
