@@ -12,18 +12,20 @@ import (
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/auth/provider"
 	tokenstore "github.com/youyo/logvalet/internal/auth/tokenstore"
+	"github.com/youyo/logvalet/internal/space"
 	httptransport "github.com/youyo/logvalet/internal/transport/http"
 )
 
 // OAuthDeps は OAuth モードに必要な依存をまとめた構造体。
 // Run() 中で生成し、defer Close() でリソース解放する。
 type OAuthDeps struct {
-	Store        auth.TokenStore
-	Provider     provider.OAuthProvider
-	TokenManager auth.TokenManager
-	Factory      auth.ClientFactory
-	Handler      *httptransport.OAuthHandler
-	AuthorizeURL string
+	Store              auth.TokenStore
+	Provider           provider.OAuthProvider
+	TokenManager       auth.TokenManager
+	Factory            auth.ClientFactory
+	Handler            *httptransport.OAuthHandler
+	MultiSpaceHandler  *httptransport.MultiSpaceOAuthHandler
+	AuthorizeURL       string
 }
 
 // Close は OAuthDeps の保持するリソース（主に TokenStore）を解放する。
@@ -53,11 +55,11 @@ func (d *OAuthDeps) Close() error {
 //   - provider.NewBacklogOAuthProvider 失敗
 //   - tokenstore.NewTokenStore 失敗
 //   - httptransport.NewOAuthHandler 失敗（失敗時は store を Close する）
-func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL, externalURL string, logger *slog.Logger) (*OAuthDeps, error) {
+func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL string, logger *slog.Logger, spaceStore space.Store) (*OAuthDeps, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("mcp: oauth config must not be nil")
 	}
-	if space == "" {
+	if spaceName == "" {
 		return nil, fmt.Errorf("mcp: space must not be empty for OAuth mode")
 	}
 	if externalURL == "" {
@@ -70,7 +72,7 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL, externalURL string
 	}
 
 	// Provider
-	p, err := provider.NewBacklogOAuthProvider(space, cfg.BacklogClientID, cfg.BacklogClientSecret)
+	p, err := provider.NewBacklogOAuthProvider(spaceName, cfg.BacklogClientID, cfg.BacklogClientSecret)
 	if err != nil {
 		return nil, fmt.Errorf("mcp: build backlog provider: %w", err)
 	}
@@ -86,27 +88,49 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL, externalURL string
 	tm := auth.NewTokenManager(store, providers)
 
 	// ClientFactory
-	factory := auth.NewClientFactory(tm, p.Name(), space, baseURL)
+	factory := auth.NewClientFactory(tm, p.Name(), spaceName, baseURL)
 
 	// AuthorizeURL を組み立て
 	authorizeURL := strings.TrimRight(externalURL, "/") + "/oauth/backlog/authorize"
 
 	// OAuthHandler
-	handler, err := httptransport.NewOAuthHandler(p, tm, space, cfg.BacklogRedirectURL, authorizeURL, secret, auth.DefaultStateTTL, logger)
+	handler, err := httptransport.NewOAuthHandler(p, tm, spaceName, cfg.BacklogRedirectURL, authorizeURL, secret, auth.DefaultStateTTL, logger)
 	if err != nil {
 		// 失敗時は store を閉じる（リソースリーク防止）
 		_ = store.Close()
 		return nil, fmt.Errorf("mcp: build oauth handler: %w", err)
 	}
 
-	return &OAuthDeps{
+	deps := &OAuthDeps{
 		Store:        store,
 		Provider:     p,
 		TokenManager: tm,
 		Factory:      factory,
 		Handler:      handler,
 		AuthorizeURL: authorizeURL,
-	}, nil
+	}
+
+	// SpaceStore が指定されている場合は MultiSpaceOAuthHandler を構築する
+	if spaceStore != nil {
+		nonceStore, ok := spaceStore.(space.NonceStore)
+		if ok {
+			msh, mshErr := httptransport.NewMultiSpaceOAuthHandler(
+				p,
+				tm,
+				nonceStore,
+				spaceStore,
+				cfg.BacklogRedirectURL,
+				secret,
+				auth.DefaultStateTTL,
+				logger,
+			)
+			if mshErr == nil {
+				deps.MultiSpaceHandler = msh
+			}
+		}
+	}
+
+	return deps, nil
 }
 
 // InstallOAuthRoutes は OAuth ハンドラーの 4 メソッドを mux に登録する。
@@ -117,10 +141,18 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, space, baseURL, externalURL string
 //   - GET    /oauth/backlog/status
 //   - DELETE /oauth/backlog/disconnect
 //
+// msh が nil でない場合は authorize/callback を MultiSpaceOAuthHandler で差し替える。
+// status/disconnect は常に OAuthHandler を使用する。
+//
 // HTTP メソッドフィルタは各ハンドラー内で実施する（本関数では mux.HandleFunc でパスのみ登録）。
-func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler) {
-	mux.HandleFunc("/oauth/backlog/authorize", h.HandleAuthorize)
-	mux.HandleFunc("/oauth/backlog/callback", h.HandleCallback)
+func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler, msh *httptransport.MultiSpaceOAuthHandler) {
+	if msh != nil {
+		mux.HandleFunc("/oauth/backlog/authorize", msh.HandleAuthorize)
+		mux.HandleFunc("/oauth/backlog/callback", msh.HandleCallback)
+	} else {
+		mux.HandleFunc("/oauth/backlog/authorize", h.HandleAuthorize)
+		mux.HandleFunc("/oauth/backlog/callback", h.HandleCallback)
+	}
 	mux.HandleFunc("/oauth/backlog/status", h.HandleStatus)
 	mux.HandleFunc("/oauth/backlog/disconnect", h.HandleDisconnect)
 }

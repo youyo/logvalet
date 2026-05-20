@@ -63,7 +63,7 @@ func (f *fakeTokenManager) RevokeToken(ctx context.Context, userID, provider, te
 // ---------------------------------------------------------------------
 
 func TestBuildOAuthDeps_NilConfig(t *testing.T) {
-	_, err := cli.BuildOAuthDeps(nil, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	_, err := cli.BuildOAuthDeps(nil, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err == nil {
 		t.Fatal("expected error for nil config, got nil")
 	}
@@ -71,7 +71,7 @@ func TestBuildOAuthDeps_NilConfig(t *testing.T) {
 
 func TestBuildOAuthDeps_EmptySpace(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	_, err := cli.BuildOAuthDeps(cfg, "", "https://test-space.backlog.com", "https://example.com", nil)
+	_, err := cli.BuildOAuthDeps(cfg, "", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err == nil {
 		t.Fatal("expected error for empty space, got nil")
 	}
@@ -80,7 +80,7 @@ func TestBuildOAuthDeps_EmptySpace(t *testing.T) {
 func TestBuildOAuthDeps_InvalidHex(t *testing.T) {
 	cfg := newValidOAuthCfg()
 	cfg.OAuthStateSecret = "not-hex!!"
-	_, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	_, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid hex secret, got nil")
 	}
@@ -88,7 +88,7 @@ func TestBuildOAuthDeps_InvalidHex(t *testing.T) {
 
 func TestBuildOAuthDeps_EmptyExternalURL(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	_, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "", nil)
+	_, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "", nil, nil)
 	if err == nil {
 		t.Fatal("expected error for empty externalURL, got nil")
 	}
@@ -96,7 +96,7 @@ func TestBuildOAuthDeps_EmptyExternalURL(t *testing.T) {
 
 func TestBuildOAuthDeps_AuthorizeURL(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com/", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com/", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps returned error: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestBuildOAuthDeps_AuthorizeURL(t *testing.T) {
 
 func TestBuildOAuthDeps_MemoryStore(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps returned error: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestBuildOAuthDeps_MemoryStore(t *testing.T) {
 
 func TestBuildOAuthDeps_ProviderRegistered(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps returned error: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestBuildOAuthDeps_ProviderRegistered(t *testing.T) {
 
 func TestBuildOAuthDeps_Close_MemoryStore(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps returned error: %v", err)
 	}
@@ -175,14 +175,14 @@ func TestOAuthDeps_Close_NilReceiver(t *testing.T) {
 
 func TestInstallOAuthRoutes_AuthorizeRouted(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps: %v", err)
 	}
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler)
+	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/authorize", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))
@@ -203,14 +203,14 @@ func TestInstallOAuthRoutes_AuthorizeRouted(t *testing.T) {
 
 func TestInstallOAuthRoutes_CallbackRouted(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps: %v", err)
 	}
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler)
+	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
 
 	// state/code なしなので 400 invalid_request が返る
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/callback", nil)
@@ -226,14 +226,14 @@ func TestInstallOAuthRoutes_CallbackRouted(t *testing.T) {
 func TestInstallOAuthRoutes_StatusRouted(t *testing.T) {
 	// handler を fakeTM で差し替えた deps を直接手組みする
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps: %v", err)
 	}
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler)
+	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/status", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))
@@ -255,14 +255,14 @@ func TestInstallOAuthRoutes_StatusRouted(t *testing.T) {
 
 func TestInstallOAuthRoutes_DisconnectRouted(t *testing.T) {
 	cfg := newValidOAuthCfg()
-	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil)
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("BuildOAuthDeps: %v", err)
 	}
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler)
+	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/oauth/backlog/disconnect", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))

@@ -222,7 +222,7 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 			if err := oauthCfg.Validate(); err != nil {
 				return fmt.Errorf("validate oauth config: %w", err)
 			}
-			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, c.ExternalURL, slog.Default())
+			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, c.ExternalURL, slog.Default(), cfg.SpaceStore)
 			if err != nil {
 				return err
 			}
@@ -255,7 +255,7 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	innerMux := http.NewServeMux()
 	innerMux.Handle("/mcp", h)
 	if oauthDeps != nil {
-		InstallOAuthRoutes(innerMux, oauthDeps.Handler)
+		InstallOAuthRoutes(innerMux, oauthDeps.Handler, oauthDeps.MultiSpaceHandler)
 	}
 
 	var handler http.Handler
