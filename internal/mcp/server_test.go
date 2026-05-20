@@ -48,7 +48,7 @@ func TestNewServerWithFactory_ReturnsServer(t *testing.T) {
 	}
 }
 
-// M12-2: NewServerWithFactory で全ツールが登録されること（既存 NewServer と同じ 42 ツール）
+// M12-2: NewServerWithFactory で全ツールが登録されること（既存 NewServer と同じ 70 ツール）
 func TestNewServerWithFactory_RegistersAllTools(t *testing.T) {
 	factory := func(ctx context.Context) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
@@ -56,7 +56,7 @@ func TestNewServerWithFactory_RegistersAllTools(t *testing.T) {
 	s := mcpinternal.NewServerWithFactory(factory, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 65
+	expectedCount := 70
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {

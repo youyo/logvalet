@@ -13,11 +13,7 @@ import (
 )
 
 // RegisterSpaceRegistryTools は space 管理系 MCP tools を ToolRegistry に登録する。
-// tools_space.go の既存スペース情報取得 tools（space_info, space_digest 等）とは別に、
-// multi-space 構成時にのみ登録する管理操作 tools（list/use/verify/connect_url/disconnect）。
-//
-// NewServer / NewServerWithFactory には含めず、multi-space 対応サーバー構築時に
-// 呼び出し側が明示的に呼ぶ設計（tool count が plain server と一致しなくなることを防止）。
+// store や resolver が nil の場合はツール呼び出し時にエラーを返す（常時登録、nil-safe）。
 func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *space.Resolver, authBaseURL string) {
 	// logvalet_space_list — 登録済みスペース一覧
 	reg.Register(gomcp.NewTool("logvalet_space_list",
@@ -77,6 +73,9 @@ func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *
 
 // spaceList は現在ユーザーの登録済みスペース一覧を返す。
 func spaceList(ctx context.Context, store space.Store) (any, error) {
+	if store == nil {
+		return nil, fmt.Errorf("space store not configured: multi-space mode is not enabled")
+	}
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("userID not found in context: authentication required")
@@ -128,6 +127,9 @@ func spaceList(ctx context.Context, store space.Store) (any, error) {
 
 // spaceUse は current user の default space alias を更新する。
 func spaceUse(ctx context.Context, store space.Store, args map[string]any) (any, error) {
+	if store == nil {
+		return nil, fmt.Errorf("space store not configured: multi-space mode is not enabled")
+	}
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("userID not found in context: authentication required")
@@ -157,6 +159,9 @@ func spaceUse(ctx context.Context, store space.Store, args map[string]any) (any,
 // all_spaces=true の場合は全スペース、alias 指定の場合はそのスペースのみ確認する。
 // 実際のネットワーク疎通確認は行わず、Store に記録されたステータスを返す。
 func spaceVerify(ctx context.Context, store space.Store, resolver *space.Resolver, args map[string]any) (any, error) {
+	if store == nil || resolver == nil {
+		return nil, fmt.Errorf("space store not configured: multi-space mode is not enabled")
+	}
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("userID not found in context: authentication required")
@@ -250,6 +255,9 @@ func spaceConnectURL(ctx context.Context, args map[string]any, authBaseURL strin
 
 // spaceDisconnect は指定 alias のスペースを削除する。
 func spaceDisconnect(ctx context.Context, store space.Store, args map[string]any) (any, error) {
+	if store == nil {
+		return nil, fmt.Errorf("space store not configured: multi-space mode is not enabled")
+	}
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("userID not found in context: authentication required")

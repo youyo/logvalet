@@ -12,7 +12,7 @@ import (
 // RegisterDocumentTools はドキュメント関連の MCP tools を ToolRegistry に登録する。
 func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_document_get
-	r.Register(gomcp.NewTool("logvalet_document_get",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_get",
 		gomcp.WithDescription("Get document by document ID"),
 		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
 		readOnlyAnnotation("ドキュメント取得"),
@@ -25,7 +25,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_list
-	r.Register(gomcp.NewTool("logvalet_document_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_list",
 		gomcp.WithDescription("List documents in a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
 		gomcp.WithNumber("count", gomcp.Description("Max number of documents")),
@@ -51,7 +51,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_create
-	r.Register(gomcp.NewTool("logvalet_document_create",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_document_create",
 		gomcp.WithDescription("Create a new document in a project"),
 		gomcp.WithNumber("project_id", gomcp.Required(), gomcp.Description("Project ID (numeric)")),
 		gomcp.WithString("title", gomcp.Required(), gomcp.Description("Document title")),
@@ -85,7 +85,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_tree: B5
-	r.Register(gomcp.NewTool("logvalet_document_tree",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_tree",
 		gomcp.WithDescription("Get the document tree for a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
 		readOnlyAnnotation("ドキュメントツリー取得"),
@@ -98,7 +98,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_digest: B6
-	r.Register(gomcp.NewTool("logvalet_document_digest",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_digest",
 		gomcp.WithDescription("Generate a digest for a document"),
 		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
 		readOnlyAnnotation("ドキュメントダイジェスト生成"),

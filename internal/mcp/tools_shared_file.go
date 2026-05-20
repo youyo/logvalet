@@ -12,7 +12,7 @@ import (
 // RegisterSharedFileTools は共有ファイル関連の MCP tools を ToolRegistry に登録する。
 func RegisterSharedFileTools(r *ToolRegistry) {
 	// logvalet_shared_file_list
-	r.Register(gomcp.NewTool("logvalet_shared_file_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_shared_file_list",
 		gomcp.WithDescription("List shared files in a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
 		gomcp.WithString("path", gomcp.Description("Directory path within the project (default: root)")),
@@ -38,7 +38,7 @@ func RegisterSharedFileTools(r *ToolRegistry) {
 	})
 
 	// logvalet_shared_file_download: B14
-	r.Register(gomcp.NewTool("logvalet_shared_file_download",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_shared_file_download",
 		gomcp.WithDescription("Download a shared file (max 20MB, returned as base64)"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
 		gomcp.WithNumber("file_id", gomcp.Required(), gomcp.Description("Shared file ID")),

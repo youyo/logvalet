@@ -16,7 +16,7 @@ type ToolCategorySpec struct {
 	Title    string // 日本語 UI タイトル（MCP クライアントが表示する）
 }
 
-// toolCategories は全 65 MCP ツールの annotation カテゴリと日本語 title を宣言する。
+// toolCategories は全 70 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
 	// Read-only (32+14=46)
@@ -53,34 +53,40 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_watching_get":           {CategoryReadOnly, "ウォッチ詳細取得"},
 	"logvalet_watching_count":         {CategoryReadOnly, "ウォッチ数取得"},
 	// M02 新規追加 (14)
-	"logvalet_user_me":                    {CategoryReadOnly, "認証ユーザー情報取得"},
-	"logvalet_user_activity":              {CategoryReadOnly, "ユーザーアクティビティ取得"},
-	"logvalet_digest_unified":             {CategoryReadOnly, "統合ダイジェスト生成"},
-	"logvalet_activity_digest":            {CategoryReadOnly, "アクティビティダイジェスト生成"},
-	"logvalet_document_tree":              {CategoryReadOnly, "ドキュメントツリー取得"},
-	"logvalet_document_digest":            {CategoryReadOnly, "ドキュメントダイジェスト生成"},
-	"logvalet_space_digest":               {CategoryReadOnly, "スペースダイジェスト生成"},
-	"logvalet_space_disk_usage":           {CategoryReadOnly, "スペースディスク使用量取得"},
-	"logvalet_meta_version":               {CategoryReadOnly, "バージョン一覧取得"},
-	"logvalet_meta_custom_field":          {CategoryReadOnly, "カスタムフィールド一覧取得"},
-	"logvalet_team_project":               {CategoryReadOnly, "プロジェクトチーム一覧取得"},
-	"logvalet_issue_attachment_download":  {CategoryReadOnly, "添付ファイルダウンロード"},
-	"logvalet_shared_file_download":       {CategoryReadOnly, "共有ファイルダウンロード"},
+	"logvalet_user_me":                   {CategoryReadOnly, "認証ユーザー情報取得"},
+	"logvalet_user_activity":             {CategoryReadOnly, "ユーザーアクティビティ取得"},
+	"logvalet_digest_unified":            {CategoryReadOnly, "統合ダイジェスト生成"},
+	"logvalet_activity_digest":           {CategoryReadOnly, "アクティビティダイジェスト生成"},
+	"logvalet_document_tree":             {CategoryReadOnly, "ドキュメントツリー取得"},
+	"logvalet_document_digest":           {CategoryReadOnly, "ドキュメントダイジェスト生成"},
+	"logvalet_space_digest":              {CategoryReadOnly, "スペースダイジェスト生成"},
+	"logvalet_space_disk_usage":          {CategoryReadOnly, "スペースディスク使用量取得"},
+	"logvalet_meta_version":              {CategoryReadOnly, "バージョン一覧取得"},
+	"logvalet_meta_custom_field":         {CategoryReadOnly, "カスタムフィールド一覧取得"},
+	"logvalet_team_project":              {CategoryReadOnly, "プロジェクトチーム一覧取得"},
+	"logvalet_issue_attachment_download": {CategoryReadOnly, "添付ファイルダウンロード"},
+	"logvalet_shared_file_download":      {CategoryReadOnly, "共有ファイルダウンロード"},
 	// Wiki (8)
-	"logvalet_wiki_list":             {CategoryReadOnly, "Wiki ページ一覧取得"},
-	"logvalet_wiki_get":              {CategoryReadOnly, "Wiki ページ取得"},
-	"logvalet_wiki_count":            {CategoryReadOnly, "Wiki ページ件数取得"},
-	"logvalet_wiki_tags":             {CategoryReadOnly, "Wiki タグ一覧取得"},
-	"logvalet_wiki_history":          {CategoryReadOnly, "Wiki 履歴取得"},
-	"logvalet_wiki_stars":            {CategoryReadOnly, "Wiki スター一覧取得"},
-	"logvalet_wiki_attachment_list":  {CategoryReadOnly, "Wiki 添付ファイル一覧取得"},
-	"logvalet_wiki_sharedfile_list":  {CategoryReadOnly, "Wiki 共有ファイル一覧取得"},
+	"logvalet_wiki_list":            {CategoryReadOnly, "Wiki ページ一覧取得"},
+	"logvalet_wiki_get":             {CategoryReadOnly, "Wiki ページ取得"},
+	"logvalet_wiki_count":           {CategoryReadOnly, "Wiki ページ件数取得"},
+	"logvalet_wiki_tags":            {CategoryReadOnly, "Wiki タグ一覧取得"},
+	"logvalet_wiki_history":         {CategoryReadOnly, "Wiki 履歴取得"},
+	"logvalet_wiki_stars":           {CategoryReadOnly, "Wiki スター一覧取得"},
+	"logvalet_wiki_attachment_list": {CategoryReadOnly, "Wiki 添付ファイル一覧取得"},
+	"logvalet_wiki_sharedfile_list": {CategoryReadOnly, "Wiki 共有ファイル一覧取得"},
+	// Space 管理 (5) — RegisterSpaceRegistryTools が常時登録
+	"logvalet_space_list":        {CategoryReadOnly, "スペース一覧取得"},
+	"logvalet_space_use":         {CategoryWriteIdempotent, "デフォルトスペース設定"},
+	"logvalet_space_verify":      {CategoryReadOnly, "スペース接続確認"},
+	"logvalet_space_connect_url": {CategoryReadOnly, "スペース接続 URL 生成"},
+	"logvalet_space_disconnect":  {CategoryDestructive, "スペース削除"},
 
 	// Write non-idempotent (4)
-	"logvalet_issue_create":             {CategoryWriteNonIdempotent, "課題作成"},
-	"logvalet_issue_comment_add":        {CategoryWriteNonIdempotent, "課題コメント追加"},
-	"logvalet_document_create":          {CategoryWriteNonIdempotent, "ドキュメント作成"},
-	"logvalet_issue_attachment_upload":  {CategoryWriteNonIdempotent, "添付ファイルアップロード"},
+	"logvalet_issue_create":            {CategoryWriteNonIdempotent, "課題作成"},
+	"logvalet_issue_comment_add":       {CategoryWriteNonIdempotent, "課題コメント追加"},
+	"logvalet_document_create":         {CategoryWriteNonIdempotent, "ドキュメント作成"},
+	"logvalet_issue_attachment_upload": {CategoryWriteNonIdempotent, "添付ファイルアップロード"},
 
 	// Write idempotent (6)
 	"logvalet_issue_update":          {CategoryWriteIdempotent, "課題更新"},
@@ -91,6 +97,6 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_watching_mark_as_read": {CategoryWriteIdempotent, "ウォッチ既読化"},
 
 	// Destructive (2)
-	"logvalet_watching_delete":          {CategoryDestructive, "ウォッチ削除"},
-	"logvalet_issue_attachment_delete":  {CategoryDestructive, "添付ファイル削除"},
+	"logvalet_watching_delete":         {CategoryDestructive, "ウォッチ削除"},
+	"logvalet_issue_attachment_delete": {CategoryDestructive, "添付ファイル削除"},
 }

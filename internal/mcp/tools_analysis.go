@@ -13,7 +13,7 @@ import (
 // RegisterAnalysisTools は分析系の MCP tools を ToolRegistry に登録する。
 func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_issue_context
-	r.Register(gomcp.NewTool("logvalet_issue_context",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_context",
 		gomcp.WithDescription("Get structured issue context with signals and LLM hints for analysis"),
 		gomcp.WithString("issue_key",
 			gomcp.Required(),
@@ -45,7 +45,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_project_blockers
-	r.Register(gomcp.NewTool("logvalet_project_blockers",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_project_blockers",
 		gomcp.WithDescription("Detect project blocker issues (high priority unassigned, long in-progress, overdue)"),
 		gomcp.WithString("project_keys",
 			gomcp.Required(),
@@ -85,7 +85,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_stale
-	r.Register(gomcp.NewTool("logvalet_issue_stale",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_stale",
 		gomcp.WithDescription("Detect stale issues in specified projects"),
 		gomcp.WithString("project_keys",
 			gomcp.Required(),
@@ -119,7 +119,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_project_health
-	r.Register(gomcp.NewTool("logvalet_project_health",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_project_health",
 		gomcp.WithDescription("Get project health summary (stale, blockers, workload, score)"),
 		gomcp.WithString("project_key",
 			gomcp.Required(),
@@ -176,7 +176,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_triage_materials
-	r.Register(gomcp.NewTool("logvalet_issue_triage_materials",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_triage_materials",
 		gomcp.WithDescription("Get triage materials for an issue (stats, similar issues, history)"),
 		gomcp.WithString("issue_key",
 			gomcp.Required(),
@@ -194,7 +194,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_weekly
-	r.Register(gomcp.NewTool("logvalet_digest_weekly",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_weekly",
 		gomcp.WithDescription("Generate weekly periodic digest for a project (completed/started/blocked)"),
 		gomcp.WithString("project_key",
 			gomcp.Required(),
@@ -232,7 +232,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_daily
-	r.Register(gomcp.NewTool("logvalet_digest_daily",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_daily",
 		gomcp.WithDescription("Generate daily periodic digest for a project (completed/started/blocked)"),
 		gomcp.WithString("project_key",
 			gomcp.Required(),
@@ -270,7 +270,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_activity_stats
-	r.Register(gomcp.NewTool("logvalet_activity_stats",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_stats",
 		gomcp.WithDescription("Get activity statistics (by type, actor, date, hour, patterns)"),
 		gomcp.WithString("scope",
 			gomcp.Description("Activity scope: project, user, or space (default: space)"),
@@ -336,7 +336,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_timeline
-	r.Register(gomcp.NewTool("logvalet_issue_timeline",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_timeline",
 		gomcp.WithDescription("Get comment and update timeline for an issue (structured chronological events)"),
 		gomcp.WithString("issue_key",
 			gomcp.Required(),
@@ -400,7 +400,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_user_workload
-	r.Register(gomcp.NewTool("logvalet_user_workload",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_workload",
 		gomcp.WithDescription("Calculate user workload distribution for a project"),
 		gomcp.WithString("project_key",
 			gomcp.Required(),
@@ -431,7 +431,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return calculator.Calculate(ctx, projectKey, workloadCfg)
 	})
 	// logvalet_my_tasks
-	r.Register(gomcp.NewTool("logvalet_my_tasks",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_my_tasks",
 		gomcp.WithDescription("Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals"),
 		gomcp.WithString("mode",
 			gomcp.Description("View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)"),
@@ -454,7 +454,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_unified: B3
-	r.Register(gomcp.NewTool("logvalet_digest_unified",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_unified",
 		gomcp.WithDescription("Generate a unified digest across projects, users, teams, or issues"),
 		gomcp.WithString("since", gomcp.Required(), gomcp.Description("Start date (YYYY-MM-DD)")),
 		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),

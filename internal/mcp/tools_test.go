@@ -35,13 +35,13 @@ func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[st
 	return result
 }
 
-// MCP-1: NewServer で 29 ツールが登録されること
+// MCP-1: NewServer で 70 ツールが登録されること
 func TestNewServer_RegistersAllTools(t *testing.T) {
 	mock := backlog.NewMockClient()
 	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
 
 	tools := s.ListTools()
-	expectedCount := 65
+	expectedCount := 70
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {

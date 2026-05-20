@@ -5,6 +5,7 @@ import (
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/space"
 )
 
 // ServerConfig は MCP サーバーの設定。
@@ -15,6 +16,10 @@ type ServerConfig struct {
 	BaseURL          string
 	AuthorizationURL string
 	DisableFilePaths bool // stdio モードでローカルファイルシステムへのアクセスを防止する
+	// multi-space 対応フィールド（nil 許容 — 未設定時は通常動作）
+	SpaceStore         space.Store
+	SpaceResolver      *space.Resolver
+	SpaceClientFactory space.ClientFactory
 }
 
 // NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
@@ -26,7 +31,14 @@ func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.M
 		ver,
 		mcpserver.WithToolCapabilities(true),
 	)
-	reg := NewToolRegistry(s, client, cfg.AuthorizationURL)
+	var reg *ToolRegistry
+	if cfg.SpaceResolver != nil {
+		reg = NewToolRegistryWithMultiSpace(s, func(ctx context.Context) (backlog.Client, error) {
+			return client, nil
+		}, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
+	} else {
+		reg = NewToolRegistry(s, client, cfg.AuthorizationURL)
+	}
 	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
 	return s
@@ -45,7 +57,12 @@ func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, err
 		ver,
 		mcpserver.WithToolCapabilities(true),
 	)
-	reg := NewToolRegistryWithFactory(s, factory, cfg.AuthorizationURL)
+	var reg *ToolRegistry
+	if cfg.SpaceResolver != nil {
+		reg = NewToolRegistryWithMultiSpace(s, factory, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
+	} else {
+		reg = NewToolRegistryWithFactory(s, factory, cfg.AuthorizationURL)
+	}
 	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
 	return s
@@ -53,6 +70,7 @@ func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, err
 
 // registerAllTools は MCP サーバーに全ツールを登録する共通ヘルパー。
 // NewServer / NewServerWithFactory から呼ばれ、両者で同一のツールセットを保証する。
+// space 管理5ツールは SpaceStore の有無に関わらず常に登録する。
 func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterIssueTools(reg)
 	RegisterProjectTools(reg)
@@ -67,4 +85,5 @@ func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterWatchingTools(reg)
 	RegisterWikiTools(reg)
 	RegisterAnalysisTools(reg, cfg)
+	RegisterSpaceRegistryTools(reg, cfg.SpaceStore, cfg.SpaceResolver, cfg.AuthorizationURL)
 }

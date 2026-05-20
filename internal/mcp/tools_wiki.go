@@ -11,7 +11,7 @@ import (
 // RegisterWikiTools は Wiki 関連の MCP tools を ToolRegistry に登録する。
 func RegisterWikiTools(r *ToolRegistry) {
 	// logvalet_wiki_list
-	r.Register(gomcp.NewTool("logvalet_wiki_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_list",
 		gomcp.WithDescription("List wiki pages in a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
 		gomcp.WithString("keyword", gomcp.Description("Keyword to search in wiki pages")),
@@ -29,7 +29,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_get
-	r.Register(gomcp.NewTool("logvalet_wiki_get",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_get",
 		gomcp.WithDescription("Get a wiki page by ID"),
 		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
 		readOnlyAnnotation("Wiki ページ取得"),
@@ -42,7 +42,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_count
-	r.Register(gomcp.NewTool("logvalet_wiki_count",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_count",
 		gomcp.WithDescription("Count wiki pages in a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
 		readOnlyAnnotation("Wiki ページ件数取得"),
@@ -59,7 +59,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_tags
-	r.Register(gomcp.NewTool("logvalet_wiki_tags",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_tags",
 		gomcp.WithDescription("List wiki tags in a project"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
 		readOnlyAnnotation("Wiki タグ一覧取得"),
@@ -72,7 +72,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_history
-	r.Register(gomcp.NewTool("logvalet_wiki_history",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_history",
 		gomcp.WithDescription("Get wiki page history"),
 		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
 		gomcp.WithNumber("min_id", gomcp.Description("Minimum history ID")),
@@ -102,7 +102,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_stars
-	r.Register(gomcp.NewTool("logvalet_wiki_stars",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_stars",
 		gomcp.WithDescription("List stars on a wiki page"),
 		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
 		readOnlyAnnotation("Wiki スター一覧取得"),
@@ -115,7 +115,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_attachment_list
-	r.Register(gomcp.NewTool("logvalet_wiki_attachment_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_attachment_list",
 		gomcp.WithDescription("List attachments on a wiki page"),
 		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
 		readOnlyAnnotation("Wiki 添付ファイル一覧取得"),
@@ -128,7 +128,7 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_sharedfile_list
-	r.Register(gomcp.NewTool("logvalet_wiki_sharedfile_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_sharedfile_list",
 		gomcp.WithDescription("List shared files on a wiki page"),
 		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
 		readOnlyAnnotation("Wiki 共有ファイル一覧取得"),

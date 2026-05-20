@@ -25,7 +25,7 @@ const maxUploadInlineDecodedBytes = 4 * 1024 * 1024
 // logvalet_issue_get, list, create, update, comment 系, attachment 系 を含む。
 func RegisterIssueTools(r *ToolRegistry) {
 	// logvalet_issue_get
-	r.Register(gomcp.NewTool("logvalet_issue_get",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_get",
 		gomcp.WithDescription("Get issue details by issue key"),
 		gomcp.WithString("issue_key",
 			gomcp.Required(),
@@ -41,7 +41,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_list
-	r.Register(gomcp.NewTool("logvalet_issue_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_list",
 		gomcp.WithDescription("List issues with optional filters"),
 		gomcp.WithString("project_key", gomcp.Description("Filter by single project key (legacy; use project_keys for multiple)")),
 		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys (e.g. PROJ1,PROJ2)")),
@@ -154,7 +154,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_create
-	r.Register(gomcp.NewTool("logvalet_issue_create",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_create",
 		gomcp.WithDescription("Create a new issue"),
 		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
 		gomcp.WithString("summary", gomcp.Required(), gomcp.Description("Issue summary")),
@@ -252,7 +252,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		return client.CreateIssue(ctx, req)
 	})
 	// logvalet_issue_update
-	r.Register(gomcp.NewTool("logvalet_issue_update",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_update",
 		gomcp.WithDescription("Update an existing issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithString("summary", gomcp.Description("New summary")),
@@ -344,7 +344,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_list
-	r.Register(gomcp.NewTool("logvalet_issue_comment_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_comment_list",
 		gomcp.WithDescription("List comments for an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("count", gomcp.Description("Max number of comments")),
@@ -366,7 +366,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_add
-	r.Register(gomcp.NewTool("logvalet_issue_comment_add",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_comment_add",
 		gomcp.WithDescription("Add a comment to an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithString("content", gomcp.Description("Comment content (alias: body)")),
@@ -397,7 +397,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_update
-	r.Register(gomcp.NewTool("logvalet_issue_comment_update",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_comment_update",
 		gomcp.WithDescription("Update a comment on an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("comment_id", gomcp.Required(), gomcp.Description("Comment ID")),
@@ -425,7 +425,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_list
-	r.Register(gomcp.NewTool("logvalet_issue_attachment_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_attachment_list",
 		gomcp.WithDescription("List attachments for an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		readOnlyAnnotation("課題添付ファイル一覧取得"),
@@ -438,7 +438,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_delete: B12
-	r.Register(gomcp.NewTool("logvalet_issue_attachment_delete",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_attachment_delete",
 		gomcp.WithDescription("Delete an attachment from an issue"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),
@@ -456,7 +456,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_upload
-	r.Register(gomcp.NewTool("logvalet_issue_attachment_upload",
+	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_attachment_upload",
 		gomcp.WithDescription("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithString("file_paths", gomcp.Description("Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64.")),
@@ -532,7 +532,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_download: B13
-	r.Register(gomcp.NewTool("logvalet_issue_attachment_download",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_attachment_download",
 		gomcp.WithDescription("Download an attachment from an issue (max 20MB, returned as base64)"),
 		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
 		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),

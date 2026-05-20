@@ -13,7 +13,7 @@ import (
 // RegisterActivityTools はアクティビティ関連の MCP tools を ToolRegistry に登録する。
 func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_activity_list
-	r.Register(gomcp.NewTool("logvalet_activity_list",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_list",
 		gomcp.WithDescription("List activities by scope (space, project, or user)"),
 		gomcp.WithString("user_id", gomcp.Description("User ID or 'me' for current user")),
 		gomcp.WithString("project_key", gomcp.Description("Project key")),
@@ -84,7 +84,7 @@ func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_activity_digest: B4
-	r.Register(gomcp.NewTool("logvalet_activity_digest",
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_digest",
 		gomcp.WithDescription("Generate an activity digest for a space or project"),
 		gomcp.WithString("since", gomcp.Description("Start date (YYYY-MM-DD)")),
 		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),
