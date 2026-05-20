@@ -369,3 +369,84 @@ func TestSpaceAwareClientFactory_SameTenant_DifferentAlias_SameToken(t *testing.
 		t.Errorf("expected 2 HTTP requests, got %d", callCount)
 	}
 }
+
+// T7: マルチスペース — reg.BaseURL ごとに異なるサーバーへルーティングされる
+// M22: cli/mcp.go が oauthDeps.Factory (heptagon固定) を使っていたバグの回帰防止テスト
+func TestSpaceAwareClientFactory_OAuth_RoutesToRegBaseURL(t *testing.T) {
+	var heptagonCalls, megumilogCalls int
+
+	heptagonServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		heptagonCalls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":1,"userId":"admin","name":"Heptagon User"}`))
+	}))
+	defer heptagonServer.Close()
+
+	megumilogServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		megumilogCalls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":2,"userId":"meg","name":"Megumilog User"}`))
+	}))
+	defer megumilogServer.Close()
+
+	tm := &mockTokenManager{
+		getValidTokenFunc: func(_ context.Context, _, _, tenant string) (*auth.TokenRecord, error) {
+			return &auth.TokenRecord{
+				UserID:      "u1",
+				Provider:    "backlog",
+				Tenant:      tenant,
+				AccessToken: "token-" + tenant,
+				TokenType:   "Bearer",
+				Expiry:      time.Now().Add(1 * time.Hour),
+			}, nil
+		},
+	}
+	credResolver := &mockCredResolver{
+		resolveFunc: func(_ string, _ credentials.CredentialFlags, _ func(string) string) (*credentials.ResolvedCredential, error) {
+			return nil, nil
+		},
+	}
+
+	heptagonReg := space.SpaceRegistration{
+		Alias:    "heptagon",
+		Tenant:   "heptagon",
+		BaseURL:  heptagonServer.URL,
+		AuthType: space.AuthTypeOAuth,
+	}
+	megumilogReg := space.SpaceRegistration{
+		Alias:    "megumilog",
+		Tenant:   "megumilog",
+		BaseURL:  megumilogServer.URL,
+		AuthType: space.AuthTypeOAuth,
+	}
+
+	factory := auth.NewSpaceAwareClientFactory(tm, credResolver)
+	ctx := auth.ContextWithUserID(context.Background(), "u1")
+
+	// heptagon 用クライアントは heptagonServer を呼ぶ
+	heptagonClient, err := factory(ctx, heptagonReg)
+	if err != nil {
+		t.Fatalf("factory(heptagon) error: %v", err)
+	}
+	if _, err := heptagonClient.GetMyself(ctx); err != nil {
+		t.Fatalf("heptagonClient.GetMyself error: %v", err)
+	}
+
+	// megumilog 用クライアントは megumilogServer を呼ぶ
+	megumilogClient, err := factory(ctx, megumilogReg)
+	if err != nil {
+		t.Fatalf("factory(megumilog) error: %v", err)
+	}
+	if _, err := megumilogClient.GetMyself(ctx); err != nil {
+		t.Fatalf("megumilogClient.GetMyself error: %v", err)
+	}
+
+	if heptagonCalls != 1 {
+		t.Errorf("heptagonServer calls = %d, want 1", heptagonCalls)
+	}
+	if megumilogCalls != 1 {
+		t.Errorf("megumilogServer calls = %d, want 1", megumilogCalls)
+	}
+}

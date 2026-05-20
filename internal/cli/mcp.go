@@ -15,7 +15,6 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
-	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
@@ -248,10 +247,9 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 				cfg.NonceStore = ns
 			}
 		}
-		// OAuth モードでは per-user factory を使って space ごとのトークンを解決する
-		cfg.SpaceClientFactory = space.ClientFactory(func(ctx context.Context, _ space.SpaceRegistration) (backlog.Client, error) {
-			return oauthDeps.Factory(ctx)
-		})
+		// OAuth モードでは SpaceAwareClientFactory を使って space ごとの BaseURL/Tenant でクライアントを生成する
+		// oauthDeps.Factory (heptagon 固定) を使わず reg.BaseURL/reg.Tenant を尊重する
+		cfg.SpaceClientFactory = space.ClientFactory(auth.NewSpaceAwareClientFactory(oauthDeps.TokenManager, nil))
 	}
 
 	// MCP サーバー構築（OAuth 有無で分岐）

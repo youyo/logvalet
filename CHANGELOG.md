@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.28.0] - 2026-05-21
+
+`spaces=["megumilog"]` 指定時に megumilog の API を呼ぶよう修正（M22）。
+`cli/mcp.go` の OAuth モードで `SpaceClientFactory` が `oauthDeps.Factory`（heptagon 固定）をラップしており `reg.BaseURL`/`reg.Tenant` を無視していた根本バグを修正。
+`auth.NewSpaceAwareClientFactory` に置き換えることで各スペースの正しい baseURL にルーティングされるようになった。
+
+### Fixed
+- fix(cli): OAuth モードの `SpaceClientFactory` が `reg.BaseURL`/`reg.Tenant` を無視して常に heptagon クライアントを返していた問題を修正
+  - `oauthDeps.Factory(ctx)` を `auth.NewSpaceAwareClientFactory(oauthDeps.TokenManager, nil)` に置き換え
+  - `spaces=["megumilog"]` 指定時に megumilog の API が正しく呼ばれるようになった
+
+### Added
+- test(auth): `TestSpaceAwareClientFactory_OAuth_RoutesToRegBaseURL` を追加（マルチスペースルーティングの回帰防止）
+
 ## [0.27.0] - 2026-05-21
 
 `RegisterWithSpaces` / `RegisterWithSpacesWrite` の InputSchema に `spaces` / `all_spaces` パラメータを自動注入（M21）。
