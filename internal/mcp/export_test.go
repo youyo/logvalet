@@ -5,6 +5,3 @@ package mcp
 
 // SpaceInfoFromContextForTest は spaceInfoFromContext を外部テストへ公開する。
 var SpaceInfoFromContextForTest = spaceInfoFromContext
-
-// ContextWithSpaceForTest は contextWithSpace を外部テストへ公開する。
-var ContextWithSpaceForTest = contextWithSpace
