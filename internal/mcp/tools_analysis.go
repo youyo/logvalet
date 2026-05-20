@@ -40,7 +40,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.Compact = compact
 		}
 
-		builder := analysis.NewIssueContextBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewIssueContextBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, opts)
 	})
 
@@ -80,7 +81,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			blockerCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		detector := analysis.NewBlockerDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		detector := analysis.NewBlockerDetector(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return detector.Detect(ctx, projectKeys, blockerCfg)
 	})
 
@@ -114,7 +116,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			staleCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return detector.Detect(ctx, projectKeys, staleCfg)
 	})
 
@@ -171,7 +174,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			},
 		}
 
-		builder := analysis.NewProjectHealthBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewProjectHealthBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, healthCfg)
 	})
 
@@ -189,7 +193,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			return nil, fmt.Errorf("issue_key is required")
 		}
 
-		builder := analysis.NewTriageMaterialsBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewTriageMaterialsBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, analysis.TriageMaterialsOptions{})
 	})
 
@@ -227,7 +232,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			}
 			opts.Until = &t
 		}
-		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, opts)
 	})
 
@@ -265,7 +271,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			}
 			opts.Until = &t
 		}
-		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, opts)
 	})
 
@@ -331,7 +338,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.TopN = topN
 		}
 
-		builder := analysis.NewActivityStatsBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewActivityStatsBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opts)
 	})
 
@@ -395,7 +403,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.Until = &t
 		}
 
-		builder := analysis.NewCommentTimelineBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewCommentTimelineBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, opts)
 	})
 
@@ -427,7 +436,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			workloadCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return calculator.Calculate(ctx, projectKey, workloadCfg)
 	})
 	// logvalet_my_tasks
@@ -449,7 +459,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.StaleDays = staleDays
 		}
 
-		builder := analysis.NewMyTasksBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := analysis.NewMyTasksBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opts)
 	})
 
@@ -522,7 +533,8 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			scope.IssueKeys = parseCSVStringList(issueKeysStr)
 		}
 
-		builder := digest.NewUnifiedDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := digest.NewUnifiedDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, scope)
 	})
 }

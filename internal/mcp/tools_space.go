@@ -23,7 +23,8 @@ func RegisterSpaceTools(r *ToolRegistry, cfg ServerConfig) {
 		gomcp.WithDescription("Generate a digest for the entire Backlog space"),
 		readOnlyAnnotation("スペースダイジェスト生成"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
-		builder := digest.NewDefaultSpaceDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := digest.NewDefaultSpaceDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, digest.SpaceDigestOptions{})
 	})
 

@@ -107,7 +107,8 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		if !ok || documentID == "" {
 			return nil, fmt.Errorf("document_id is required")
 		}
-		builder := digest.NewDefaultDocumentDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := digest.NewDefaultDocumentDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, documentID, digest.DocumentDigestOptions{})
 	})
 }

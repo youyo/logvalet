@@ -116,7 +116,8 @@ func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 			opt.Until = &t
 		}
 
-		builder := digest.NewDefaultActivityDigestBuilder(client, cfg.Profile, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := digest.NewDefaultActivityDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opt)
 	})
 }
