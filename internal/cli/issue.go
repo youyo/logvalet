@@ -205,41 +205,60 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	// 1. projectKey → projectId
-	proj, err := rc.Client.GetProject(ctx, c.ProjectKey)
+	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
+		return c.createIssue(ctx, client, description)
+	}, rc.Client)
 	if err != nil {
-		return fmt.Errorf("failed to resolve project key %q: %w", c.ProjectKey, err)
+		return err
+	}
+	// --spaces 未指定の場合は result を rc.Renderer で出力
+	if g.Spaces == "" && !g.AllSpaces {
+		issue, ok := result.(*domain.Issue)
+		if !ok {
+			return fmt.Errorf("unexpected result type")
+		}
+		return rc.Renderer.Render(os.Stdout, issue)
+	}
+	// --spaces 1件指定の場合は result をそのまま JSON 出力（fan-out 形式）
+	return nil
+}
+
+// createIssue は client を使って課題を作成するヘルパー。
+func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client, description string) (*domain.Issue, error) {
+	// 1. projectKey → projectId
+	proj, err := client.GetProject(ctx, c.ProjectKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve project key %q: %w", c.ProjectKey, err)
 	}
 
 	// 2. issueType 解決（未指定時はデフォルト = 先頭要素）
-	issueTypes, err := rc.Client.ListProjectIssueTypes(ctx, c.ProjectKey)
+	issueTypes, err := client.ListProjectIssueTypes(ctx, c.ProjectKey)
 	if err != nil {
-		return fmt.Errorf("failed to get issue types: %w", err)
+		return nil, fmt.Errorf("failed to get issue types: %w", err)
 	}
 	var issueTypeID int
 	if c.IssueType == "" {
 		if len(issueTypes) == 0 {
-			return fmt.Errorf("project %q has no issue types", c.ProjectKey)
+			return nil, fmt.Errorf("project %q has no issue types", c.ProjectKey)
 		}
 		issueTypeID = issueTypes[0].ID
 	} else {
 		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypes)
 		if err != nil {
-			return fmt.Errorf("failed to resolve issue type: %w", err)
+			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}
 	}
 
 	// 3. priority 解決（未指定時はデフォルト = 「中」）
-	priorities, err := rc.Client.ListPriorities(ctx)
+	priorities, err := client.ListPriorities(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get priorities: %w", err)
+		return nil, fmt.Errorf("failed to get priorities: %w", err)
 	}
 	var priorityID int
 	if c.Priority == "" {
 		if len(priorities) == 0 {
-			return fmt.Errorf("priorities list is empty")
+			return nil, fmt.Errorf("priorities list is empty")
 		}
-		// 「中」(Normal) を名前で検索、なければ先頭要素にフォールバック
 		priorityID = priorities[0].ID
 		for _, p := range priorities {
 			if strings.EqualFold(p.Name, "中") || strings.EqualFold(p.Name, "Normal") {
@@ -250,7 +269,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	} else {
 		priorityID, err = resolveNameOrID(c.Priority, priorities)
 		if err != nil {
-			return fmt.Errorf("failed to resolve priority: %w", err)
+			return nil, fmt.Errorf("failed to resolve priority: %w", err)
 		}
 	}
 
@@ -259,42 +278,42 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if c.Assignee != "" {
 		assigneeID, err = strconv.Atoi(c.Assignee)
 		if err != nil {
-			return fmt.Errorf("assignee ID must be numeric: %q", c.Assignee)
+			return nil, fmt.Errorf("assignee ID must be numeric: %q", c.Assignee)
 		}
 	}
 
 	// 5. categories 名前→ID
 	var categoryIDs []int
 	if len(c.Category) > 0 {
-		cats, err := rc.Client.ListProjectCategories(ctx, c.ProjectKey)
+		cats, err := client.ListProjectCategories(ctx, c.ProjectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get categories: %w", err)
+			return nil, fmt.Errorf("failed to get categories: %w", err)
 		}
 		categoryIDs, err = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
 		if err != nil {
-			return fmt.Errorf("failed to resolve categories: %w", err)
+			return nil, fmt.Errorf("failed to resolve categories: %w", err)
 		}
 	}
 
-	// 6. versions / milestones — 同じ API (ListProjectVersions)
+	// 6. versions / milestones
 	var versionIDs []int
 	var milestoneIDs []int
 	if len(c.Version) > 0 || len(c.Milestone) > 0 {
-		vers, err := rc.Client.ListProjectVersions(ctx, c.ProjectKey)
+		vers, err := client.ListProjectVersions(ctx, c.ProjectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get versions: %w", err)
+			return nil, fmt.Errorf("failed to get versions: %w", err)
 		}
 		verIDNames := toIDNamesFromVersions(vers)
 		if len(c.Version) > 0 {
 			versionIDs, err = resolveNamesOrIDs(c.Version, verIDNames)
 			if err != nil {
-				return fmt.Errorf("failed to resolve versions: %w", err)
+				return nil, fmt.Errorf("failed to resolve versions: %w", err)
 			}
 		}
 		if len(c.Milestone) > 0 {
 			milestoneIDs, err = resolveNamesOrIDs(c.Milestone, verIDNames)
 			if err != nil {
-				return fmt.Errorf("failed to resolve milestones: %w", err)
+				return nil, fmt.Errorf("failed to resolve milestones: %w", err)
 			}
 		}
 	}
@@ -302,15 +321,14 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	// 7. dates → parseDate
 	dueDate, err := parseDate(c.DueDate)
 	if err != nil {
-		return fmt.Errorf("failed to parse due date: %w", err)
+		return nil, fmt.Errorf("failed to parse due date: %w", err)
 	}
 	startDate, err := parseDate(c.StartDate)
 	if err != nil {
-		return fmt.Errorf("failed to parse start date: %w", err)
+		return nil, fmt.Errorf("failed to parse start date: %w", err)
 	}
 
-	// 8. API 呼び出し
-	issue, err := rc.Client.CreateIssue(ctx, backlog.CreateIssueRequest{
+	return client.CreateIssue(ctx, backlog.CreateIssueRequest{
 		ProjectID:       proj.ID,
 		Summary:         c.Summary,
 		IssueTypeID:     issueTypeID,
@@ -325,10 +343,6 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		ParentIssueID:   c.ParentIssueID,
 		NotifiedUserIDs: c.NotifiedUserID,
 	})
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // IssueUpdateCmd は issue update コマンド（spec §14.5）。
@@ -424,114 +438,129 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	// issueKey からプロジェクトキーを抽出
+	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
+		return c.updateIssue(ctx, client, resolvedDescription)
+	}, rc.Client)
+	if err != nil {
+		return err
+	}
+	if g.Spaces == "" && !g.AllSpaces {
+		issue, ok := result.(*domain.Issue)
+		if !ok {
+			return fmt.Errorf("unexpected result type")
+		}
+		return rc.Renderer.Render(os.Stdout, issue)
+	}
+	return nil
+}
+
+// updateIssue は client を使って課題を更新するヘルパー。
+func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client, resolvedDescription *string) (*domain.Issue, error) {
 	projectKey := extractProjectKey(c.IssueIDOrKey)
 
-	// Status の名前→ID 変換
 	var statusID *int
 	if c.Status != nil {
-		statuses, err := rc.Client.ListProjectStatuses(ctx, projectKey)
+		statuses, err := client.ListProjectStatuses(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get statuses: %w", err)
+			return nil, fmt.Errorf("failed to get statuses: %w", err)
 		}
 		id, err := resolveNameOrID(*c.Status, toIDNamesFromStatuses(statuses))
 		if err != nil {
-			return fmt.Errorf("failed to resolve status: %w", err)
+			return nil, fmt.Errorf("failed to resolve status: %w", err)
 		}
 		statusID = &id
 	}
 
-	// Priority の名前→ID 変換
 	var priorityID *int
 	if c.Priority != nil {
-		priorities, err := rc.Client.ListPriorities(ctx)
+		priorities, err := client.ListPriorities(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get priorities: %w", err)
+			return nil, fmt.Errorf("failed to get priorities: %w", err)
 		}
 		id, err := resolveNameOrID(*c.Priority, priorities)
 		if err != nil {
-			return fmt.Errorf("failed to resolve priority: %w", err)
+			return nil, fmt.Errorf("failed to resolve priority: %w", err)
 		}
 		priorityID = &id
 	}
 
-	// IssueType の名前→ID 変換
 	var issueTypeID *int
 	if c.IssueType != nil {
-		issueTypes, err := rc.Client.ListProjectIssueTypes(ctx, projectKey)
+		issueTypes, err := client.ListProjectIssueTypes(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get issue types: %w", err)
+			return nil, fmt.Errorf("failed to get issue types: %w", err)
 		}
 		id, err := resolveNameOrID(*c.IssueType, issueTypes)
 		if err != nil {
-			return fmt.Errorf("failed to resolve issue type: %w", err)
+			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}
 		issueTypeID = &id
 	}
 
-	// Assignee（数値直接入力）
 	var assigneeID *int
 	if c.Assignee != nil {
 		id, err := strconv.Atoi(*c.Assignee)
 		if err != nil {
-			return fmt.Errorf("assignee ID must be numeric: %q", *c.Assignee)
+			return nil, fmt.Errorf("assignee ID must be numeric: %q", *c.Assignee)
 		}
 		assigneeID = &id
 	}
 
-	// Categories の名前→ID 変換
 	var categoryIDs []int
 	if len(c.Category) > 0 {
-		cats, err := rc.Client.ListProjectCategories(ctx, projectKey)
+		cats, err := client.ListProjectCategories(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get categories: %w", err)
+			return nil, fmt.Errorf("failed to get categories: %w", err)
 		}
-		categoryIDs, err = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
-		if err != nil {
-			return fmt.Errorf("failed to resolve categories: %w", err)
+		var err2 error
+		categoryIDs, err2 = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to resolve categories: %w", err2)
 		}
 	}
 
-	// Versions / Milestones の名前→ID 変換
 	var versionIDs []int
 	var milestoneIDs []int
 	if len(c.Version) > 0 || len(c.Milestone) > 0 {
-		vers, err := rc.Client.ListProjectVersions(ctx, projectKey)
+		vers, err := client.ListProjectVersions(ctx, projectKey)
 		if err != nil {
-			return fmt.Errorf("failed to get versions: %w", err)
+			return nil, fmt.Errorf("failed to get versions: %w", err)
 		}
 		verIDNames := toIDNamesFromVersions(vers)
 		if len(c.Version) > 0 {
-			versionIDs, err = resolveNamesOrIDs(c.Version, verIDNames)
-			if err != nil {
-				return fmt.Errorf("failed to resolve versions: %w", err)
+			var err2 error
+			versionIDs, err2 = resolveNamesOrIDs(c.Version, verIDNames)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to resolve versions: %w", err2)
 			}
 		}
 		if len(c.Milestone) > 0 {
-			milestoneIDs, err = resolveNamesOrIDs(c.Milestone, verIDNames)
-			if err != nil {
-				return fmt.Errorf("failed to resolve milestones: %w", err)
+			var err2 error
+			milestoneIDs, err2 = resolveNamesOrIDs(c.Milestone, verIDNames)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to resolve milestones: %w", err2)
 			}
 		}
 	}
 
-	// DueDate / StartDate の parseDate
 	var dueDate *time.Time
 	if c.DueDate != nil {
+		var err error
 		dueDate, err = parseDate(*c.DueDate)
 		if err != nil {
-			return fmt.Errorf("failed to parse due date: %w", err)
+			return nil, fmt.Errorf("failed to parse due date: %w", err)
 		}
 	}
 	var startDate *time.Time
 	if c.StartDate != nil {
+		var err error
 		startDate, err = parseDate(*c.StartDate)
 		if err != nil {
-			return fmt.Errorf("failed to parse start date: %w", err)
+			return nil, fmt.Errorf("failed to parse start date: %w", err)
 		}
 	}
 
-	issue, err := rc.Client.UpdateIssue(ctx, c.IssueIDOrKey, backlog.UpdateIssueRequest{
+	return client.UpdateIssue(ctx, c.IssueIDOrKey, backlog.UpdateIssueRequest{
 		Summary:         c.Summary,
 		Description:     resolvedDescription,
 		StatusID:        statusID,
@@ -546,10 +575,6 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 		NotifiedUserIDs: c.NotifiedUserID,
 		Comment:         c.Comment,
 	})
-	if err != nil {
-		return err
-	}
-	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // IssueCommentCmd は issue comment コマンド群。
@@ -623,14 +648,24 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	comment, err := rc.Client.AddIssueComment(ctx, c.IssueIDOrKey, backlog.AddCommentRequest{
-		Content:         content,
-		NotifiedUserIDs: c.NotifiedUserID,
-	})
+
+	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
+		return client.AddIssueComment(ctx, c.IssueIDOrKey, backlog.AddCommentRequest{
+			Content:         content,
+			NotifiedUserIDs: c.NotifiedUserID,
+		})
+	}, rc.Client)
 	if err != nil {
 		return err
 	}
-	return rc.Renderer.Render(os.Stdout, comment)
+	if g.Spaces == "" && !g.AllSpaces {
+		comment, ok := result.(*domain.Comment)
+		if !ok {
+			return fmt.Errorf("unexpected result type")
+		}
+		return rc.Renderer.Render(os.Stdout, comment)
+	}
+	return nil
 }
 
 // IssueCommentUpdateCmd は issue comment update コマンド（spec §14.8）。
@@ -674,13 +709,23 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
-	comment, err := rc.Client.UpdateIssueComment(ctx, c.IssueIDOrKey, int64(c.CommentID), backlog.UpdateCommentRequest{
-		Content: content,
-	})
+
+	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
+		return client.UpdateIssueComment(ctx, c.IssueIDOrKey, int64(c.CommentID), backlog.UpdateCommentRequest{
+			Content: content,
+		})
+	}, rc.Client)
 	if err != nil {
 		return err
 	}
-	return rc.Renderer.Render(os.Stdout, comment)
+	if g.Spaces == "" && !g.AllSpaces {
+		comment, ok := result.(*domain.Comment)
+		if !ok {
+			return fmt.Errorf("unexpected result type")
+		}
+		return rc.Renderer.Render(os.Stdout, comment)
+	}
+	return nil
 }
 
 // ---- ヘルパー ----
