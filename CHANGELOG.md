@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.26.0] - 2026-05-21
+
+`logvalet_space_use` で設定したデフォルトスペースが全ツールに反映されるようになった（M20）。
+これまで `spaces` パラメータを省略すると起動時設定スペースが使われていたが、DynamoDB UserPreference を参照するよう修正。
+
+### Fixed
+- fix(mcp): `RegisterWithSpaces` / `RegisterWithSpacesWrite` が `spaces` 未指定時に DynamoDB UserPreference を無視していた問題を修正
+  - `logvalet_space_use megumilog` 後に `logvalet_my_tasks` を呼ぶと heptagon のデータが返っていたバグを解消
+  - 解決優先順位: DynamoDB preference → 単一 enabled space → default client fallback
+
+### Added
+- feat(mcp): `callWithSpaceClient` ヘルパー追加（spaceFactory 経由クライアント生成 + needsAuthorization ハンドリング）
+
 ## [0.25.0] - 2026-05-20
 
 Multi-space Backlog OAuth の baseURL 動的切り替え修正（M19）。`logvalet_space_connect_url` で生成した URL で OAuth を完走すると、指定した Backlog スペース（megumilog 等）のトークンが正しく保存されるようになった。

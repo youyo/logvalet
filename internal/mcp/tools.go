@@ -84,6 +84,7 @@ func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
 // resolver が nil の場合は通常の Register と同等に動作する。
 // args に "spaces" ([]string) または "all_spaces" (bool) を渡すと fan-out モードになる。
 // "spaces" と "all_spaces" の同時指定はエラー。
+// spaces/all_spaces 未指定時は DynamoDB UserPreference → 単一スペース fallback → default client の順で解決する。
 func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		args := req.GetArguments()
@@ -91,25 +92,32 @@ func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 		spaces := stringSliceArg(args, "spaces")
 		allSpaces, _ := boolArg(args, "all_spaces")
 
-		// resolver が nil、または spaces/all_spaces が指定されていない場合は通常動作
-		if r.resolver == nil || (len(spaces) == 0 && !allSpaces) {
+		if r.resolver == nil {
 			return r.callWithDefaultClient(ctx, fn, args)
 		}
 
-		// conflict チェック
 		if len(spaces) > 0 && allSpaces {
 			return gomcp.NewToolResultError("spaces and all_spaces cannot be specified together"), nil
 		}
 
 		userID, ok := auth.UserIDFromContext(ctx)
 		if !ok {
-			return gomcp.NewToolResultError("userID not found in context: authentication required"), nil
+			return r.callWithDefaultClient(ctx, fn, args)
 		}
 
 		scope := space.Scope{Aliases: spaces, AllSpaces: allSpaces}
 		targets, err := r.resolver.Resolve(ctx, userID, scope)
 		if err != nil {
+			// spaces/all_spaces 未指定の場合は default client に fallback（既存動作を維持）
+			if len(spaces) == 0 && !allSpaces {
+				return r.callWithDefaultClient(ctx, fn, args)
+			}
 			return gomcp.NewToolResultError(fmt.Sprintf("resolve spaces: %s", err.Error())), nil
+		}
+
+		// spaces/all_spaces 未指定 → 単一スペースの通常レスポンス形式（配列ではない）
+		if len(spaces) == 0 && !allSpaces {
+			return r.callWithSpaceClient(ctx, fn, args, targets[0])
 		}
 
 		executor := &space.Executor{Factory: r.spaceFactory}
@@ -146,19 +154,26 @@ func (r *ToolRegistry) RegisterWithSpacesWrite(tool gomcp.Tool, fn ToolFunc) {
 			return gomcp.NewToolResultError("multi-space write operations require exactly one space"), nil
 		}
 
-		// spaces 未指定 → 既存動作
-		if len(spaces) == 0 {
+		userID, ok := auth.UserIDFromContext(ctx)
+		if !ok {
 			return r.callWithDefaultClient(ctx, fn, args)
+		}
+
+		// spaces 未指定 → resolver で default スペースを解決（DynamoDB preference → 単一 enabled → fallback）
+		if len(spaces) == 0 {
+			if r.resolver == nil {
+				return r.callWithDefaultClient(ctx, fn, args)
+			}
+			targets, err := r.resolver.Resolve(ctx, userID, space.Scope{})
+			if err != nil {
+				return r.callWithDefaultClient(ctx, fn, args)
+			}
+			return r.callWithSpaceClient(ctx, fn, args, targets[0])
 		}
 
 		// spaces=["foo"]（1件）→ resolver で解決して spaceFactory でクライアント生成
 		if r.resolver == nil {
 			return gomcp.NewToolResultError("resolver not configured for multi-space operations"), nil
-		}
-
-		userID, ok := auth.UserIDFromContext(ctx)
-		if !ok {
-			return gomcp.NewToolResultError("userID not found in context: authentication required"), nil
 		}
 
 		scope := space.Scope{Aliases: spaces}
@@ -170,20 +185,7 @@ func (r *ToolRegistry) RegisterWithSpacesWrite(tool gomcp.Tool, fn ToolFunc) {
 			return gomcp.NewToolResultError(fmt.Sprintf("space not found: %s", spaces[0])), nil
 		}
 
-		client, err := r.spaceFactory(ctx, targets[0])
-		if err != nil {
-			return gomcp.NewToolResultError(fmt.Sprintf("create client for space %s: %s", spaces[0], err.Error())), nil
-		}
-
-		result, err := fn(ctx, client, args)
-		if err != nil {
-			return gomcp.NewToolResultError(err.Error()), nil
-		}
-		jsonBytes, err := json.Marshal(result)
-		if err != nil {
-			return gomcp.NewToolResultError("failed to marshal result: " + err.Error()), nil
-		}
-		return gomcp.NewToolResultText(string(jsonBytes)), nil
+		return r.callWithSpaceClient(ctx, fn, args, targets[0])
 	})
 }
 
@@ -204,6 +206,27 @@ func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, a
 		c = r.client
 	}
 	result, err := fn(ctx, c, args)
+	if err != nil {
+		return gomcp.NewToolResultError(err.Error()), nil
+	}
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		return gomcp.NewToolResultError("failed to marshal result: " + err.Error()), nil
+	}
+	return gomcp.NewToolResultText(string(jsonBytes)), nil
+}
+
+// callWithSpaceClient は指定 SpaceRegistration の spaceFactory でクライアントを生成し fn を呼び出す。
+// needsAuthorization エラーの場合は authorizationURL を付与したレスポンスを返す。
+func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, args map[string]any, reg space.SpaceRegistration) (*gomcp.CallToolResult, error) {
+	client, err := r.spaceFactory(ctx, reg)
+	if err != nil {
+		if needsAuthorization(err) && r.authorizationURL != "" {
+			return toolResultAuthRequired(err, r.authorizationURL), nil
+		}
+		return gomcp.NewToolResultError(fmt.Sprintf("create client for space %s: %s", reg.Alias, err.Error())), nil
+	}
+	result, err := fn(ctx, client, args)
 	if err != nil {
 		return gomcp.NewToolResultError(err.Error()), nil
 	}

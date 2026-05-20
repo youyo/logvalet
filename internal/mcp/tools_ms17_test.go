@@ -81,7 +81,7 @@ func TestRegisterWithSpaces_NilResolver(t *testing.T) {
 }
 
 // ============================================================================
-// MS17-2: spaces 未指定 + all_spaces=false → fn 直接呼び出し（既存動作）
+// MS17-2: spaces 未指定 + all_spaces=false + resolver あり → 単一スペースを resolver 経由で解決
 // ============================================================================
 
 func TestRegisterWithSpaces_NoSpaces(t *testing.T) {
@@ -105,7 +105,7 @@ func TestRegisterWithSpaces_NoSpaces(t *testing.T) {
 		t.Fatalf("unexpected error: %v", result.Content)
 	}
 	if !fnCalled {
-		t.Error("expected fn to be called directly")
+		t.Error("expected fn to be called")
 	}
 }
 
@@ -278,7 +278,7 @@ func TestRegisterWithSpaces_Conflict(t *testing.T) {
 }
 
 // ============================================================================
-// MS17-7: RegisterWithSpacesWrite: spaces 未指定 → 既存動作
+// MS17-7: RegisterWithSpacesWrite: spaces 未指定 + userID なし → default client fallback
 // ============================================================================
 
 func TestRegisterWithSpacesWrite_NoSpaces(t *testing.T) {
@@ -297,7 +297,7 @@ func TestRegisterWithSpacesWrite_NoSpaces(t *testing.T) {
 		t.Fatalf("unexpected error: %v", result.Content)
 	}
 	if !fnCalled {
-		t.Error("expected fn to be called directly")
+		t.Error("expected fn to be called via fallback")
 	}
 }
 
