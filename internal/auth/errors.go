@@ -39,4 +39,13 @@ var (
 	// ErrInvalidContinue は continue URL が allowlist に合致しない場合に返される。
 	// open redirect 攻撃を防ぐため、相対パスかつ /authorize prefix のみを許可する。
 	ErrInvalidContinue = errors.New("auth: invalid continue URL")
+
+	// ErrBootstrapInvalid は bootstrap_token が不正（署名不正・クレーム不一致・改竄等）の場合に返される。
+	ErrBootstrapInvalid = errors.New("auth: bootstrap token invalid")
+
+	// ErrBootstrapExpired は bootstrap_token が期限切れの場合に返される。
+	ErrBootstrapExpired = errors.New("auth: bootstrap token expired")
+
+	// ErrBootstrapReplayed は bootstrap_token の jti が既に使用済みの場合に返される。
+	ErrBootstrapReplayed = errors.New("auth: bootstrap token replayed")
 )
