@@ -37,6 +37,8 @@ type VerifyResult struct {
 // buildSpaceStore は環境変数から SpaceStore を構築する。
 // LOGVALET_SPACE_STORE_TYPE: sqlite（デフォルト）または dynamodb
 // LOGVALET_SPACE_STORE_PATH: SQLite DBパス（デフォルト: ~/.logvalet/spaces.db）
+// DynamoDB モードでは LOGVALET_SPACE_STORE_DYNAMODB_TABLE/REGION が未設定の場合、
+// LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE/REGION にフォールバックする（既存テーブルへの相乗り）。
 func buildSpaceStore() (space.Store, error) {
 	storeType := os.Getenv("LOGVALET_SPACE_STORE_TYPE")
 	if storeType == "" {
@@ -58,7 +60,13 @@ func buildSpaceStore() (space.Store, error) {
 		return space.NewSQLiteStore(dbPath)
 	case space.StoreTypeDynamoDB:
 		table := os.Getenv("LOGVALET_SPACE_STORE_DYNAMODB_TABLE")
+		if table == "" {
+			table = os.Getenv("LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE")
+		}
 		region := os.Getenv("LOGVALET_SPACE_STORE_DYNAMODB_REGION")
+		if region == "" {
+			region = os.Getenv("LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION")
+		}
 		return space.NewDynamoDBStore(table, region)
 	default:
 		return nil, fmt.Errorf("spaces: unknown store type %q", storeType)
