@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,9 @@ func spaceInfoFromContext(ctx context.Context, fbSpace, fbBaseURL string) (strin
 		return fbSpace, fbBaseURL
 	}
 	if reg.Alias == "" || reg.BaseURL == "" {
+		slog.Warn("spaceInfoFromContext: reg が不完全なため fallback します",
+			"alias", reg.Alias, "baseURL", reg.BaseURL,
+			"fallbackSpace", fbSpace, "fallbackBaseURL", fbBaseURL)
 		return fbSpace, fbBaseURL
 	}
 	return reg.Alias, reg.BaseURL
@@ -178,6 +182,9 @@ func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 			return r.callWithSpaceClient(ctx, fn, args, targets[0])
 		}
 
+		if r.spaceFactory == nil {
+			return gomcp.NewToolResultError("spaceFactory が設定されていません"), nil
+		}
 		executor := &space.Executor{Factory: r.spaceFactory}
 		results := space.ExecuteAcrossSpaces[any](ctx, executor, targets,
 			func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (any, error) {
@@ -279,6 +286,9 @@ func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, a
 // callWithSpaceClient は指定 SpaceRegistration の spaceFactory でクライアントを生成し fn を呼び出す。
 // needsAuthorization エラーの場合は authorizationURL を付与したレスポンスを返す。
 func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, args map[string]any, reg space.SpaceRegistration) (*gomcp.CallToolResult, error) {
+	if r.spaceFactory == nil {
+		return nil, fmt.Errorf("spaceFactory が設定されていません")
+	}
 	client, err := r.spaceFactory(ctx, reg)
 	if err != nil {
 		if needsAuthorization(err) && r.authorizationURL != "" {

@@ -132,23 +132,29 @@ func TestRegisterWithSpaces_FanOut_EachClosureSeesItsOwnRegistration(t *testing.
 		t.Fatalf("expected 2 results, got %d", len(raw))
 	}
 
-	// outer wrapper: result[i].space / result[i].base_url
-	if got, _ := raw[0]["space"].(string); got != "megumilog" {
-		t.Errorf("outer[0].space: want megumilog, got %q", got)
-	}
-	if got, _ := raw[0]["base_url"].(string); got != "https://megumilog.backlog.jp" {
-		t.Errorf("outer[0].base_url: want megumilog url, got %q", got)
-	}
-	if got, _ := raw[1]["space"].(string); got != "heptagon" {
-		t.Errorf("outer[1].space: want heptagon, got %q", got)
-	}
-	if got, _ := raw[1]["base_url"].(string); got != "https://heptagon.backlog.com" {
-		t.Errorf("outer[1].base_url: want heptagon url, got %q", got)
+	// 入力順保持を仮定せず、alias → result の対応を検証（T3-2 と同じパターン）
+	gotByAlias := map[string]map[string]any{}
+	for _, r := range raw {
+		alias, _ := r["space"].(string)
+		gotByAlias[alias] = r
 	}
 
-	// inner Value: result[i].result.alias / base_url（context から取得した値）
-	assertInnerSpaceMetadata(t, raw[0], "megumilog", "https://megumilog.backlog.jp")
-	assertInnerSpaceMetadata(t, raw[1], "heptagon", "https://heptagon.backlog.com")
+	want := map[string]string{
+		"megumilog": "https://megumilog.backlog.jp",
+		"heptagon":  "https://heptagon.backlog.com",
+	}
+	for alias, baseURL := range want {
+		r, ok := gotByAlias[alias]
+		if !ok {
+			t.Fatalf("missing result for space %q", alias)
+		}
+		// outer
+		if got, _ := r["base_url"].(string); got != baseURL {
+			t.Errorf("outer[%s].base_url: want %q, got %q", alias, baseURL, got)
+		}
+		// inner Value: result[i].result.alias / base_url（context から取得した値）
+		assertInnerSpaceMetadata(t, r, alias, baseURL)
+	}
 }
 
 // ----------------------------------------------------------------------------
