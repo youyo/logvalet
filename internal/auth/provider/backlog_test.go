@@ -374,5 +374,75 @@ func TestBacklogProvider_GetCurrentUser_Unauthorized(t *testing.T) {
 	}
 }
 
+// TestBacklogProvider_CloneWithBaseURL_DifferentBase: クローンが別の baseURL を持ち、元の provider は変更されない。
+func TestBacklogProvider_CloneWithBaseURL_DifferentBase(t *testing.T) {
+	original, err := NewBacklogOAuthProvider("heptagon", "client-id", "client-secret")
+	if err != nil {
+		t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+	}
+
+	cloned := original.CloneWithBaseURL("https://megumilog.backlog.jp")
+
+	clonedBacklog, ok := cloned.(*BacklogOAuthProvider)
+	if !ok {
+		t.Fatal("CloneWithBaseURL() should return *BacklogOAuthProvider")
+	}
+
+	if clonedBacklog.baseURL != "https://megumilog.backlog.jp" {
+		t.Errorf("cloned.baseURL = %q, want %q", clonedBacklog.baseURL, "https://megumilog.backlog.jp")
+	}
+
+	// 元の provider は変更されない
+	if original.baseURL != "https://heptagon.backlog.com" {
+		t.Errorf("original.baseURL = %q, want unchanged %q", original.baseURL, "https://heptagon.backlog.com")
+	}
+}
+
+// TestBacklogProvider_CloneWithBaseURL_SameCredentials: クローンが同じ client_id/secret を持つ。
+func TestBacklogProvider_CloneWithBaseURL_SameCredentials(t *testing.T) {
+	original, err := NewBacklogOAuthProvider("heptagon", "my-client-id", "my-secret")
+	if err != nil {
+		t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+	}
+
+	cloned := original.CloneWithBaseURL("https://megumilog.backlog.jp")
+
+	clonedBacklog, ok := cloned.(*BacklogOAuthProvider)
+	if !ok {
+		t.Fatal("CloneWithBaseURL() should return *BacklogOAuthProvider")
+	}
+
+	if clonedBacklog.clientID != "my-client-id" {
+		t.Errorf("cloned.clientID = %q, want %q", clonedBacklog.clientID, "my-client-id")
+	}
+	if clonedBacklog.clientSecret != "my-secret" {
+		t.Errorf("cloned.clientSecret = %q, want %q", clonedBacklog.clientSecret, "my-secret")
+	}
+}
+
+// TestBacklogProvider_CloneWithBaseURL_BuildAuthorizationURL: クローンが別ホストの認可 URL を生成する。
+func TestBacklogProvider_CloneWithBaseURL_BuildAuthorizationURL(t *testing.T) {
+	original, err := NewBacklogOAuthProvider("heptagon", "my-client-id", "my-secret")
+	if err != nil {
+		t.Fatalf("NewBacklogOAuthProvider() error = %v", err)
+	}
+
+	cloned := original.CloneWithBaseURL("https://megumilog.backlog.jp")
+
+	authURL, err := cloned.BuildAuthorizationURL("test-state", "http://localhost/callback")
+	if err != nil {
+		t.Fatalf("BuildAuthorizationURL() error = %v", err)
+	}
+
+	u, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("URL parse error: %v", err)
+	}
+
+	if u.Host != "megumilog.backlog.jp" {
+		t.Errorf("host = %q, want %q", u.Host, "megumilog.backlog.jp")
+	}
+}
+
 // TestBacklogProvider_Interface はコンパイル時の interface 適合チェック。
 var _ OAuthProvider = (*BacklogOAuthProvider)(nil)

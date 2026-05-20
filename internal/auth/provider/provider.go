@@ -30,4 +30,9 @@ type OAuthProvider interface {
 
 	// GetCurrentUser はアクセストークンで現在のユーザー情報を取得する。
 	GetCurrentUser(ctx context.Context, accessToken string) (*auth.ProviderUser, error)
+
+	// CloneWithBaseURL は別スペースの baseURL で動作するクローンを返す。
+	// 認証情報（client_id/secret）は元の provider と共有する。
+	// multi-space OAuth フローで対象スペースのエンドポイントにアクセスするために使用する。
+	CloneWithBaseURL(baseURL string) OAuthProvider
 }

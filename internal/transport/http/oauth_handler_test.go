@@ -87,6 +87,29 @@ func (f *fakeProvider) GetCurrentUser(ctx context.Context, accessToken string) (
 	return nil, errors.New("not implemented")
 }
 
+func (f *fakeProvider) CloneWithBaseURL(baseURL string) provider.OAuthProvider {
+	cloned := *f
+	if cloned.buildFn == nil {
+		// デフォルト buildFn を baseURL ベースに差し替え
+		u, _ := url.Parse(baseURL)
+		cloned.buildFn = func(state, redirectURI string) (string, error) {
+			authURL := &url.URL{
+				Scheme: u.Scheme,
+				Host:   u.Host,
+				Path:   "/OAuth2AccessRequest.action",
+			}
+			q := authURL.Query()
+			q.Set("response_type", "code")
+			q.Set("client_id", "test-client-id")
+			q.Set("redirect_uri", redirectURI)
+			q.Set("state", state)
+			authURL.RawQuery = q.Encode()
+			return authURL.String(), nil
+		}
+	}
+	return &cloned
+}
+
 // 型アサーションで interface 実装を検証
 var _ provider.OAuthProvider = (*fakeProvider)(nil)
 

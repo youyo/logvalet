@@ -990,3 +990,113 @@ func TestMultiSpaceOAuthHandler_HandleCallback_NoIdproxyContext_StillSucceeds(t 
 		t.Errorf("upsertedAlias = %q, want %q", upsertedAlias, "foo")
 	}
 }
+
+// ============================================================================
+// M19: baseURL 動的切り替えテスト
+// ============================================================================
+
+// TestHandleAuthorize_UsesTargetBaseURL: base_url=https://megumilog.backlog.jp を渡すと
+// 認可 URL が megumilog.backlog.jp ホストになること。
+func TestHandleAuthorize_UsesTargetBaseURL(t *testing.T) {
+	ns := &fakeNonceStore{
+		storeFn:   func(ctx context.Context, userID, nonce string, ttl time.Duration) error { return nil },
+		consumeFn: func(ctx context.Context, userID, nonce string) error { return nil },
+	}
+
+	// buildFn なし: fakeProvider.CloneWithBaseURL のデフォルト実装が targetBaseURL を使う
+	fp := fakeProvider{}
+
+	const targetBaseURL = "https://megumilog.backlog.jp"
+	btok := makeBootstrapToken(t, ns, targetBaseURL, "megumilog")
+
+	h, err := buildMultiSpaceHandlerWithKey(fp, fakeTokenManager{}, ns, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+
+	req := httptest.NewRequest(stdhttp.MethodGet,
+		"/oauth/backlog/multi/authorize?base_url="+targetBaseURL+"&alias=megumilog&bootstrap_token="+btok, nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != stdhttp.StatusFound {
+		body := make([]byte, 512)
+		n, _ := resp.Body.Read(body)
+		t.Fatalf("status = %d, want 302; body = %s", resp.StatusCode, body[:n])
+	}
+
+	location := resp.Header.Get("Location")
+	if location == "" {
+		t.Fatal("Location header is empty")
+	}
+
+	// 認可 URL が megumilog.backlog.jp を含むこと
+	if !strings.Contains(location, "megumilog.backlog.jp") {
+		t.Errorf("Location %q should contain megumilog.backlog.jp (CloneWithBaseURL not applied)", location)
+	}
+}
+
+// TestHandleCallback_UsesStateBaseURL: callback が state JWT の BaseURL でトークン交換を行うこと。
+func TestHandleCallback_UsesStateBaseURL(t *testing.T) {
+	const targetBaseURL = "https://megumilog.backlog.jp"
+	var exchangeCalledWith string // ExchangeCode が呼ばれたときの context 情報（テスト用）
+	var getUserCalledWith string  // GetCurrentUser が呼ばれたことを確認
+
+	state, err := auth.GenerateStateWithSpaceInfo(
+		testUserID, "megumilog", targetBaseURL, "megumilog",
+		testSecret, testTTL,
+	)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo() error = %v", err)
+	}
+
+	claims, err := auth.ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v", err)
+	}
+
+	nonceStore := space.NewMemoryStore()
+	if err := nonceStore.Store(context.Background(), testUserID, claims.Nonce, testTTL); err != nil {
+		t.Fatalf("NonceStore.Store() error = %v", err)
+	}
+
+	fp := fakeProvider{
+		exchangeFn: func(ctx context.Context, code, redirectURI string) (*auth.TokenRecord, error) {
+			exchangeCalledWith = code
+			return &auth.TokenRecord{
+				Provider:    "backlog",
+				AccessToken: "megumilog-token",
+			}, nil
+		},
+		userFn: func(ctx context.Context, accessToken string) (*auth.ProviderUser, error) {
+			getUserCalledWith = accessToken
+			return &auth.ProviderUser{ID: "megumilog-user", Name: "Megumi"}, nil
+		},
+	}
+
+	h, err := buildMultiSpaceHandler(fp, fakeTokenManager{}, nonceStore, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandler: %v", err)
+	}
+
+	req := httptest.NewRequest(stdhttp.MethodGet,
+		"/oauth/backlog/multi/callback?code=megumi-code&state="+state, nil)
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != stdhttp.StatusOK {
+		body := make([]byte, 512)
+		n, _ := resp.Body.Read(body)
+		t.Fatalf("status = %d, want 200; body = %s", resp.StatusCode, body[:n])
+	}
+
+	if exchangeCalledWith != "megumi-code" {
+		t.Errorf("ExchangeCode was not called with correct code: got %q", exchangeCalledWith)
+	}
+	if getUserCalledWith != "megumilog-token" {
+		t.Errorf("GetCurrentUser was not called with correct token: got %q", getUserCalledWith)
+	}
+}

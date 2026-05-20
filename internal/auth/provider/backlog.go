@@ -84,10 +84,23 @@ func (p *BacklogOAuthProvider) Name() string {
 }
 
 // BuildAuthorizationURL は Backlog OAuth 認可 URL を構築する。
-// credentials.BuildAuthorizeURL をラップし、space と clientID は struct から取得する。
+// p.baseURL を使ってホストを決定するため、CloneWithBaseURL で別スペースに切り替えられる。
 func (p *BacklogOAuthProvider) BuildAuthorizationURL(state, redirectURI string) (string, error) {
-	u := credentials.BuildAuthorizeURL(p.space, p.clientID, redirectURI, state)
+	params := url.Values{}
+	params.Set("response_type", "code")
+	params.Set("client_id", p.clientID)
+	params.Set("redirect_uri", redirectURI)
+	params.Set("state", state)
+	u := p.baseURL + "/OAuth2AccessRequest.action?" + params.Encode()
 	return u, nil
+}
+
+// CloneWithBaseURL は別スペースの baseURL で動作するクローンを返す。
+// シャローコピーなので httpClient は共有される（読み取り専用のため安全）。
+func (p *BacklogOAuthProvider) CloneWithBaseURL(baseURL string) OAuthProvider {
+	cloned := *p
+	cloned.baseURL = baseURL
+	return &cloned
 }
 
 // ExchangeCode は認可コードをトークンに交換する。

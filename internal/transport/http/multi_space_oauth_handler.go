@@ -231,7 +231,9 @@ func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *st
 		return
 	}
 
-	authURL, err := h.provider.BuildAuthorizationURL(state, h.redirectURI)
+	// 対象スペースの baseURL で provider をクローンして認可 URL を生成
+	targetProvider := h.provider.CloneWithBaseURL(baseURL)
+	authURL, err := targetProvider.BuildAuthorizationURL(state, h.redirectURI)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "multi-space authorize failed",
 			slog.String("reason", "build_url_failed"),
@@ -343,8 +345,11 @@ func (h *MultiSpaceOAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
+	// state の BaseURL で provider をクローンして対象スペースのエンドポイントを使用
+	targetProvider := h.provider.CloneWithBaseURL(claims.BaseURL)
+
 	// 4. code exchange → token 取得
-	record, err := h.provider.ExchangeCode(ctx, code, h.redirectURI)
+	record, err := targetProvider.ExchangeCode(ctx, code, h.redirectURI)
 	if err != nil {
 		h.logCallbackFailed(ctx, "exchange_failed", err, ctxUserID)
 		writeJSONError(w, stdhttp.StatusBadGateway, errCodeProviderError, errMsgExchangeFailed)
@@ -372,7 +377,7 @@ func (h *MultiSpaceOAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *std
 	}
 
 	// 6. GetCurrentUser
-	providerUser, err := h.provider.GetCurrentUser(ctx, record.AccessToken)
+	providerUser, err := targetProvider.GetCurrentUser(ctx, record.AccessToken)
 	if err != nil {
 		h.logCallbackFailed(ctx, "get_user_failed", err, ctxUserID)
 		writeJSONError(w, stdhttp.StatusBadGateway, errCodeProviderError, errMsgUserFetchFailed)
