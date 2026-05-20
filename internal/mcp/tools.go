@@ -22,6 +22,34 @@ import (
 // context.Context と backlog.Client、args map を受け取り、任意の結果またはエラーを返す。
 type ToolFunc func(ctx context.Context, client backlog.Client, args map[string]any) (any, error)
 
+// spaceRegCtxKey は context.Context に space.SpaceRegistration を格納するための非公開キー。
+// unexported struct を使うことで他パッケージとの値衝突を防ぐ。
+type spaceRegCtxKey struct{}
+
+// contextWithSpace は ctx に SpaceRegistration を埋め込んだ派生 context を返す。
+// multi-space fan-out や callWithSpaceClient で利用する。
+func contextWithSpace(ctx context.Context, reg space.SpaceRegistration) context.Context {
+	return context.WithValue(ctx, spaceRegCtxKey{}, reg)
+}
+
+// spaceInfoFromContext は ctx に埋め込まれた SpaceRegistration から
+// (Alias, BaseURL) を取り出す。未設定または Alias/BaseURL のいずれかが空の場合は
+// fallback の (fbSpace, fbBaseURL) を返す。
+//
+// multi-space モード（spaces=[...] / all_spaces=true）で呼ばれたツールが
+// 実行対象 SpaceRegistration の Alias/BaseURL を AnalysisEnvelope メタデータに
+// 反映できるようにするためのヘルパー。
+func spaceInfoFromContext(ctx context.Context, fbSpace, fbBaseURL string) (string, string) {
+	reg, ok := ctx.Value(spaceRegCtxKey{}).(space.SpaceRegistration)
+	if !ok {
+		return fbSpace, fbBaseURL
+	}
+	if reg.Alias == "" || reg.BaseURL == "" {
+		return fbSpace, fbBaseURL
+	}
+	return reg.Alias, reg.BaseURL
+}
+
 // ToolRegistry は MCP サーバーへの tool 登録を管理する。
 type ToolRegistry struct {
 	server           *mcpserver.MCPServer
@@ -153,6 +181,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 		executor := &space.Executor{Factory: r.spaceFactory}
 		results := space.ExecuteAcrossSpaces[any](ctx, executor, targets,
 			func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (any, error) {
+				ctx = contextWithSpace(ctx, reg)
 				return fn(ctx, client, args)
 			},
 		)
@@ -257,6 +286,7 @@ func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, arg
 		}
 		return gomcp.NewToolResultError(fmt.Sprintf("create client for space %s: %s", reg.Alias, err.Error())), nil
 	}
+	ctx = contextWithSpace(ctx, reg)
 	result, err := fn(ctx, client, args)
 	if err != nil {
 		return gomcp.NewToolResultError(err.Error()), nil
