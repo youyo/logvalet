@@ -80,12 +80,42 @@ func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
 	})
 }
 
+// injectSpaceParams は tool.InputSchema.Properties に "spaces" と "all_spaces" を注入する。
+// 既存の properties は保持される。
+func injectSpaceParams(tool *gomcp.Tool) {
+	if tool.InputSchema.Properties == nil {
+		tool.InputSchema.Properties = make(map[string]any)
+	}
+	tool.InputSchema.Properties["spaces"] = map[string]any{
+		"type":        "array",
+		"items":       map[string]any{"type": "string"},
+		"description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+	}
+	tool.InputSchema.Properties["all_spaces"] = map[string]any{
+		"type":        "boolean",
+		"description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+	}
+}
+
+// injectSpaceParamWrite は write ツール用に "spaces" のみを注入する。
+func injectSpaceParamWrite(tool *gomcp.Tool) {
+	if tool.InputSchema.Properties == nil {
+		tool.InputSchema.Properties = make(map[string]any)
+	}
+	tool.InputSchema.Properties["spaces"] = map[string]any{
+		"type":        "array",
+		"items":       map[string]any{"type": "string"},
+		"description": "対象 Backlog スペースの alias（1件のみ指定可）",
+	}
+}
+
 // RegisterWithSpaces は read-only ツールを multi-space fan-out 対応で登録する。
 // resolver が nil の場合は通常の Register と同等に動作する。
 // args に "spaces" ([]string) または "all_spaces" (bool) を渡すと fan-out モードになる。
 // "spaces" と "all_spaces" の同時指定はエラー。
 // spaces/all_spaces 未指定時は DynamoDB UserPreference → 単一スペース fallback → default client の順で解決する。
 func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
+	injectSpaceParams(&tool)
 	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		args := req.GetArguments()
 
@@ -141,6 +171,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 // spaces 複数 → エラー。
 // all_spaces=true → エラー。
 func (r *ToolRegistry) RegisterWithSpacesWrite(tool gomcp.Tool, fn ToolFunc) {
+	injectSpaceParamWrite(&tool)
 	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		args := req.GetArguments()
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.27.0] - 2026-05-21
+
+`RegisterWithSpaces` / `RegisterWithSpacesWrite` の InputSchema に `spaces` / `all_spaces` パラメータを自動注入（M21）。
+Claude.ai 等 MCP クライアントが InputSchema 未宣言パラメータを送信しない仕様に対応。
+これにより `logvalet_my_tasks spaces=["megumilog"]` のように fan-out 先スペースを明示指定できるようになった。
+
+### Added
+- feat(mcp): `RegisterWithSpaces` が tool.InputSchema.Properties に `spaces`（配列型）と `all_spaces`（ブール型）を自動注入
+- feat(mcp): `RegisterWithSpacesWrite` が tool.InputSchema.Properties に `spaces`（配列型）を自動注入
+- feat(mcp): `injectSpaceParams` / `injectSpaceParamWrite` ヘルパー追加
+
 ## [0.26.0] - 2026-05-21
 
 `logvalet_space_use` で設定したデフォルトスペースが全ツールに反映されるようになった（M20）。
