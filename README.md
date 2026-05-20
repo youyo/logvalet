@@ -1054,10 +1054,51 @@ lv issue list --all-spaces
 lv project list --spaces foo,bar
 ```
 
+### MCP での spaces/all_spaces
+
+MCP サーバーの 70 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+
+**Read-only fan-out（登録済み全スペースを横断取得）:**
+
+```json
+{
+  "tool": "logvalet_issue_list",
+  "arguments": {
+    "project_id": 1,
+    "all_spaces": true
+  }
+}
+```
+
+**特定スペース指定:**
+
+```json
+{
+  "tool": "logvalet_issue_list",
+  "arguments": {
+    "project_id": 1,
+    "spaces": ["foo", "bar"]
+  }
+}
+```
+
+**Write（単一スペースへの課題作成）:**
+
+```json
+{
+  "tool": "logvalet_issue_create",
+  "arguments": {
+    "spaces": ["foo"],
+    "project_id": 1,
+    "summary": "課題タイトル"
+  }
+}
+```
+
 ### Notes
 
 - Read-only commands (`issue list`, `project list`, etc.) support `--spaces` and `--all-spaces`.
-- Write operations (issue create/update) do not support multi-space targeting.
+- Write operations (issue create/update) do not support multi-space targeting — always specify a single space via `spaces`.
 - When no space is specified, the default space (set via `lv spaces use`) is used.
 - In partial failure scenarios (e.g., one space returns 401), successful results from other spaces are still returned; exit code is 8.
 
