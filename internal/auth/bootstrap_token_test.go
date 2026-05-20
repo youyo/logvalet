@@ -642,3 +642,19 @@ func TestValidateBootstrapToken_WrongAlg_HS512_Rejected(t *testing.T) {
 		}
 	}
 }
+
+// TestGenerateBootstrapToken_EmptyJTI_Errors: jti が空文字の場合はエラーになること
+func TestGenerateBootstrapToken_EmptyJTI_Errors(t *testing.T) {
+	key, err := DeriveBootstrapKey(hex.EncodeToString(btTestSecret))
+	if err != nil {
+		t.Fatalf("DeriveBootstrapKey() error = %v", err)
+	}
+
+	_, err = GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "")
+	if err == nil {
+		t.Error("expected error for empty jti, got nil")
+	}
+	if !errors.Is(err, ErrBootstrapInvalid) {
+		t.Errorf("error = %v, want ErrBootstrapInvalid", err)
+	}
+}
