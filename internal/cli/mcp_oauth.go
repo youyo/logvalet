@@ -93,28 +93,12 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 	// AuthorizeURL を組み立て
 	authorizeURL := strings.TrimRight(externalURL, "/") + "/oauth/backlog/authorize"
 
-	// OAuthHandler
-	handler, err := httptransport.NewOAuthHandler(p, tm, spaceName, cfg.BacklogRedirectURL, authorizeURL, secret, auth.DefaultStateTTL, logger)
-	if err != nil {
-		// 失敗時は store を閉じる（リソースリーク防止）
-		_ = store.Close()
-		return nil, fmt.Errorf("mcp: build oauth handler: %w", err)
-	}
-
-	deps := &OAuthDeps{
-		Store:        store,
-		Provider:     p,
-		TokenManager: tm,
-		Factory:      factory,
-		Handler:      handler,
-		AuthorizeURL: authorizeURL,
-	}
-
-	// SpaceStore が指定されている場合は MultiSpaceOAuthHandler を構築する
+	// MultiSpaceOAuthHandler を先に構築（OAuthHandler の dispatcher 依存のため先行）
+	var msh *httptransport.MultiSpaceOAuthHandler
 	if spaceStore != nil {
 		nonceStore, ok := spaceStore.(space.NonceStore)
 		if ok {
-			msh, mshErr := httptransport.NewMultiSpaceOAuthHandler(
+			mshBuilt, mshErr := httptransport.NewMultiSpaceOAuthHandler(
 				p,
 				tm,
 				nonceStore,
@@ -125,12 +109,28 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 				logger,
 			)
 			if mshErr == nil {
-				deps.MultiSpaceHandler = msh
+				msh = mshBuilt
 			}
 		}
 	}
 
-	return deps, nil
+	// OAuthHandler（multiSpaceHandler を dispatcher 依存として渡す）
+	handler, err := httptransport.NewOAuthHandler(p, tm, spaceName, cfg.BacklogRedirectURL, authorizeURL, secret, auth.DefaultStateTTL, logger, msh)
+	if err != nil {
+		// 失敗時は store を閉じる（リソースリーク防止）
+		_ = store.Close()
+		return nil, fmt.Errorf("mcp: build oauth handler: %w", err)
+	}
+
+	return &OAuthDeps{
+		Store:             store,
+		Provider:          p,
+		TokenManager:      tm,
+		Factory:           factory,
+		Handler:           handler,
+		MultiSpaceHandler: msh,
+		AuthorizeURL:      authorizeURL,
+	}, nil
 }
 
 // InstallOAuthRoutes は OAuth ハンドラーの 4 メソッドを mux に登録する。

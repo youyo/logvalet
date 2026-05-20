@@ -339,3 +339,51 @@ func TestStateClaims_BackwardCompat_ExistingFields(t *testing.T) {
 		t.Errorf("claims.Alias = %q, want empty string (backward compat)", claims.Alias)
 	}
 }
+
+// ============================================================================
+// Step 3: StateClaims.Flow フィールドテスト
+// ============================================================================
+
+// TestStateClaims_FlowRoundTrip: GenerateStateWithSpaceInfo で Flow="multi" がセットされること。
+func TestStateClaims_FlowRoundTrip(t *testing.T) {
+	state, err := GenerateStateWithSpaceInfo(testUserID, testTenant, "https://foo.backlog.com", "foo", testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo() error = %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v", err)
+	}
+	if claims.Flow != "multi" {
+		t.Errorf("claims.Flow = %q, want %q", claims.Flow, "multi")
+	}
+}
+
+// TestStateClaims_FlowEmpty_BackwardCompat: GenerateState/GenerateStateWithContinue は Flow="" のまま。
+func TestStateClaims_FlowEmpty_BackwardCompat(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		gen  func() (string, error)
+	}{
+		{"GenerateState", func() (string, error) {
+			return GenerateState(testUserID, testTenant, testSecret, testTTL)
+		}},
+		{"GenerateStateWithContinue", func() (string, error) {
+			return GenerateStateWithContinue(testUserID, testTenant, "", testSecret, testTTL)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state, err := tc.gen()
+			if err != nil {
+				t.Fatalf("%s() error = %v", tc.name, err)
+			}
+			claims, err := ValidateState(state, testSecret)
+			if err != nil {
+				t.Fatalf("ValidateState() error = %v", err)
+			}
+			if claims.Flow != "" {
+				t.Errorf("claims.Flow = %q, want empty string (backward compat)", claims.Flow)
+			}
+		})
+	}
+}

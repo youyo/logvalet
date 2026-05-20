@@ -137,7 +137,7 @@ func newTestHandler(t *testing.T, logger *slog.Logger) *httptransport.OAuthHandl
 // newTestHandlerWithDeps は依存性を指定して OAuthHandler を構築する。
 func newTestHandlerWithDeps(t *testing.T, logger *slog.Logger, p provider.OAuthProvider, tm auth.TokenManager) *httptransport.OAuthHandler {
 	t.Helper()
-	h, err := httptransport.NewOAuthHandler(p, tm, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(p, tm, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -154,7 +154,7 @@ func TestNewOAuthHandler_NilProvider_Panics(t *testing.T) {
 			t.Errorf("NewOAuthHandler(nil provider) did not panic")
 		}
 	}()
-	_, _ = httptransport.NewOAuthHandler(nil, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
+	_, _ = httptransport.NewOAuthHandler(nil, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil, nil)
 }
 
 func TestNewOAuthHandler_NilTokenManager_Panics(t *testing.T) {
@@ -163,53 +163,53 @@ func TestNewOAuthHandler_NilTokenManager_Panics(t *testing.T) {
 			t.Errorf("NewOAuthHandler(nil tokenManager) did not panic")
 		}
 	}()
-	_, _ = httptransport.NewOAuthHandler(&fakeProvider{}, nil, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
+	_, _ = httptransport.NewOAuthHandler(&fakeProvider{}, nil, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil, nil)
 }
 
 func TestNewOAuthHandler_EmptyTenant(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, "", testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, "", testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil, nil)
 	if !errors.Is(err, auth.ErrInvalidTenant) {
 		t.Errorf("error = %v, want ErrInvalidTenant", err)
 	}
 }
 
 func TestNewOAuthHandler_EmptyRedirectURI(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, "", testAuthorizeURL, testSecret, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, "", testAuthorizeURL, testSecret, testTTL, nil, nil)
 	if !errors.Is(err, auth.ErrInvalidRedirectURI) {
 		t.Errorf("error = %v, want ErrInvalidRedirectURI", err)
 	}
 }
 
 func TestNewOAuthHandler_NilStateSecret(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, nil, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, nil, testTTL, nil, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_EmptyStateSecret(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, []byte{}, testTTL, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, []byte{}, testTTL, nil, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_ZeroTTL(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, 0, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, 0, nil, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_NegativeTTL(t *testing.T) {
-	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, -1*time.Minute, nil)
+	_, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, -1*time.Minute, nil, nil)
 	if !errors.Is(err, auth.ErrStateInvalid) {
 		t.Errorf("error = %v, want ErrStateInvalid", err)
 	}
 }
 
 func TestNewOAuthHandler_NilLogger_UsesDefault(t *testing.T) {
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, nil, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -220,7 +220,7 @@ func TestNewOAuthHandler_NilLogger_UsesDefault(t *testing.T) {
 
 func TestNewOAuthHandler_Valid(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler() error = %v", err)
 	}
@@ -374,7 +374,7 @@ func TestHandleAuthorize_ProviderError(t *testing.T) {
 		},
 	}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	h, err := httptransport.NewOAuthHandler(fp, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(fp, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestHandleAuthorize_Nonce_Unique(t *testing.T) {
 func TestHandleAuthorize_LogsSuccess(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{name: "backlog"}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{name: "backlog"}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestHandleAuthorize_LogsSuccess(t *testing.T) {
 func TestHandleAuthorize_DoesNotLogSecret(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger)
+	h, err := httptransport.NewOAuthHandler(&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL, testSecret, testTTL, logger, nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -2128,6 +2128,7 @@ func TestHandleStatus_AuthorizationURL(t *testing.T) {
 				testSecret,
 				testTTL,
 				nil,
+				nil,
 			)
 			if err != nil {
 				t.Fatalf("NewOAuthHandler: %v", err)
@@ -2168,5 +2169,157 @@ func TestHandleStatus_AuthorizationURL(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// ============================================================================
+// Step 3: callback dispatcher テスト
+// ============================================================================
+
+// newTestMultiSpaceHandler はテスト用 MultiSpaceOAuthHandler を構築するヘルパー。
+// consumeFn で nonce Consume の挙動を制御できる。
+func newTestMultiSpaceHandler(t *testing.T, exchangeFn func(context.Context, string, string) (*auth.TokenRecord, error), consumeFn func(context.Context, string, string) error) *httptransport.MultiSpaceOAuthHandler {
+	t.Helper()
+	if exchangeFn == nil {
+		exchangeFn = func(ctx context.Context, code, uri string) (*auth.TokenRecord, error) {
+			return &auth.TokenRecord{Provider: "backlog", AccessToken: "tok"}, nil
+		}
+	}
+	if consumeFn == nil {
+		consumeFn = func(ctx context.Context, userID, nonce string) error { return nil }
+	}
+	msh, err := httptransport.NewMultiSpaceOAuthHandler(
+		&fakeProvider{exchangeFn: exchangeFn, userFn: func(ctx context.Context, token string) (*auth.ProviderUser, error) {
+			return &auth.ProviderUser{ID: "uid", Name: "name"}, nil
+		}},
+		&fakeTokenManager{},
+		&fakeNonceStore{consumeFn: consumeFn},
+		&fakeSpaceStore{},
+		testRedirectURI,
+		testSecret,
+		testTTL,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewMultiSpaceOAuthHandler: %v", err)
+	}
+	return msh
+}
+
+// TestHandleCallback_Dispatch_MultiFlow: flow="multi" の state が MultiSpaceOAuthHandler に委譲される。
+func TestHandleCallback_Dispatch_MultiFlow(t *testing.T) {
+	multiHandled := false
+	fakeMSH := newTestMultiSpaceHandler(t, func(ctx context.Context, code, uri string) (*auth.TokenRecord, error) {
+		multiHandled = true
+		return &auth.TokenRecord{Provider: "backlog", AccessToken: "tok"}, nil
+	}, nil)
+
+	h, err := httptransport.NewOAuthHandler(
+		&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL,
+		testSecret, testTTL, nil, fakeMSH,
+	)
+	if err != nil {
+		t.Fatalf("NewOAuthHandler: %v", err)
+	}
+
+	// flow="multi" の state JWT を生成
+	state, err := auth.GenerateStateWithSpaceInfo(testUserID, testTenant, "https://foo.backlog.com", "foo", testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo: %v", err)
+	}
+
+	ctx := auth.ContextWithUserID(context.Background(), testUserID)
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/callback?code=abc&state="+state, nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if !multiHandled {
+		t.Error("flow=multi callback was not dispatched to MultiSpaceOAuthHandler")
+	}
+}
+
+// TestHandleCallback_Dispatch_SingleFlow: flow="" (旧 token) は既存 single ロジックを実行する。
+func TestHandleCallback_Dispatch_SingleFlow(t *testing.T) {
+	multiHandled := false
+	fakeMSH := newTestMultiSpaceHandler(t, func(ctx context.Context, code, uri string) (*auth.TokenRecord, error) {
+		multiHandled = true
+		return &auth.TokenRecord{Provider: "backlog", AccessToken: "tok"}, nil
+	}, nil)
+
+	h, err := httptransport.NewOAuthHandler(
+		&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL,
+		testSecret, testTTL, nil, fakeMSH,
+	)
+	if err != nil {
+		t.Fatalf("NewOAuthHandler: %v", err)
+	}
+
+	// flow="" の state JWT（GenerateState: 既存）
+	state, err := auth.GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState: %v", err)
+	}
+
+	ctx := auth.ContextWithUserID(context.Background(), testUserID)
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/callback?code=abc&state="+state, nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if multiHandled {
+		t.Error("flow='' (single) should NOT be dispatched to MultiSpaceOAuthHandler")
+	}
+}
+
+// TestHandleCallback_Dispatch_MultiHandlerMissing_500: multiSpaceHandler==nil で flow="multi" は 500。
+func TestHandleCallback_Dispatch_MultiHandlerMissing_500(t *testing.T) {
+	h, err := httptransport.NewOAuthHandler(
+		&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL,
+		testSecret, testTTL, nil, nil, // msh=nil
+	)
+	if err != nil {
+		t.Fatalf("NewOAuthHandler: %v", err)
+	}
+
+	state, err := auth.GenerateStateWithSpaceInfo(testUserID, testTenant, "https://foo.backlog.com", "foo", testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo: %v", err)
+	}
+
+	ctx := auth.ContextWithUserID(context.Background(), testUserID)
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/callback?code=abc&state="+state, nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if w.Code != stdhttp.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 (fail closed)", w.Code)
+	}
+}
+
+// TestHandleCallback_Dispatch_StateInvalid_ExistingError: state 検証失敗時は dispatcher 前に既存エラーで返す。
+func TestHandleCallback_Dispatch_StateInvalid_ExistingError(t *testing.T) {
+	multiHandled := false
+	fakeMSH := newTestMultiSpaceHandler(t, func(ctx context.Context, code, uri string) (*auth.TokenRecord, error) {
+		multiHandled = true
+		return nil, nil
+	}, nil)
+
+	h, err := httptransport.NewOAuthHandler(
+		&fakeProvider{}, &fakeTokenManager{}, testTenant, testRedirectURI, testAuthorizeURL,
+		testSecret, testTTL, nil, fakeMSH,
+	)
+	if err != nil {
+		t.Fatalf("NewOAuthHandler: %v", err)
+	}
+
+	ctx := auth.ContextWithUserID(context.Background(), testUserID)
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/callback?code=abc&state=invalid-state", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if w.Code != stdhttp.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (state invalid)", w.Code)
+	}
+	if multiHandled {
+		t.Error("multi handler should not be called on state validation failure")
 	}
 }

@@ -284,13 +284,20 @@ func (h *MultiSpaceOAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	// 2. userID 一致検証
-	ctxUserID, ok := auth.UserIDFromContext(ctx)
-	if !ok {
-		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, errMsgCallbackUnauth)
+	// 防御的: flow="multi" であることを確認（dispatcher の誤呼び出しに対する保険）
+	if claims.Flow != "multi" {
+		writeJSONError(w, stdhttp.StatusBadRequest, errCodeStateInvalid, errMsgStateInvalid)
 		return
 	}
-	if ctxUserID != claims.UserID {
+
+	// 2. userID 一致検証（idproxy セッション切れ時は state.UserID をフォールバックとして使用）
+	ctxUserID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		// idproxy セッション切れケース: state.UserID を信頼して注入
+		ctx = auth.ContextWithUserID(ctx, claims.UserID)
+		r = r.WithContext(ctx)
+		ctxUserID = claims.UserID
+	} else if ctxUserID != claims.UserID {
 		h.logger.WarnContext(ctx, "multi-space callback rejected",
 			slog.String("reason", errCodeUserMismatch),
 			slog.String("user_id", ctxUserID),

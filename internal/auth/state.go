@@ -28,6 +28,9 @@ type StateClaims struct {
 	// multi-space 登録フロー用（既存フローでは空でよい: omitempty で後方互換）
 	BaseURL string `json:"base_url,omitempty"`
 	Alias   string `json:"alias,omitempty"`
+	// Flow はフロー種別。"multi" = multi-space フロー、"single"/"" = 既存 single-space フロー。
+	// omitempty で後方互換（既存 token は Flow="" として扱われる）。
+	Flow string `json:"flow,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -129,6 +132,7 @@ func GenerateStateWithSpaceInfo(userID, tenant, baseURL, alias string, secret []
 		Nonce:   nonce,
 		BaseURL: baseURL,
 		Alias:   alias,
+		Flow:    "multi",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),

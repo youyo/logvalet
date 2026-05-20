@@ -94,14 +94,15 @@ type disconnectResponse struct {
 // である必要がある。M14 callback ハンドラーで state claims の tenant と
 // OAuthHandler.tenant を比較するため、ここで不一致があると callback が失敗する。
 type OAuthHandler struct {
-	provider     provider.OAuthProvider
-	tokenManager auth.TokenManager
-	tenant       string
-	redirectURI  string
-	authorizeURL string
-	stateSecret  []byte
-	stateTTL     time.Duration
-	logger       *slog.Logger
+	provider          provider.OAuthProvider
+	tokenManager      auth.TokenManager
+	tenant            string
+	redirectURI       string
+	authorizeURL      string
+	stateSecret       []byte
+	stateTTL          time.Duration
+	logger            *slog.Logger
+	multiSpaceHandler *MultiSpaceOAuthHandler
 }
 
 // NewOAuthHandler は OAuthHandler を構築する。
@@ -114,6 +115,7 @@ type OAuthHandler struct {
 // stateSecret が nil または空の場合は auth.ErrStateInvalid を返す。
 // stateTTL が 0 以下の場合は auth.ErrStateInvalid を返す。
 // logger が nil の場合は slog.Default() を使用する。
+// msh は multi-space callback dispatcher の委譲先。nil の場合は multi-space フロー無効（flow="multi" は 500）。
 func NewOAuthHandler(
 	p provider.OAuthProvider,
 	tm auth.TokenManager,
@@ -121,6 +123,7 @@ func NewOAuthHandler(
 	stateSecret []byte,
 	stateTTL time.Duration,
 	logger *slog.Logger,
+	msh *MultiSpaceOAuthHandler,
 ) (*OAuthHandler, error) {
 	if p == nil {
 		panic("http: NewOAuthHandler: provider must not be nil")
@@ -144,14 +147,15 @@ func NewOAuthHandler(
 		logger = slog.Default()
 	}
 	return &OAuthHandler{
-		provider:     p,
-		tokenManager: tm,
-		tenant:       tenant,
-		redirectURI:  redirectURI,
-		authorizeURL: authorizeURL,
-		stateSecret:  stateSecret,
-		stateTTL:     stateTTL,
-		logger:       logger,
+		provider:          p,
+		tokenManager:      tm,
+		tenant:            tenant,
+		redirectURI:       redirectURI,
+		authorizeURL:      authorizeURL,
+		stateSecret:       stateSecret,
+		stateTTL:          stateTTL,
+		logger:            logger,
+		multiSpaceHandler: msh,
 	}, nil
 }
 
@@ -303,6 +307,17 @@ func (h *OAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *stdhttp.Reque
 			slog.String("reason", errCodeStateInvalid),
 		)
 		writeJSONError(w, stdhttp.StatusBadRequest, errCodeStateInvalid, errMsgStateInvalid)
+		return
+	}
+
+	// 4-dispatch. flow="multi" なら MultiSpaceOAuthHandler に委譲（tenant チェック前）
+	if claims.Flow == "multi" {
+		if h.multiSpaceHandler == nil {
+			h.logger.ErrorContext(ctx, "oauth callback: multi-space handler not configured")
+			writeJSONError(w, stdhttp.StatusInternalServerError, errCodeInternalError, "multi-space handler not configured")
+			return
+		}
+		h.multiSpaceHandler.HandleCallback(w, r)
 		return
 	}
 
