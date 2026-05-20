@@ -64,7 +64,7 @@ func TestGenerateBootstrapToken_Claims(t *testing.T) {
 		t.Fatalf("DeriveBootstrapKey() error = %v", err)
 	}
 
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -115,7 +115,7 @@ func TestValidateBootstrapToken_Valid(t *testing.T) {
 		t.Fatalf("DeriveBootstrapKey() error = %v", err)
 	}
 
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -331,7 +331,7 @@ func TestValidateBootstrapToken_BaseURLMismatch(t *testing.T) {
 	}
 
 	// btTestBaseURL で生成して別の URL で検証
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -349,7 +349,7 @@ func TestValidateBootstrapToken_AliasMismatch(t *testing.T) {
 		t.Fatalf("DeriveBootstrapKey() error = %v", err)
 	}
 
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -413,7 +413,7 @@ func TestValidateBootstrapToken_Tampered(t *testing.T) {
 		t.Fatalf("DeriveBootstrapKey() error = %v", err)
 	}
 
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -479,7 +479,7 @@ func TestValidateBootstrapToken_NormalizationTrailingSlash(t *testing.T) {
 	}
 
 	// trailing slash なしで生成
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -501,11 +501,11 @@ func TestGenerateBootstrapToken_JTIUnique(t *testing.T) {
 		t.Fatalf("DeriveBootstrapKey() error = %v", err)
 	}
 
-	tok1, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok1, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "jti-first")
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() #1 error = %v", err)
 	}
-	tok2, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok2, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "jti-second")
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() #2 error = %v", err)
 	}
@@ -517,7 +517,7 @@ func TestGenerateBootstrapToken_JTIUnique(t *testing.T) {
 	parser.ParseUnverified(tok2, c2) //nolint:errcheck
 
 	if c1.JTI == c2.JTI {
-		t.Errorf("JTI should be unique, got same: %q", c1.JTI)
+		t.Errorf("JTI should differ when different jti passed: c1=%q c2=%q", c1.JTI, c2.JTI)
 	}
 }
 
@@ -571,7 +571,7 @@ func TestValidateBootstrapToken_NormalizationBaseURL(t *testing.T) {
 	}
 
 	// 正規化された URL でトークンを生成
-	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, "test-jti-"+btTestAlias)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -593,7 +593,7 @@ func TestValidateBootstrapToken_PortNormalization(t *testing.T) {
 	// 標準 https ポートなし
 	baseURLWithoutPort := "https://example.backlog.com"
 
-	tok, err := GenerateBootstrapToken(btTestUserID, baseURLWithoutPort, btTestAlias, key, 3*time.Minute)
+	tok, err := GenerateBootstrapToken(btTestUserID, baseURLWithoutPort, btTestAlias, key, 3*time.Minute, "test-jti-port")
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
@@ -601,6 +601,28 @@ func TestValidateBootstrapToken_PortNormalization(t *testing.T) {
 	_, _, err = ValidateBootstrapToken(tok, baseURLWithoutPort, btTestAlias, key)
 	if err != nil {
 		t.Errorf("ValidateBootstrapToken() error = %v, want nil", err)
+	}
+}
+
+// TestGenerateBootstrapToken_ExternalJTI: 外部から渡した jti がクレームに反映されること
+func TestGenerateBootstrapToken_ExternalJTI(t *testing.T) {
+	key, err := DeriveBootstrapKey(hex.EncodeToString(btTestSecret))
+	if err != nil {
+		t.Fatalf("DeriveBootstrapKey() error = %v", err)
+	}
+
+	externalJTI := "fixed-jti-for-nonce-store-test"
+	tok, err := GenerateBootstrapToken(btTestUserID, btTestBaseURL, btTestAlias, key, 3*time.Minute, externalJTI)
+	if err != nil {
+		t.Fatalf("GenerateBootstrapToken() error = %v", err)
+	}
+
+	claims := &BootstrapTokenClaims{}
+	parser := jwt.NewParser()
+	parser.ParseUnverified(tok, claims) //nolint:errcheck
+
+	if claims.JTI != externalJTI {
+		t.Errorf("JTI = %q, want %q", claims.JTI, externalJTI)
 	}
 }
 

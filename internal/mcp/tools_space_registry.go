@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"time"
@@ -14,7 +16,8 @@ import (
 
 // RegisterSpaceRegistryTools は space 管理系 MCP tools を ToolRegistry に登録する。
 // store や resolver が nil の場合はツール呼び出し時にエラーを返す（常時登録、nil-safe）。
-func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *space.Resolver, authBaseURL string) {
+// bootstrapKey が nil / nonceStore が nil の場合は bootstrap_token 未付与でエラーを返す（fail-safe）。
+func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *space.Resolver, multiAuthURL string, bootstrapKey []byte, bootstrapTTL time.Duration, nonceStore space.NonceStore) {
 	// logvalet_space_list — 登録済みスペース一覧
 	reg.Register(gomcp.NewTool("logvalet_space_list",
 		gomcp.WithDescription("List all Backlog spaces registered for the current user"),
@@ -55,7 +58,7 @@ func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *
 		),
 		gomcp.WithString("alias", gomcp.Description("Space alias (derived from base_url if omitted)")),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
-		return spaceConnectURL(ctx, args, authBaseURL)
+		return spaceConnectURL(ctx, args, multiAuthURL, bootstrapKey, bootstrapTTL, nonceStore)
 	})
 
 	// logvalet_space_disconnect — スペース削除
@@ -226,10 +229,21 @@ func spaceVerify(ctx context.Context, store space.Store, resolver *space.Resolve
 }
 
 // spaceConnectURL は OAuth 認可 URL を構築して返す。
-// ブラウザでこの URL を開くことでスペースの OAuth 登録が完了する。
-func spaceConnectURL(ctx context.Context, args map[string]any, authBaseURL string) (any, error) {
-	if authBaseURL == "" {
+// bootstrapKey が設定されている場合は bootstrap_token を生成して URL に付与する。
+func spaceConnectURL(ctx context.Context, args map[string]any, multiAuthURL string, bootstrapKey []byte, ttl time.Duration, nonceStore space.NonceStore) (any, error) {
+	if multiAuthURL == "" {
 		return nil, fmt.Errorf("OAuth authorization endpoint not configured for this server")
+	}
+	if len(bootstrapKey) == 0 {
+		return nil, fmt.Errorf("bootstrap_token signing key not configured: multi-space OAuth is not enabled")
+	}
+	if nonceStore == nil {
+		return nil, fmt.Errorf("nonce store not configured: multi-space OAuth is not enabled")
+	}
+
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("authentication required")
 	}
 
 	rawBaseURL, ok := stringArg(args, "base_url")
@@ -237,15 +251,42 @@ func spaceConnectURL(ctx context.Context, args map[string]any, authBaseURL strin
 		return nil, fmt.Errorf("base_url is required")
 	}
 
+	normalizedBaseURL, err := space.NormalizeBaseURL(rawBaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base_url: %w", err)
+	}
+
 	alias, _ := stringArg(args, "alias")
+	if alias == "" {
+		alias, err = space.DeriveAliasFromBaseURL(normalizedBaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to derive alias from base_url: %w", err)
+		}
+	}
+
+	jtiBytes := make([]byte, 16)
+	if _, err := rand.Read(jtiBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate jti: %w", err)
+	}
+	jti := hex.EncodeToString(jtiBytes)
+
+	if err := nonceStore.Store(ctx, userID, "bs:"+jti, ttl); err != nil {
+		return nil, fmt.Errorf("failed to register bootstrap nonce: %w", err)
+	}
+
+	token, err := auth.GenerateBootstrapToken(userID, normalizedBaseURL, alias, bootstrapKey, ttl, jti)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate bootstrap_token: %w", err)
+	}
 
 	q := url.Values{}
 	q.Set("base_url", rawBaseURL)
 	if alias != "" {
 		q.Set("alias", alias)
 	}
+	q.Set("bootstrap_token", token)
 
-	authURL := authBaseURL + "?" + q.Encode()
+	authURL := multiAuthURL + "?" + q.Encode()
 
 	return map[string]any{
 		"authorization_url": authURL,

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"time"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/backlog"
@@ -20,6 +21,11 @@ type ServerConfig struct {
 	SpaceStore         space.Store
 	SpaceResolver      *space.Resolver
 	SpaceClientFactory space.ClientFactory
+	// bootstrap_token 関連（multi-space OAuth フロー用）
+	MultiSpaceAuthorizeURL string
+	BootstrapKey           []byte
+	BootstrapTokenTTL      time.Duration
+	NonceStore             space.NonceStore
 }
 
 // NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
@@ -85,5 +91,5 @@ func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterWatchingTools(reg)
 	RegisterWikiTools(reg)
 	RegisterAnalysisTools(reg, cfg)
-	RegisterSpaceRegistryTools(reg, cfg.SpaceStore, cfg.SpaceResolver, cfg.AuthorizationURL)
+	RegisterSpaceRegistryTools(reg, cfg.SpaceStore, cfg.SpaceResolver, cfg.MultiSpaceAuthorizeURL, cfg.BootstrapKey, cfg.BootstrapTokenTTL, cfg.NonceStore)
 }

@@ -210,6 +210,11 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		}
 	}
 
+	// H2: memory store 使用時の replay detection 制約を警告
+	if c.Auth && os.Getenv("LOGVALET_SPACE_STORE_TYPE") == "memory" {
+		slog.Warn("LOGVALET_SPACE_STORE_TYPE=memory: bootstrap_token replay detection requires single-process deployment; use sqlite or dynamodb for multi-instance")
+	}
+
 	// OAuth モード判定（--auth かつ BacklogClientID 設定時のみ有効）。
 	// 既存 CLI / 既存 MCP パスは一切変更しない。
 	var oauthDeps *OAuthDeps
@@ -234,6 +239,15 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	// OAuth 有効時は AuthorizationURL と SpaceClientFactory を ServerConfig に設定
 	if oauthDeps != nil {
 		cfg.AuthorizationURL = oauthDeps.AuthorizeURL
+		cfg.MultiSpaceAuthorizeURL = oauthDeps.MultiSpaceAuthorizeURL
+		cfg.BootstrapKey = oauthDeps.BootstrapKey
+		cfg.BootstrapTokenTTL = auth.DefaultBootstrapTokenTTL
+		// SpaceStore が NonceStore を実装している場合に設定
+		if cfg.SpaceStore != nil {
+			if ns, ok := cfg.SpaceStore.(space.NonceStore); ok {
+				cfg.NonceStore = ns
+			}
+		}
 		// OAuth モードでは per-user factory を使って space ごとのトークンを解決する
 		cfg.SpaceClientFactory = space.ClientFactory(func(ctx context.Context, _ space.SpaceRegistration) (backlog.Client, error) {
 			return oauthDeps.Factory(ctx)
@@ -278,6 +292,12 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 
 		topMux := http.NewServeMux()
 		topMux.HandleFunc("/healthz", healthHandler)
+
+		// multi-space authorize は idproxy ラップ外に直登録（bootstrap_token で認証済みのため idproxy 不要）
+		if oauthDeps != nil && oauthDeps.MultiSpaceHandler != nil {
+			topMux.HandleFunc("GET /oauth/backlog/multi/authorize", oauthDeps.MultiSpaceHandler.HandleAuthorize)
+		}
+
 		// idproxy.Wrap の内側に userID bridge を挟む（順序: auth.Wrap → bridge → innerMux）。
 		// bridge を外側に置くと idproxy が context に注入する前に動き、userID が取れない。
 		bridge := newUserIDBridge()
@@ -313,8 +333,14 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		handler = topMux
 
 		if oauthDeps != nil {
+			// MemoryStore はシングルプロセス内のみ有効。マルチインスタンスデプロイでは
+			// space 登録情報が共有されないため DynamoDB/SQLite store を推奨する。
+			if spaceStoreType := os.Getenv("LOGVALET_SPACE_STORE_TYPE"); strings.EqualFold(spaceStoreType, "") || strings.EqualFold(spaceStoreType, "memory") {
+				slog.Warn("space store is using MemoryStore: space registrations will be lost on restart. Use DynamoDB or SQLite for production deployments.")
+			}
 			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth + OAuth) listening on %s/mcp\n", addr)
 			fmt.Fprintln(os.Stderr, "  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}")
+			fmt.Fprintln(os.Stderr, "  multi-space OAuth: GET /oauth/backlog/multi/authorize (idproxy-external)")
 			fmt.Fprintln(os.Stderr, "  MCP OAuth flow: /authorize gated via Backlog connection check")
 		} else {
 			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)

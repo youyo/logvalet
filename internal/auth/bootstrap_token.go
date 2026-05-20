@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -73,7 +72,8 @@ func normalizeBaseURLForHash(baseURL string) string {
 }
 
 // GenerateBootstrapToken は bootstrap_token JWT を生成する。
-func GenerateBootstrapToken(userID, baseURL, alias string, key []byte, ttl time.Duration) (string, error) {
+// jti は呼び出し元で生成して渡す（NonceStore.Store と同じ値を使うため外部生成が必要）。
+func GenerateBootstrapToken(userID, baseURL, alias string, key []byte, ttl time.Duration, jti string) (string, error) {
 	if userID == "" {
 		return "", fmt.Errorf("%w: userID is empty", ErrBootstrapInvalid)
 	}
@@ -89,12 +89,9 @@ func GenerateBootstrapToken(userID, baseURL, alias string, key []byte, ttl time.
 	if ttl <= 0 {
 		return "", fmt.Errorf("%w: ttl must be positive", ErrBootstrapInvalid)
 	}
-
-	jtiBytes := make([]byte, 16)
-	if _, err := rand.Read(jtiBytes); err != nil {
-		return "", fmt.Errorf("auth: failed to generate jti: %w", err)
+	if jti == "" {
+		return "", fmt.Errorf("%w: jti is empty", ErrBootstrapInvalid)
 	}
-	jti := hex.EncodeToString(jtiBytes)
 
 	normalizedBaseURL := normalizeBaseURLForHash(baseURL)
 

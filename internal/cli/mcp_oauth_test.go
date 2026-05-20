@@ -421,6 +421,64 @@ func TestBridge_PropagatesUserIDToClientFactory(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------
+// D. Step 6: topMux 直登録テスト
+// ---------------------------------------------------------------------
+
+// TestBuildOAuthDeps_MultiSpaceAuthorizeURL: MultiSpaceAuthorizeURL が正しく設定されること
+func TestBuildOAuthDeps_MultiSpaceAuthorizeURL(t *testing.T) {
+	cfg := newValidOAuthCfg()
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com/", nil, nil)
+	if err != nil {
+		t.Fatalf("BuildOAuthDeps: %v", err)
+	}
+	want := "https://example.com/oauth/backlog/multi/authorize"
+	if deps.MultiSpaceAuthorizeURL != want {
+		t.Errorf("MultiSpaceAuthorizeURL = %q, want %q", deps.MultiSpaceAuthorizeURL, want)
+	}
+}
+
+// TestBuildOAuthDeps_BootstrapKeyDerived: BootstrapKey が設定されていること
+func TestBuildOAuthDeps_BootstrapKeyDerived(t *testing.T) {
+	cfg := newValidOAuthCfg()
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
+	if err != nil {
+		t.Fatalf("BuildOAuthDeps: %v", err)
+	}
+	if len(deps.BootstrapKey) == 0 {
+		t.Error("BootstrapKey is empty, expected HKDF-derived key")
+	}
+}
+
+// TestInstallOAuthRoutes_MultiAuthorize_DirectTopMux:
+// MultiSpaceHandler が存在する場合、topMux に直接 GET /oauth/backlog/multi/authorize を登録できること。
+// (topMux は idproxy ラップ外なので bootstrap_token が検証される)
+func TestInstallOAuthRoutes_MultiAuthorize_DirectTopMux(t *testing.T) {
+	cfg := newValidOAuthCfg()
+	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)
+	if err != nil {
+		t.Fatalf("BuildOAuthDeps: %v", err)
+	}
+	defer deps.Close()
+
+	// MultiSpaceHandler が nil の場合は登録不要（spaceStore=nil のため）
+	if deps.MultiSpaceHandler == nil {
+		t.Skip("MultiSpaceHandler is nil (no spaceStore), skipping direct topMux test")
+	}
+
+	topMux := http.NewServeMux()
+	// Step 6: topMux に直接 GET /oauth/backlog/multi/authorize を登録
+	topMux.HandleFunc("GET /oauth/backlog/multi/authorize", deps.MultiSpaceHandler.HandleAuthorize)
+
+	// HEAD リクエストは 405 を返すこと（Method+Path パターンの保証）
+	req := httptest.NewRequest(http.MethodHead, "/oauth/backlog/multi/authorize", nil)
+	rec := httptest.NewRecorder()
+	topMux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("HEAD /oauth/backlog/multi/authorize: status = %d, want 405", rec.Code)
+	}
+}
+
 // TestBridge_WithoutBridge_NoUserID は bridge を外すと userID が届かないことを確認する
 // ネガティブテスト。「bridge 必須」の性質を明示的に保証する。
 func TestBridge_WithoutBridge_NoUserID(t *testing.T) {

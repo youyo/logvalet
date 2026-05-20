@@ -2,9 +2,12 @@ package mcp_test
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -15,10 +18,21 @@ import (
 
 // newSpaceRegistryServer は space 管理 tools を登録した MCPServer を返すテストヘルパー。
 func newSpaceRegistryServer(store space.Store, authBaseURL string) *mcpserver.MCPServer {
+	return newSpaceRegistryServerFull(store, authBaseURL, nil, 0, "")
+}
+
+// newSpaceRegistryServerFull は bootstrap_token 設定付きでサーバーを構築するテストヘルパー。
+func newSpaceRegistryServerFull(store space.Store, multiAuthURL string, bootstrapKey []byte, ttl time.Duration, _ string) *mcpserver.MCPServer {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistry(s, nil, "")
 	resolver := space.NewResolver(store)
-	mcpinternal.RegisterSpaceRegistryTools(reg, store, resolver, authBaseURL)
+	var ns space.NonceStore
+	if store != nil {
+		if nss, ok := store.(space.NonceStore); ok {
+			ns = nss
+		}
+	}
+	mcpinternal.RegisterSpaceRegistryTools(reg, store, resolver, multiAuthURL, bootstrapKey, ttl, ns)
 	return s
 }
 
@@ -173,10 +187,11 @@ func TestLogvaletSpaceVerify_AllSpaces(t *testing.T) {
 	}
 }
 
-// T4: logvalet_space_connect_url は authorization_url を返す
+// T4: logvalet_space_connect_url は bootstrap_token 付き authorization_url を返す
 func TestLogvaletSpaceConnectUrl_ReturnsAuthURL(t *testing.T) {
 	store := space.NewMemoryStore()
-	s := newSpaceRegistryServer(store, "https://mcp.example.com")
+	multiAuthURL := "https://mcp.example.com/oauth/backlog/multi/authorize"
+	s := newSpaceRegistryServerFull(store, multiAuthURL, btTestKey, 3*time.Minute, "")
 	result := callToolWithCtx(t, s, ctxWithUser("u1"), "logvalet_space_connect_url", map[string]any{
 		"base_url": "https://foo.backlog.com",
 		"alias":    "foo",
@@ -202,27 +217,30 @@ func TestLogvaletSpaceConnectUrl_ReturnsAuthURL(t *testing.T) {
 	if !strings.Contains(authURL, "base_url=") {
 		t.Errorf("authorization_url should contain base_url param, got %q", authURL)
 	}
+	if !strings.Contains(authURL, "bootstrap_token=") {
+		t.Errorf("authorization_url should contain bootstrap_token param, got %q", authURL)
+	}
 }
 
 // T4b: base_url が未指定の場合はエラー
 func TestLogvaletSpaceConnectUrl_MissingBaseURL_Error(t *testing.T) {
 	store := space.NewMemoryStore()
-	s := newSpaceRegistryServer(store, "https://mcp.example.com")
+	s := newSpaceRegistryServerFull(store, "https://mcp.example.com/oauth/backlog/multi/authorize", btTestKey, 3*time.Minute, "")
 	result := callToolWithCtx(t, s, ctxWithUser("u1"), "logvalet_space_connect_url", map[string]any{})
 	if !result.IsError {
 		t.Error("expected IsError=true for missing base_url")
 	}
 }
 
-// T4c: authBaseURL が設定されていない場合はエラー
+// T4c: multiAuthURL が設定されていない場合はエラー
 func TestLogvaletSpaceConnectUrl_NoAuthBaseURL_Error(t *testing.T) {
 	store := space.NewMemoryStore()
-	s := newSpaceRegistryServer(store, "")
+	s := newSpaceRegistryServerFull(store, "", btTestKey, 3*time.Minute, "")
 	result := callToolWithCtx(t, s, ctxWithUser("u1"), "logvalet_space_connect_url", map[string]any{
 		"base_url": "https://foo.backlog.com",
 	})
 	if !result.IsError {
-		t.Error("expected IsError=true when authBaseURL is not configured")
+		t.Error("expected IsError=true when multiAuthURL is not configured")
 	}
 }
 
@@ -262,6 +280,143 @@ func TestLogvaletSpaceDisconnect_MissingAlias_Error(t *testing.T) {
 	result := callToolWithCtx(t, s, ctxWithUser("u1"), "logvalet_space_disconnect", map[string]any{})
 	if !result.IsError {
 		t.Error("expected IsError=true for missing alias")
+	}
+}
+
+// -- Step 4 テスト: bootstrap_token 統合 --
+
+var btTestKey = func() []byte {
+	k, _ := auth.DeriveBootstrapKey(hex.EncodeToString([]byte("test-state-secret-for-bootstrap!!")))
+	return k
+}()
+
+// TestSpaceConnectURL_IncludesBootstrapToken: bootstrap_token パラメータが URL に含まれること
+func TestSpaceConnectURL_IncludesBootstrapToken(t *testing.T) {
+	store := space.NewMemoryStore()
+	multiAuthURL := "https://mcp.example.com/oauth/backlog/multi/authorize"
+	s := newSpaceRegistryServerFull(store, multiAuthURL, btTestKey, 3*time.Minute, "")
+
+	result := callToolWithCtx(t, s, ctxWithUser("user1"), "logvalet_space_connect_url", map[string]any{
+		"base_url": "https://foo.backlog.com",
+		"alias":    "foo",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected error: %v", result.Content)
+	}
+
+	text := mustTextContent(t, result)
+	var out map[string]any
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	authURL, ok := out["authorization_url"].(string)
+	if !ok || authURL == "" {
+		t.Fatalf("expected authorization_url, got %v", out)
+	}
+	if !strings.Contains(authURL, "bootstrap_token=") {
+		t.Errorf("authorization_url should contain bootstrap_token param, got %q", authURL)
+	}
+}
+
+// TestSpaceConnectURL_BootstrapTokenValid: 生成された bootstrap_token が正当であること
+func TestSpaceConnectURL_BootstrapTokenValid(t *testing.T) {
+	store := space.NewMemoryStore()
+	multiAuthURL := "https://mcp.example.com/oauth/backlog/multi/authorize"
+	s := newSpaceRegistryServerFull(store, multiAuthURL, btTestKey, 3*time.Minute, "")
+
+	result := callToolWithCtx(t, s, ctxWithUser("user2"), "logvalet_space_connect_url", map[string]any{
+		"base_url": "https://bar.backlog.com",
+		"alias":    "bar",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected error: %v", result.Content)
+	}
+
+	text := mustTextContent(t, result)
+	var out map[string]any
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	authURL := out["authorization_url"].(string)
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+	token := parsed.Query().Get("bootstrap_token")
+	if token == "" {
+		t.Fatal("bootstrap_token not found in URL")
+	}
+
+	userID, jti, err := auth.ValidateBootstrapToken(token, "https://bar.backlog.com", "bar", btTestKey)
+	if err != nil {
+		t.Fatalf("ValidateBootstrapToken: %v", err)
+	}
+	if userID != "user2" {
+		t.Errorf("userID = %q, want %q", userID, "user2")
+	}
+	if jti == "" {
+		t.Error("jti is empty")
+	}
+
+	// jti が NonceStore に Store されていること (Consume して確認)
+	if err := store.Consume(context.Background(), "user2", "bs:"+jti); err != nil {
+		t.Errorf("NonceStore.Consume: %v (jti should have been stored by spaceConnectURL)", err)
+	}
+}
+
+// TestSpaceConnectURL_GenerateFailure_PropagatesError: bootstrapKey が nil の場合もエラーにならない（fail-safe）
+func TestSpaceConnectURL_GenerateFailure_PropagatesError(t *testing.T) {
+	store := space.NewMemoryStore()
+	// bootstrapKey=nil でも fail-safe（bootstrap_token なしで URL を返す）
+	s := newSpaceRegistryServerFull(store, "https://mcp.example.com/oauth/backlog/multi/authorize", nil, 3*time.Minute, "")
+
+	result := callToolWithCtx(t, s, ctxWithUser("user3"), "logvalet_space_connect_url", map[string]any{
+		"base_url": "https://foo.backlog.com",
+		"alias":    "foo",
+	})
+	// bootstrapKey が未設定の場合はエラーとなることを確認（fail-safe）
+	if !result.IsError {
+		t.Error("expected IsError=true when bootstrapKey is not configured")
+	}
+}
+
+// TestSpaceConnectURL_BaseURLNormalization: trailing slash を除去した base_url でトークンが検証できること
+func TestSpaceConnectURL_BaseURLNormalization(t *testing.T) {
+	store := space.NewMemoryStore()
+	multiAuthURL := "https://mcp.example.com/oauth/backlog/multi/authorize"
+	s := newSpaceRegistryServerFull(store, multiAuthURL, btTestKey, 3*time.Minute, "")
+
+	// trailing slash 付きで送信
+	result := callToolWithCtx(t, s, ctxWithUser("user4"), "logvalet_space_connect_url", map[string]any{
+		"base_url": "https://baz.backlog.com/",
+		"alias":    "baz",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected error: %v", result.Content)
+	}
+
+	text := mustTextContent(t, result)
+	var out map[string]any
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	authURL := out["authorization_url"].(string)
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+	token := parsed.Query().Get("bootstrap_token")
+	if token == "" {
+		t.Fatal("bootstrap_token not found")
+	}
+
+	// trailing slash を除去した URL でトークン検証が通ること
+	_, _, err = auth.ValidateBootstrapToken(token, "https://baz.backlog.com", "baz", btTestKey)
+	if err != nil {
+		t.Errorf("ValidateBootstrapToken with normalized URL: %v", err)
 	}
 }
 

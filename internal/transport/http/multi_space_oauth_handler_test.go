@@ -138,16 +138,12 @@ func buildMultiSpaceHandlerWithKey(
 // makeBootstrapToken はテスト用 bootstrap_token を生成し、NonceStore に Store する。
 func makeBootstrapToken(t *testing.T, ns space.NonceStore, baseURL, alias string) string {
 	t.Helper()
-	tok, err := auth.GenerateBootstrapToken(testUserID, baseURL, alias, testBootstrapKey, auth.DefaultBootstrapTokenTTL)
+	jti := "test-jti-" + alias + "-" + baseURL
+	tok, err := auth.GenerateBootstrapToken(testUserID, baseURL, alias, testBootstrapKey, auth.DefaultBootstrapTokenTTL, jti)
 	if err != nil {
 		t.Fatalf("GenerateBootstrapToken: %v", err)
 	}
-	// jti を NonceStore に Store
-	claims := &struct {
-		JTI string
-	}{}
-	_ = claims
-	// トークンから jti を取り出して Store
+	// トークン検証で jti を確認
 	userID, jti, err := auth.ValidateBootstrapToken(tok, baseURL, alias, testBootstrapKey)
 	if err != nil {
 		t.Fatalf("ValidateBootstrapToken in makeBootstrapToken: %v", err)

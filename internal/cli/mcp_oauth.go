@@ -19,13 +19,15 @@ import (
 // OAuthDeps は OAuth モードに必要な依存をまとめた構造体。
 // Run() 中で生成し、defer Close() でリソース解放する。
 type OAuthDeps struct {
-	Store              auth.TokenStore
-	Provider           provider.OAuthProvider
-	TokenManager       auth.TokenManager
-	Factory            auth.ClientFactory
-	Handler            *httptransport.OAuthHandler
-	MultiSpaceHandler  *httptransport.MultiSpaceOAuthHandler
-	AuthorizeURL       string
+	Store                  auth.TokenStore
+	Provider               provider.OAuthProvider
+	TokenManager           auth.TokenManager
+	Factory                auth.ClientFactory
+	Handler                *httptransport.OAuthHandler
+	MultiSpaceHandler      *httptransport.MultiSpaceOAuthHandler
+	AuthorizeURL           string
+	MultiSpaceAuthorizeURL string
+	BootstrapKey           []byte
 }
 
 // Close は OAuthDeps の保持するリソース（主に TokenStore）を解放する。
@@ -130,14 +132,18 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 		return nil, fmt.Errorf("mcp: build oauth handler: %w", err)
 	}
 
+	multiSpaceAuthorizeURL := strings.TrimRight(externalURL, "/") + "/oauth/backlog/multi/authorize"
+
 	return &OAuthDeps{
-		Store:             store,
-		Provider:          p,
-		TokenManager:      tm,
-		Factory:           factory,
-		Handler:           handler,
-		MultiSpaceHandler: msh,
-		AuthorizeURL:      authorizeURL,
+		Store:                  store,
+		Provider:               p,
+		TokenManager:           tm,
+		Factory:                factory,
+		Handler:                handler,
+		MultiSpaceHandler:      msh,
+		AuthorizeURL:           authorizeURL,
+		MultiSpaceAuthorizeURL: multiSpaceAuthorizeURL,
+		BootstrapKey:           bootstrapKey,
 	}, nil
 }
 
