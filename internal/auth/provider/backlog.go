@@ -13,6 +13,7 @@ import (
 
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/credentials"
+	"github.com/youyo/logvalet/internal/space"
 )
 
 const (
@@ -96,10 +97,14 @@ func (p *BacklogOAuthProvider) BuildAuthorizationURL(state, redirectURI string) 
 }
 
 // CloneWithBaseURL は別スペースの baseURL で動作するクローンを返す。
-// シャローコピーなので httpClient は共有される（読み取り専用のため安全）。
+// シャローコピーなので httpClient は共有される（*http.Client は並行安全なため安全）。
 func (p *BacklogOAuthProvider) CloneWithBaseURL(baseURL string) OAuthProvider {
 	cloned := *p
 	cloned.baseURL = baseURL
+	// baseURL からスペース名を派生させる（カスタムドメインの場合は元の space を維持）
+	if derived, err := space.DeriveInitialTenant(baseURL); err == nil {
+		cloned.space = derived
+	}
 	return &cloned
 }
 

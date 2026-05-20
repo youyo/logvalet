@@ -252,6 +252,8 @@ func spaceConnectURL(ctx context.Context, args map[string]any, multiAuthURL stri
 	}
 
 	normalizedBaseURL, err := space.NormalizeBaseURL(rawBaseURL)
+	// TODO(security): base_url のドメイン許可リスト検証（*.backlog.com / *.backlog.jp のみ）を追加して SSRF を防ぐ。
+	//                内部ユーザー環境では任意の base_url を渡せるため、将来 issue で対応する。
 	if err != nil {
 		return nil, fmt.Errorf("invalid base_url: %w", err)
 	}

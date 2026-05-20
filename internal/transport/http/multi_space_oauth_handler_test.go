@@ -1061,7 +1061,8 @@ func TestHandleCallback_UsesStateBaseURL(t *testing.T) {
 		t.Fatalf("NonceStore.Store() error = %v", err)
 	}
 
-	fp := fakeProvider{
+	// ポインタで宣言: CloneWithBaseURL が記録した lastClonedBaseURL をテスト側から参照できるよう
+	fp := &fakeProvider{
 		exchangeFn: func(ctx context.Context, code, redirectURI string) (*auth.TokenRecord, error) {
 			exchangeCalledWith = code
 			return &auth.TokenRecord{
@@ -1075,9 +1076,20 @@ func TestHandleCallback_UsesStateBaseURL(t *testing.T) {
 		},
 	}
 
-	h, err := buildMultiSpaceHandler(fp, fakeTokenManager{}, nonceStore, &fakeSpaceStore{})
+	// buildMultiSpaceHandler は値型コピーを使うため、直接 NewMultiSpaceOAuthHandler を使って fp ポインタを渡す
+	h, err := httptransport.NewMultiSpaceOAuthHandler(
+		fp,
+		&fakeTokenManager{},
+		nonceStore,
+		&fakeSpaceStore{},
+		testRedirectURI,
+		testSecret,
+		testTTL,
+		nil,
+		nil, // bootstrapKey=nil
+	)
 	if err != nil {
-		t.Fatalf("buildMultiSpaceHandler: %v", err)
+		t.Fatalf("NewMultiSpaceOAuthHandler: %v", err)
 	}
 
 	req := httptest.NewRequest(stdhttp.MethodGet,
@@ -1098,5 +1110,10 @@ func TestHandleCallback_UsesStateBaseURL(t *testing.T) {
 	}
 	if getUserCalledWith != "megumilog-token" {
 		t.Errorf("GetCurrentUser was not called with correct token: got %q", getUserCalledWith)
+	}
+
+	// targetProvider が使われたこと: CloneWithBaseURL が targetBaseURL で呼ばれたことを確認
+	if fp.lastClonedBaseURL != targetBaseURL {
+		t.Errorf("CloneWithBaseURL was called with %q, want %q", fp.lastClonedBaseURL, targetBaseURL)
 	}
 }

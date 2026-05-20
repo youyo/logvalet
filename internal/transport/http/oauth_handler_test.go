@@ -37,10 +37,11 @@ var (
 // fakeProvider は provider.OAuthProvider のテスト用モック。
 // buildFn / exchangeFn / userFn でメソッドを差し替えられる。
 type fakeProvider struct {
-	name       string
-	buildFn    func(state, redirectURI string) (string, error)
-	exchangeFn func(ctx context.Context, code, redirectURI string) (*auth.TokenRecord, error)
-	userFn     func(ctx context.Context, accessToken string) (*auth.ProviderUser, error)
+	name              string
+	buildFn           func(state, redirectURI string) (string, error)
+	exchangeFn        func(ctx context.Context, code, redirectURI string) (*auth.TokenRecord, error)
+	userFn            func(ctx context.Context, accessToken string) (*auth.ProviderUser, error)
+	lastClonedBaseURL string // CloneWithBaseURL で最後に渡された baseURL
 }
 
 func (f *fakeProvider) Name() string {
@@ -88,6 +89,7 @@ func (f *fakeProvider) GetCurrentUser(ctx context.Context, accessToken string) (
 }
 
 func (f *fakeProvider) CloneWithBaseURL(baseURL string) provider.OAuthProvider {
+	f.lastClonedBaseURL = baseURL
 	cloned := *f
 	if cloned.buildFn == nil {
 		// デフォルト buildFn を baseURL ベースに差し替え
