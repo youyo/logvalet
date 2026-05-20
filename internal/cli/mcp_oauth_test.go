@@ -182,7 +182,7 @@ func TestInstallOAuthRoutes_AuthorizeRouted(t *testing.T) {
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
+	cli.InstallOAuthRoutes(mux, deps.Handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/authorize", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))
@@ -210,7 +210,7 @@ func TestInstallOAuthRoutes_CallbackRouted(t *testing.T) {
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
+	cli.InstallOAuthRoutes(mux, deps.Handler)
 
 	// state/code なしなので 400 invalid_request が返る
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/callback", nil)
@@ -233,7 +233,7 @@ func TestInstallOAuthRoutes_StatusRouted(t *testing.T) {
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
+	cli.InstallOAuthRoutes(mux, deps.Handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/backlog/status", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))
@@ -262,7 +262,7 @@ func TestInstallOAuthRoutes_DisconnectRouted(t *testing.T) {
 	defer deps.Close()
 
 	mux := http.NewServeMux()
-	cli.InstallOAuthRoutes(mux, deps.Handler, nil)
+	cli.InstallOAuthRoutes(mux, deps.Handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/oauth/backlog/disconnect", nil)
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), "u1"))

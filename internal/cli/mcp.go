@@ -255,7 +255,7 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	innerMux := http.NewServeMux()
 	innerMux.Handle("/mcp", h)
 	if oauthDeps != nil {
-		InstallOAuthRoutes(innerMux, oauthDeps.Handler, oauthDeps.MultiSpaceHandler)
+		InstallOAuthRoutes(innerMux, oauthDeps.Handler)
 	}
 
 	var handler http.Handler

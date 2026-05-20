@@ -136,23 +136,16 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 // InstallOAuthRoutes は OAuth ハンドラーの 4 メソッドを mux に登録する。
 //
 // 登録パス:
-//   - GET    /oauth/backlog/authorize
-//   - GET    /oauth/backlog/callback
+//   - GET    /oauth/backlog/authorize  (single-space、idproxy ラップ内)
+//   - GET    /oauth/backlog/callback   (single/multi 共有。multi は OAuthHandler 内 dispatcher で委譲)
 //   - GET    /oauth/backlog/status
 //   - DELETE /oauth/backlog/disconnect
 //
-// msh が nil でない場合は authorize/callback を MultiSpaceOAuthHandler で差し替える。
-// status/disconnect は常に OAuthHandler を使用する。
-//
+// multi-space authorize は topMux に直登録（idproxy ラップ外）するため、本関数では登録しない。
 // HTTP メソッドフィルタは各ハンドラー内で実施する（本関数では mux.HandleFunc でパスのみ登録）。
-func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler, msh *httptransport.MultiSpaceOAuthHandler) {
-	if msh != nil {
-		mux.HandleFunc("/oauth/backlog/authorize", msh.HandleAuthorize)
-		mux.HandleFunc("/oauth/backlog/callback", msh.HandleCallback)
-	} else {
-		mux.HandleFunc("/oauth/backlog/authorize", h.HandleAuthorize)
-		mux.HandleFunc("/oauth/backlog/callback", h.HandleCallback)
-	}
+func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler) {
+	mux.HandleFunc("/oauth/backlog/authorize", h.HandleAuthorize)
+	mux.HandleFunc("/oauth/backlog/callback", h.HandleCallback)
 	mux.HandleFunc("/oauth/backlog/status", h.HandleStatus)
 	mux.HandleFunc("/oauth/backlog/disconnect", h.HandleDisconnect)
 }
