@@ -83,7 +83,19 @@ var _ space.Store = (*fakeSpaceStore)(nil)
 // ヘルパー
 // ============================================================================
 
-// buildMultiSpaceHandler はテスト用の MultiSpaceOAuthHandler を構築する。
+// testBootstrapSecret はテスト用 bootstrap 鍵素材。
+var testBootstrapSecret = "0102030405060708090a0b0c0d0e0f10"
+
+// testBootstrapKey はテスト用 HKDF 派生済み bootstrap 鍵。
+var testBootstrapKey = func() []byte {
+	k, err := auth.DeriveBootstrapKey(testBootstrapSecret)
+	if err != nil {
+		panic("DeriveBootstrapKey failed: " + err.Error())
+	}
+	return k
+}()
+
+// buildMultiSpaceHandler はテスト用の MultiSpaceOAuthHandler を構築する（bootstrapKey=nil）。
 func buildMultiSpaceHandler(
 	p fakeProvider,
 	tm fakeTokenManager,
@@ -99,7 +111,51 @@ func buildMultiSpaceHandler(
 		testSecret,
 		testTTL,
 		nil,
+		nil, // bootstrapKey=nil (callback テストでは不要)
 	)
+}
+
+// buildMultiSpaceHandlerWithKey はテスト用の MultiSpaceOAuthHandler を bootstrapKey 付きで構築する。
+func buildMultiSpaceHandlerWithKey(
+	p fakeProvider,
+	tm fakeTokenManager,
+	nonceStore space.NonceStore,
+	spaceStore space.Store,
+) (*httptransport.MultiSpaceOAuthHandler, error) {
+	return httptransport.NewMultiSpaceOAuthHandler(
+		&p,
+		&tm,
+		nonceStore,
+		spaceStore,
+		testRedirectURI,
+		testSecret,
+		testTTL,
+		nil,
+		testBootstrapKey,
+	)
+}
+
+// makeBootstrapToken はテスト用 bootstrap_token を生成し、NonceStore に Store する。
+func makeBootstrapToken(t *testing.T, ns space.NonceStore, baseURL, alias string) string {
+	t.Helper()
+	tok, err := auth.GenerateBootstrapToken(testUserID, baseURL, alias, testBootstrapKey, auth.DefaultBootstrapTokenTTL)
+	if err != nil {
+		t.Fatalf("GenerateBootstrapToken: %v", err)
+	}
+	// jti を NonceStore に Store
+	claims := &struct {
+		JTI string
+	}{}
+	_ = claims
+	// トークンから jti を取り出して Store
+	userID, jti, err := auth.ValidateBootstrapToken(tok, baseURL, alias, testBootstrapKey)
+	if err != nil {
+		t.Fatalf("ValidateBootstrapToken in makeBootstrapToken: %v", err)
+	}
+	if err := ns.Store(context.Background(), userID, "bs:"+jti, auth.DefaultBootstrapTokenTTL); err != nil {
+		t.Fatalf("NonceStore.Store: %v", err)
+	}
+	return tok
 }
 
 // defaultExchangeFn は正常系の ExchangeCode モック。
@@ -120,13 +176,14 @@ func defaultUserFn(ctx context.Context, accessToken string) (*auth.ProviderUser,
 // ============================================================================
 
 // T3: HandleAuthorize 正常系
-// - GET /oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo
+// - GET /oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo&bootstrap_token=...
 // - 302 → Backlog OAuth URL へリダイレクト
 // - state JWT に BaseURL/Alias が含まれる
 // - nonce が NonceStore に保存される
 func TestMultiSpaceOAuthHandler_HandleAuthorize_Success(t *testing.T) {
 	var storedNonce string
 	var storedUserID string
+	var consumedKey string
 
 	nonceStore := &fakeNonceStore{
 		storeFn: func(ctx context.Context, userID, nonce string, ttl time.Duration) error {
@@ -134,9 +191,13 @@ func TestMultiSpaceOAuthHandler_HandleAuthorize_Success(t *testing.T) {
 			storedUserID = userID
 			return nil
 		},
+		consumeFn: func(ctx context.Context, userID, nonce string) error {
+			consumedKey = nonce
+			return nil
+		},
 	}
 
-	h, err := buildMultiSpaceHandler(
+	h, err := buildMultiSpaceHandlerWithKey(
 		fakeProvider{},
 		fakeTokenManager{},
 		nonceStore,
@@ -146,9 +207,12 @@ func TestMultiSpaceOAuthHandler_HandleAuthorize_Success(t *testing.T) {
 		t.Fatalf("NewMultiSpaceOAuthHandler() error = %v", err)
 	}
 
+	const baseURL = "https://foo.backlog.com"
+	const alias = "foo"
+	btok := makeBootstrapToken(t, nonceStore, baseURL, alias)
+
 	req := httptest.NewRequest(stdhttp.MethodGet,
-		"/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo", nil)
-	req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+		"/oauth/backlog/multi/authorize?base_url="+baseURL+"&alias="+alias+"&bootstrap_token="+btok, nil)
 	w := httptest.NewRecorder()
 
 	h.HandleAuthorize(w, req)
@@ -171,25 +235,17 @@ func TestMultiSpaceOAuthHandler_HandleAuthorize_Success(t *testing.T) {
 	if storedUserID != testUserID {
 		t.Errorf("storedUserID = %q, want %q", storedUserID, testUserID)
 	}
+	if !strings.HasPrefix(consumedKey, "bs:") {
+		t.Errorf("consumedKey = %q, want bs:... prefix (jti consumed)", consumedKey)
+	}
 
-	// state JWT から BaseURL/Alias を検証
-	parsedURL := location
-	idx := strings.Index(parsedURL, "state=")
-	if idx < 0 {
-		t.Fatal("state parameter not found in redirect URL")
+	// state JWT に state= が含まれること
+	if !strings.Contains(location, "state=") {
+		t.Error("state parameter not found in redirect URL")
 	}
-	// state= 以降を抜き出す（& で終わる場合も考慮）
-	stateParam := parsedURL[idx+len("state="):]
-	if end := strings.Index(stateParam, "&"); end >= 0 {
-		stateParam = stateParam[:end]
-	}
-	// URL デコード
-	decoded, err2 := stdhttp.DefaultClient.Get("about:blank")
-	_ = decoded
-	_ = err2
-	// 簡易チェック: state JWT 文字列が含まれていること
-	if stateParam == "" {
-		t.Error("state JWT is empty in redirect URL")
+	// Referrer-Policy ヘッダが設定されること
+	if resp.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Errorf("Referrer-Policy = %q, want no-referrer", resp.Header.Get("Referrer-Policy"))
 	}
 }
 
@@ -664,6 +720,209 @@ func TestMultiSpaceOAuthHandler_HandleCallback_DefaultSpaceSetIfEmpty(t *testing
 			t.Error("PutPreference should NOT be called when DefaultSpaceAlias is already set")
 		}
 	})
+}
+
+// ============================================================================
+// Step 2: HandleAuthorize bootstrap_token テスト
+// ============================================================================
+
+// TestHandleAuthorize_BootstrapTokenMissing: bootstrap_token なしで 401。
+func TestHandleAuthorize_BootstrapTokenMissing(t *testing.T) {
+	h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, &fakeNonceStore{}, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo", nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+	if w.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+// TestHandleAuthorize_BootstrapTokenInvalid: 無効な bootstrap_token で 401。
+func TestHandleAuthorize_BootstrapTokenInvalid(t *testing.T) {
+	ns := &fakeNonceStore{consumeFn: func(ctx context.Context, userID, nonce string) error { return nil }}
+	h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, ns, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo&bootstrap_token=invalid.token.here", nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+	if w.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+// TestHandleAuthorize_BootstrapTokenBaseURLMismatch: token は valid だが URL query の base_url が異なる → 401。
+func TestHandleAuthorize_BootstrapTokenBaseURLMismatch(t *testing.T) {
+	ns := &fakeNonceStore{}
+	const baseURL = "https://foo.backlog.com"
+	btok := makeBootstrapToken(t, ns, baseURL, "foo")
+
+	h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, ns, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+	// 別の base_url で検証
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url=https://other.backlog.com&alias=foo&bootstrap_token="+btok, nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+	if w.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("status = %d, want 401 (base_url mismatch)", w.Code)
+	}
+}
+
+// TestHandleAuthorize_BootstrapTokenJTIReplay: 同じ token を 2 回送ると 2 回目が 401。
+func TestHandleAuthorize_BootstrapTokenJTIReplay(t *testing.T) {
+	consumeCount := 0
+	ns := &fakeNonceStore{
+		storeFn: func(ctx context.Context, userID, nonce string, ttl time.Duration) error { return nil },
+		consumeFn: func(ctx context.Context, userID, nonce string) error {
+			consumeCount++
+			if consumeCount > 1 {
+				return space.ErrNonceAlreadyUsed
+			}
+			return nil
+		},
+	}
+	const baseURL = "https://foo.backlog.com"
+	btok := makeBootstrapToken(t, ns, baseURL, "foo")
+
+	for i := 0; i < 2; i++ {
+		// 2 回目は別トークンでないと jti が違うので同じトークンを使う
+		tok := btok
+		h, err := buildMultiSpaceHandlerWithKey(
+			fakeProvider{},
+			fakeTokenManager{},
+			ns,
+			&fakeSpaceStore{},
+		)
+		if err != nil {
+			t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+		}
+		req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url="+baseURL+"&alias=foo&bootstrap_token="+tok, nil)
+		w := httptest.NewRecorder()
+		h.HandleAuthorize(w, req)
+		if i == 0 && w.Code != stdhttp.StatusFound {
+			t.Errorf("1st request: status = %d, want 302", w.Code)
+		}
+		if i == 1 && w.Code != stdhttp.StatusUnauthorized {
+			t.Errorf("2nd request (replay): status = %d, want 401", w.Code)
+		}
+	}
+}
+
+// TestHandleAuthorize_HEAD_405: HEAD request では jti が consume されず 405 を返す。
+func TestHandleAuthorize_HEAD_405(t *testing.T) {
+	consumeCalled := false
+	ns := &fakeNonceStore{
+		consumeFn: func(ctx context.Context, userID, nonce string) error {
+			consumeCalled = true
+			return nil
+		},
+	}
+	const baseURL = "https://foo.backlog.com"
+	btok := makeBootstrapToken(t, ns, baseURL, "foo")
+
+	h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, ns, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+	req := httptest.NewRequest(stdhttp.MethodHead, "/oauth/backlog/multi/authorize?base_url="+baseURL+"&alias=foo&bootstrap_token="+btok, nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+
+	if w.Code != stdhttp.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405 for HEAD", w.Code)
+	}
+	if consumeCalled {
+		t.Error("jti should NOT be consumed on HEAD request")
+	}
+}
+
+// TestHandleAuthorize_ReferrerPolicy: 成功時も失敗時も Referrer-Policy: no-referrer が付与される。
+func TestHandleAuthorize_ReferrerPolicy(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"success", "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo&bootstrap_token=PLACEHOLDER"},
+		{"missing_token", "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ns := &fakeNonceStore{}
+			h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, ns, &fakeSpaceStore{})
+			if err != nil {
+				t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+			}
+			url := tc.url
+			if tc.name == "success" {
+				btok := makeBootstrapToken(t, ns, "https://foo.backlog.com", "foo")
+				url = "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&alias=foo&bootstrap_token=" + btok
+			}
+			req := httptest.NewRequest(stdhttp.MethodGet, url, nil)
+			w := httptest.NewRecorder()
+			h.HandleAuthorize(w, req)
+
+			if w.Header().Get("Referrer-Policy") != "no-referrer" {
+				t.Errorf("Referrer-Policy = %q, want no-referrer", w.Header().Get("Referrer-Policy"))
+			}
+		})
+	}
+}
+
+// TestHandleAuthorize_DuplicateBaseURLQuery_400: base_url が重複していると 400。
+func TestHandleAuthorize_DuplicateBaseURLQuery_400(t *testing.T) {
+	h, err := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, &fakeNonceStore{}, &fakeSpaceStore{})
+	if err != nil {
+		t.Fatalf("buildMultiSpaceHandlerWithKey: %v", err)
+	}
+	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url=https://foo.backlog.com&base_url=https://bar.backlog.com&alias=foo&bootstrap_token=x", nil)
+	w := httptest.NewRecorder()
+	h.HandleAuthorize(w, req)
+	if w.Code != stdhttp.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (duplicate base_url)", w.Code)
+	}
+}
+
+// TestHandleAuthorize_BootstrapTokenJTIReplay_AcrossHandlers: 同一 NonceStore を共有する 2 つの handler instance で replay 拒否。
+func TestHandleAuthorize_BootstrapTokenJTIReplay_AcrossHandlers(t *testing.T) {
+	consumeCount := 0
+	sharedNS := &fakeNonceStore{
+		storeFn: func(ctx context.Context, userID, nonce string, ttl time.Duration) error { return nil },
+		consumeFn: func(ctx context.Context, userID, nonce string) error {
+			consumeCount++
+			if consumeCount > 1 {
+				return space.ErrNonceAlreadyUsed
+			}
+			return nil
+		},
+	}
+	const baseURL = "https://foo.backlog.com"
+	btok := makeBootstrapToken(t, sharedNS, baseURL, "foo")
+
+	h1, _ := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, sharedNS, &fakeSpaceStore{})
+	h2, _ := buildMultiSpaceHandlerWithKey(fakeProvider{}, fakeTokenManager{}, sharedNS, &fakeSpaceStore{})
+
+	// h1 で 1 回目（成功）
+	req1 := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url="+baseURL+"&alias=foo&bootstrap_token="+btok, nil)
+	w1 := httptest.NewRecorder()
+	h1.HandleAuthorize(w1, req1)
+	if w1.Code != stdhttp.StatusFound {
+		t.Errorf("h1 1st: status = %d, want 302", w1.Code)
+	}
+
+	// h2 で同じ token を送ると replay 拒否
+	req2 := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/multi/authorize?base_url="+baseURL+"&alias=foo&bootstrap_token="+btok, nil)
+	w2 := httptest.NewRecorder()
+	h2.HandleAuthorize(w2, req2)
+	if w2.Code != stdhttp.StatusUnauthorized {
+		t.Errorf("h2 replay: status = %d, want 401", w2.Code)
+	}
 }
 
 // ============================================================================

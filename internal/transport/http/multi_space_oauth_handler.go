@@ -29,24 +29,26 @@ const (
 // 既存の OAuthHandler は変更せず、multi-space 登録フロー専用に別ファイルで実装する。
 //
 // Authorize → Callback の処理順序 (C2):
-//  1. state JWT 検証
-//  2. userID 一致検証
-//  3. nonce 消費（replay 防止: C3）
-//  4. code exchange → token 取得
-//  5. TokenManager.SaveToken（先に保存: C2）
-//  6. provider.GetCurrentUser
-//  7. SpaceStore.Upsert（C2: token 保存後に必ず Upsert）
-//  8. UserPreference 条件付き更新
-//  9. 200 JSON
+//  1. bootstrap_token 検証 + jti consume（idproxy 不要）
+//  2. state JWT 検証
+//  3. userID 一致検証
+//  4. nonce 消費（replay 防止: C3）
+//  5. code exchange → token 取得
+//  6. TokenManager.SaveToken（先に保存: C2）
+//  7. provider.GetCurrentUser
+//  8. SpaceStore.Upsert（C2: token 保存後に必ず Upsert）
+//  9. UserPreference 条件付き更新
+//  10. 200 JSON
 type MultiSpaceOAuthHandler struct {
-	provider     provider.OAuthProvider
-	tokenManager auth.TokenManager
-	nonceStore   space.NonceStore
-	spaceStore   space.Store
-	redirectURI  string
-	stateSecret  []byte
-	stateTTL     time.Duration
-	logger       *slog.Logger
+	provider      provider.OAuthProvider
+	tokenManager  auth.TokenManager
+	nonceStore    space.NonceStore
+	spaceStore    space.Store
+	redirectURI   string
+	stateSecret   []byte
+	stateTTL      time.Duration
+	logger        *slog.Logger
+	bootstrapKey  []byte
 }
 
 // NewMultiSpaceOAuthHandler は MultiSpaceOAuthHandler を構築する。
@@ -59,6 +61,7 @@ type MultiSpaceOAuthHandler struct {
 // stateSecret が空の場合は auth.ErrStateInvalid を返す。
 // stateTTL が 0 以下の場合は auth.ErrStateInvalid を返す。
 // logger が nil の場合は slog.Default() を使用する。
+// bootstrapKey は nil でも可（nil の場合は authorize で 401 を返す）。
 func NewMultiSpaceOAuthHandler(
 	p provider.OAuthProvider,
 	tm auth.TokenManager,
@@ -68,6 +71,7 @@ func NewMultiSpaceOAuthHandler(
 	stateSecret []byte,
 	stateTTL time.Duration,
 	logger *slog.Logger,
+	bootstrapKey []byte,
 ) (*MultiSpaceOAuthHandler, error) {
 	if p == nil {
 		panic("http: NewMultiSpaceOAuthHandler: provider must not be nil")
@@ -102,6 +106,7 @@ func NewMultiSpaceOAuthHandler(
 		stateSecret:  stateSecret,
 		stateTTL:     stateTTL,
 		logger:       logger,
+		bootstrapKey: bootstrapKey,
 	}, nil
 }
 
@@ -123,8 +128,19 @@ func NewMultiSpaceOAuthHandler(
 func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	ctx := r.Context()
 
+	// Referrer 漏洩抑止（bootstrap_token が Referrer ヘッダ経由で漏洩しないようにする）
+	w.Header().Set("Referrer-Policy", "no-referrer")
+
+	// M1 対応: GET 以外（HEAD 含む）を jti consume 前に即時拒否
 	if r.Method != stdhttp.MethodGet {
 		writeJSONError(w, stdhttp.StatusMethodNotAllowed, errCodeMethodNotAllowed, errMsgMethodNotAllowed)
+		return
+	}
+
+	// M3 対応: 同一クエリキーが複数回来た場合は 400（最初の値採用でサイレント上書きを防ぐ）
+	rawQuery := r.URL.RawQuery
+	if err := detectDuplicateQueryKeys(rawQuery, "base_url", "alias", "bootstrap_token"); err != nil {
+		writeJSONError(w, stdhttp.StatusBadRequest, errCodeInvalidRequest, err.Error())
 		return
 	}
 
@@ -171,12 +187,15 @@ func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *st
 		return
 	}
 
-	// userID 取得
-	userID, ok := auth.UserIDFromContext(ctx)
-	if !ok {
-		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, errMsgUnauthenticated)
+	// bootstrap_token 検証で userID を取得（idproxy 不要）
+	userID, err := h.extractUserIDFromBootstrap(ctx, w, r, baseURL, alias)
+	if err != nil {
+		// extractUserIDFromBootstrap 内でレスポンスを書き込み済み
 		return
 	}
+	// ctx に userID を注入して既存ロジックと統合
+	ctx = auth.ContextWithUserID(ctx, userID)
+	r = r.WithContext(ctx)
 
 	// tenant を導出（base_url から）
 	tenant, err := space.DeriveInitialTenant(baseURL)
@@ -441,4 +460,80 @@ func (h *MultiSpaceOAuthHandler) logCallbackFailed(ctx context.Context, reason s
 		attrs = append(attrs, slog.String("err_type", fmt.Sprintf("%T", err)))
 	}
 	h.logger.ErrorContext(ctx, "multi-space callback failed", attrs...)
+}
+
+// extractUserIDFromBootstrap は bootstrap_token クエリパラメータを検証し userID を返す。
+// 失敗時はレスポンスを書き込んでから non-nil エラーを返す。
+func (h *MultiSpaceOAuthHandler) extractUserIDFromBootstrap(
+	ctx context.Context,
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	baseURL, alias string,
+) (string, error) {
+	if len(h.bootstrapKey) == 0 {
+		h.logger.WarnContext(ctx, "multi-space authorize rejected", slog.String("reason", "bootstrap_key_not_configured"))
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token is required")
+		return "", fmt.Errorf("bootstrap key not configured")
+	}
+
+	tokenStr := r.URL.Query().Get("bootstrap_token")
+	if tokenStr == "" {
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token is required")
+		return "", fmt.Errorf("missing bootstrap_token")
+	}
+
+	userID, jti, err := auth.ValidateBootstrapToken(tokenStr, baseURL, alias, h.bootstrapKey)
+	if err != nil {
+		h.logger.WarnContext(ctx, "multi-space authorize rejected",
+			slog.String("reason", classifyBootstrapErr(err)),
+		)
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token invalid")
+		return "", err
+	}
+
+	// jti を NonceStore で Consume（one-time use 保証）
+	if consumeErr := h.nonceStore.Consume(ctx, userID, "bs:"+jti); consumeErr != nil {
+		if errors.Is(consumeErr, space.ErrNonceAlreadyUsed) {
+			h.logger.WarnContext(ctx, "multi-space authorize rejected", slog.String("reason", "jti_replayed"))
+			writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token already used")
+			return "", fmt.Errorf("jti replay: %w", auth.ErrBootstrapReplayed)
+		}
+		// NonceStore に nonce が存在しない場合も replay と同等に扱う（TTL 消失含む）
+		h.logger.WarnContext(ctx, "multi-space authorize rejected", slog.String("reason", "jti_consume_failed"))
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token invalid")
+		return "", fmt.Errorf("jti consume failed: %w", consumeErr)
+	}
+
+	return userID, nil
+}
+
+// classifyBootstrapErr は bootstrap_token エラーを分類してログ用文字列を返す。
+func classifyBootstrapErr(err error) string {
+	switch {
+	case errors.Is(err, auth.ErrBootstrapExpired):
+		return "expired"
+	case errors.Is(err, auth.ErrBootstrapReplayed):
+		return "jti_replayed"
+	default:
+		return "invalid"
+	}
+}
+
+// detectDuplicateQueryKeys はクエリ文字列に同一キーが複数回含まれていないかを検証する。
+// 攻撃者が ?base_url=A&base_url=B のように値を後付けで上書きするのを防ぐ。
+func detectDuplicateQueryKeys(rawQuery string, keys ...string) error {
+	for _, key := range keys {
+		count := 0
+		// URL のクエリ文字列をパースして各キーの出現回数を確認
+		vals, _ := stdurl.ParseQuery(rawQuery)
+		if len(vals[key]) > 1 {
+			count = len(vals[key])
+		} else {
+			count = len(vals[key])
+		}
+		if count > 1 {
+			return fmt.Errorf("duplicate query parameter: %s", key)
+		}
+	}
+	return nil
 }

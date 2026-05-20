@@ -93,6 +93,13 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 	// AuthorizeURL を組み立て
 	authorizeURL := strings.TrimRight(externalURL, "/") + "/oauth/backlog/authorize"
 
+	// bootstrap_token 専用鍵を stateSecret から HKDF 派生
+	bootstrapKey, bkErr := auth.DeriveBootstrapKey(cfg.OAuthStateSecret)
+	if bkErr != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("mcp: derive bootstrap key: %w", bkErr)
+	}
+
 	// MultiSpaceOAuthHandler を先に構築（OAuthHandler の dispatcher 依存のため先行）
 	var msh *httptransport.MultiSpaceOAuthHandler
 	if spaceStore != nil {
@@ -107,6 +114,7 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 				secret,
 				auth.DefaultStateTTL,
 				logger,
+				bootstrapKey,
 			)
 			if mshErr == nil {
 				msh = mshBuilt

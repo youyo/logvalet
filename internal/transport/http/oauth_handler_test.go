@@ -2199,6 +2199,7 @@ func newTestMultiSpaceHandler(t *testing.T, exchangeFn func(context.Context, str
 		testSecret,
 		testTTL,
 		nil,
+		nil, // bootstrapKey=nil (callback テストでは不要)
 	)
 	if err != nil {
 		t.Fatalf("NewMultiSpaceOAuthHandler: %v", err)
