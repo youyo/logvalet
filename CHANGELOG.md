@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.25.0] - 2026-05-20
+
+Multi-space Backlog OAuth の baseURL 動的切り替え修正（M19）。`logvalet_space_connect_url` で生成した URL で OAuth を完走すると、指定した Backlog スペース（megumilog 等）のトークンが正しく保存されるようになった。
+
+### Fixed
+- fix(http): `MultiSpaceOAuthHandler` が常に heptagon.backlog.com へ OAuth リクエストしていた問題を修正（`CloneWithBaseURL` を使ってターゲットスペースの URL でプロバイダーをクローン）
+
+### Added
+- feat(auth/provider): `OAuthProvider` インターフェースに `CloneWithBaseURL(baseURL string) OAuthProvider` を追加
+- feat(auth/provider): `BacklogOAuthProvider.CloneWithBaseURL` 実装（別スペースの baseURL で動作するシャローコピーを返す。`space.DeriveInitialTenant` でスペース名も更新）
+
+### Refactor
+- refactor(test): `TestHandleCallback_UsesStateBaseURL` に `CloneWithBaseURL` が targetBaseURL で呼ばれたことを検証する assertion を追加
+- refactor(security): `spaceConnectURL` の `NormalizeBaseURL` 付近に SSRF 許可リスト実装 TODO コメントを追加
+
 ## [0.24.0] - 2026-05-20
 
 Multi-space Backlog OAuth フロー（M18）リリース。`logvalet_space_connect_url` で生成した URL からブラウザ OAuth フローを完走し、複数の Backlog スペースを登録できるようになった。
