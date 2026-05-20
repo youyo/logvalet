@@ -218,16 +218,13 @@ func ValidateContinueURL(raw string) error {
 func ValidateState(stateJWT string, secret []byte) (*StateClaims, error) {
 	claims := &StateClaims{}
 
-	// Typ が設定されている新規トークンは aud/iss 検証を有効化する
-	parseOpts := []jwt.ParserOption{}
-
 	token, err := jwt.ParseWithClaims(stateJWT, claims, func(token *jwt.Token) (interface{}, error) {
 		// 署名メソッドが HMAC であることを検証（アルゴリズム差し替え攻撃対策）
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return secret, nil
-	}, parseOpts...)
+	})
 	if err != nil {
 		// jwt/v5 のエラーチェーンから期限切れを判別
 		if errors.Is(err, jwt.ErrTokenExpired) {

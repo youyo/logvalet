@@ -58,10 +58,10 @@ func DeriveBootstrapKey(stateSecretHex string) ([]byte, error) {
 	return out, nil
 }
 
-// hashValue は入力を SHA-256 でハッシュして先頭 16 hex 文字を返す。
+// hashValue は入力を SHA-256 でハッシュして先頭 32 hex 文字（16 バイト）を返す。
 func hashValue(s string) string {
 	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])[:16]
+	return hex.EncodeToString(h[:])[:32]
 }
 
 // normalizeBaseURLForHash は base_url をハッシュ計算前に正規化する。

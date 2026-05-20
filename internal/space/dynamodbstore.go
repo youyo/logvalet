@@ -263,6 +263,7 @@ func (s *DynamoDBStore) Consume(ctx context.Context, userID, nonce string) error
 
 	pk := spacePK(userID)
 	sk := nonceSK(nonce)
+	now := strconv.FormatInt(time.Now().Unix(), 10)
 
 	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: &s.tableName,
@@ -270,7 +271,10 @@ func (s *DynamoDBStore) Consume(ctx context.Context, userID, nonce string) error
 			"pk": &types.AttributeValueMemberS{Value: pk},
 			"sk": &types.AttributeValueMemberS{Value: sk},
 		},
-		ConditionExpression: aws.String("attribute_exists(pk)"),
+		ConditionExpression: aws.String("attribute_exists(pk) AND expires_at > :now"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":now": &types.AttributeValueMemberN{Value: now},
+		},
 	})
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException

@@ -487,7 +487,11 @@ func (h *MultiSpaceOAuthHandler) extractUserIDFromBootstrap(
 		h.logger.WarnContext(ctx, "multi-space authorize rejected",
 			slog.String("reason", classifyBootstrapErr(err)),
 		)
-		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, "bootstrap_token invalid")
+		msg := "bootstrap_token invalid"
+		if errors.Is(err, auth.ErrBootstrapExpired) {
+			msg = "bootstrap_token expired: please regenerate the authorization URL"
+		}
+		writeJSONError(w, stdhttp.StatusUnauthorized, errCodeUnauthenticated, msg)
 		return "", err
 	}
 
@@ -523,14 +527,9 @@ func classifyBootstrapErr(err error) string {
 // 攻撃者が ?base_url=A&base_url=B のように値を後付けで上書きするのを防ぐ。
 func detectDuplicateQueryKeys(rawQuery string, keys ...string) error {
 	for _, key := range keys {
-		count := 0
 		// URL のクエリ文字列をパースして各キーの出現回数を確認
 		vals, _ := stdurl.ParseQuery(rawQuery)
-		if len(vals[key]) > 1 {
-			count = len(vals[key])
-		} else {
-			count = len(vals[key])
-		}
+		count := len(vals[key])
 		if count > 1 {
 			return fmt.Errorf("duplicate query parameter: %s", key)
 		}

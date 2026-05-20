@@ -100,9 +100,9 @@ func TestGenerateBootstrapToken_Claims(t *testing.T) {
 		t.Error("alias_hash is empty")
 	}
 
-	// base_url_hash が SHA-256 先頭 16 hex であることを確認
+	// base_url_hash が SHA-256 先頭 32 hex 文字（16 バイト）であることを確認
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	expectedHash := hex.EncodeToString(h[:])[:16]
+	expectedHash := hex.EncodeToString(h[:])[:32]
 	if claims.BaseURLHash != expectedHash {
 		t.Errorf("base_url_hash = %q, want %q", claims.BaseURLHash, expectedHash)
 	}
@@ -142,9 +142,9 @@ func TestValidateBootstrapToken_ExpiredTTL(t *testing.T) {
 	// 過去の exp を持つトークンを手動構築
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,
@@ -180,9 +180,9 @@ func TestValidateBootstrapToken_WrongAlg_None(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,
@@ -218,9 +218,9 @@ func TestValidateBootstrapToken_WrongTyp(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         "oauth_state", // wrong typ
@@ -256,9 +256,9 @@ func TestValidateBootstrapToken_WrongAud(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,
@@ -294,9 +294,9 @@ func TestValidateBootstrapToken_WrongIss(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,
@@ -360,9 +360,9 @@ func TestValidateBootstrapToken_AliasMismatch(t *testing.T) {
 	}
 }
 
-// TestValidateBootstrapToken_JTIReplay: NonceStore 統合後に実装予定。現在は skip。
+// TestValidateBootstrapToken_JTIReplay: jti replay 検出は NonceStore に委譲済み。
 func TestValidateBootstrapToken_JTIReplay(t *testing.T) {
-	t.Skip("NonceStore 統合は Step 2 以降で実装予定")
+	t.Skip("jti replay 検出は NonceStore に委譲。tools_space_registry_test.go の TestSpaceConnectURL_BootstrapTokenValid で統合検証済み")
 }
 
 // TestValidateBootstrapToken_KeyConfusion: raw stateSecret で署名したトークンが bootstrapKey で検証失敗すること
@@ -374,9 +374,9 @@ func TestValidateBootstrapToken_KeyConfusion_StateSecret(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	// raw stateSecret で署名したトークンを作成
 	claims := &BootstrapTokenClaims{
@@ -442,9 +442,9 @@ func TestValidateBootstrapToken_EmptyUID(t *testing.T) {
 
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,
@@ -487,11 +487,9 @@ func TestValidateBootstrapToken_NormalizationTrailingSlash(t *testing.T) {
 	// GenerateBootstrapToken 内で正規化されるため trailing slash ありで検証する場合も同じ結果
 	// 検証側も同じ正規化をするため通過する
 	_, _, err = ValidateBootstrapToken(tok, btTestBaseURL+"/", btTestAlias, key)
-	// trailing slash を正規化するなら通過、しないなら失敗
-	// GenerateBootstrapToken が正規化済み baseURL のハッシュを使い、
-	// ValidateBootstrapToken も同様に正規化してからハッシュを比較する場合は通過する
-	// ここでは実装依存なので、正規化が実装されていれば nil が期待値
-	_ = err // 実装後に確認
+	if err != nil {
+		t.Errorf("ValidateBootstrapToken() with trailing slash: error = %v, want nil (normalization should strip trailing slash)", err)
+	}
 }
 
 // TestGenerateBootstrapToken_JTIUnique: JTI が毎回異なること
@@ -533,9 +531,9 @@ func TestValidateBootstrapToken_AlgRS256_Rejected(t *testing.T) {
 	// 代わりに HS384 を使ってアルゴリズム差し替えを検証する
 	now := time.Now()
 	h := sha256.Sum256([]byte(btTestBaseURL))
-	urlHash := hex.EncodeToString(h[:])[:16]
+	urlHash := hex.EncodeToString(h[:])[:32]
 	ah := sha256.Sum256([]byte(btTestAlias))
-	aliasHash := hex.EncodeToString(ah[:])[:16]
+	aliasHash := hex.EncodeToString(ah[:])[:32]
 
 	claims := &BootstrapTokenClaims{
 		Typ:         BootstrapTokenType,

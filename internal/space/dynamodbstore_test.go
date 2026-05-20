@@ -3,6 +3,7 @@ package space
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -102,14 +103,28 @@ func (m *mockDynamoDBSpaceClient) DeleteItem(_ context.Context, input *dynamodb.
 	pk := pkAttr.(*types.AttributeValueMemberS).Value
 	sk := skAttr.(*types.AttributeValueMemberS).Value
 
-	// ConditionExpression がある場合は存在チェックを行う
+	// ConditionExpression がある場合は存在チェックと TTL チェックを行う
 	if input.ConditionExpression != nil {
 		if m.condCheckFail {
 			return nil, &types.ConditionalCheckFailedException{}
 		}
-		_, exists := m.getItem(pk, sk)
+		item, exists := m.getItem(pk, sk)
 		if !exists {
 			return nil, &types.ConditionalCheckFailedException{}
+		}
+		// expires_at > :now の検証（Consume の TTL チェックをシミュレート）
+		if nowAttr, ok := input.ExpressionAttributeValues[":now"]; ok {
+			if nowN, ok := nowAttr.(*types.AttributeValueMemberN); ok {
+				nowVal, _ := strconv.ParseInt(nowN.Value, 10, 64)
+				if expAttr, ok := item["expires_at"]; ok {
+					if expN, ok := expAttr.(*types.AttributeValueMemberN); ok {
+						expVal, _ := strconv.ParseInt(expN.Value, 10, 64)
+						if expVal <= nowVal {
+							return nil, &types.ConditionalCheckFailedException{}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -596,6 +611,27 @@ func TestDynamoDBStore_TenantDuplicateCheck(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("expected 2 items with tenant=myorg, got %d", count)
+	}
+}
+
+// T20: 期限切れ nonce を Consume した場合は ErrNonceAlreadyUsed が返ること（TTL 期限切れ残留アイテム対策）
+func TestDynamoDBStore_Nonce_ConsumeExpired(t *testing.T) {
+	store, mock := newTestDynamoDBSpaceStore(t)
+	ctx := context.Background()
+
+	// 過去の expires_at を持つ nonce アイテムを直接モックに挿入（TTL 削除の遅延をシミュレート）
+	pk := "USER#u1"
+	sk := "NONCE#expired-nonce"
+	pastUnix := strconv.FormatInt(time.Now().Add(-1*time.Hour).Unix(), 10)
+	mock.setItem(pk, sk, map[string]types.AttributeValue{
+		"pk":         &types.AttributeValueMemberS{Value: pk},
+		"sk":         &types.AttributeValueMemberS{Value: sk},
+		"expires_at": &types.AttributeValueMemberN{Value: pastUnix},
+	})
+
+	// 期限切れ nonce を Consume → ErrNonceAlreadyUsed が返ること
+	if err := store.Consume(ctx, "u1", "expired-nonce"); err != ErrNonceAlreadyUsed {
+		t.Errorf("Consume expired nonce: expected ErrNonceAlreadyUsed, got %v", err)
 	}
 }
 
