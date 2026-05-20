@@ -245,7 +245,7 @@ func spaceConnectURL(ctx context.Context, args map[string]any, authBaseURL strin
 		q.Set("alias", alias)
 	}
 
-	authURL := authBaseURL + "/oauth/backlog/authorize?" + q.Encode()
+	authURL := authBaseURL + "?" + q.Encode()
 
 	return map[string]any{
 		"authorization_url": authURL,
