@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	stdhttp "net/http"
+	stdurl "net/url"
 	"time"
 
 	"github.com/youyo/logvalet/internal/auth"
@@ -136,11 +137,18 @@ func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *st
 		return
 	}
 
+	// idproxy の continue リダイレクト経由で二重エンコードされた場合に備えてデコードを試みる
+	if decoded, decErr := stdurl.QueryUnescape(rawBaseURL); decErr == nil && decoded != rawBaseURL {
+		rawBaseURL = decoded
+	}
+
 	// base_url 正規化
 	baseURL, err := space.NormalizeBaseURL(rawBaseURL)
 	if err != nil {
 		h.logger.WarnContext(ctx, "multi-space authorize rejected",
 			slog.String("reason", "invalid_base_url"),
+			slog.String("raw_base_url", rawBaseURL),
+			slog.String("err", err.Error()),
 		)
 		writeJSONError(w, stdhttp.StatusBadRequest, errCodeInvalidRequest, errMsgInvalidBaseURL)
 		return
