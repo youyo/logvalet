@@ -15,6 +15,16 @@ import (
 // DefaultStateTTL は OAuth state トークンのデフォルト有効期間。
 const DefaultStateTTL = 10 * time.Minute
 
+// OAuth state JWT のクレーム定数。
+const (
+	// OAuthStateTypeV1 は state JWT の typ クレーム値（トークン混同攻撃防止）。
+	OAuthStateTypeV1 = "oauth_state_v1"
+	// OAuthStateAudience は state JWT の aud クレーム値。
+	OAuthStateAudience = "logvalet/oauth-callback"
+	// OAuthStateIssuer は state JWT の iss クレーム値。
+	OAuthStateIssuer = "logvalet"
+)
+
 // nonceBytes は nonce 生成に使用するバイト数。
 const nonceBytes = 16
 
@@ -31,6 +41,9 @@ type StateClaims struct {
 	// Flow はフロー種別。"multi" = multi-space フロー、"single"/"" = 既存 single-space フロー。
 	// omitempty で後方互換（既存 token は Flow="" として扱われる）。
 	Flow string `json:"flow,omitempty"`
+	// Typ はトークン種別（トークン混同攻撃防止）。新規発行は "oauth_state_v1"、旧 token は空。
+	// omitempty で後方互換。
+	Typ string `json:"typ,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -84,7 +97,11 @@ func GenerateStateWithContinue(userID, tenant, continueURL string, secret []byte
 		Tenant:   tenant,
 		Nonce:    nonce,
 		Continue: continueURL,
+		Typ:      OAuthStateTypeV1,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			Audience:  jwt.ClaimStrings{OAuthStateAudience},
+			Issuer:    OAuthStateIssuer,
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
@@ -133,7 +150,11 @@ func GenerateStateWithSpaceInfo(userID, tenant, baseURL, alias string, secret []
 		BaseURL: baseURL,
 		Alias:   alias,
 		Flow:    "multi",
+		Typ:     OAuthStateTypeV1,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			Audience:  jwt.ClaimStrings{OAuthStateAudience},
+			Issuer:    OAuthStateIssuer,
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
@@ -193,8 +214,12 @@ func ValidateContinueURL(raw string) error {
 // 署名メソッドが HMAC でない場合（alg:none 攻撃等）は ErrStateInvalid を返す。
 // 期限切れの場合は ErrStateExpired を返す。
 // 署名不正・改竄・その他の不正は ErrStateInvalid を返す。
+// Backward compat: Typ="" の旧トークンは受理。ただし Typ="" かつ Flow が "" でも "single" でもない場合は ErrStateInvalid。
 func ValidateState(stateJWT string, secret []byte) (*StateClaims, error) {
 	claims := &StateClaims{}
+
+	// Typ が設定されている新規トークンは aud/iss 検証を有効化する
+	parseOpts := []jwt.ParserOption{}
 
 	token, err := jwt.ParseWithClaims(stateJWT, claims, func(token *jwt.Token) (interface{}, error) {
 		// 署名メソッドが HMAC であることを検証（アルゴリズム差し替え攻撃対策）
@@ -202,7 +227,7 @@ func ValidateState(stateJWT string, secret []byte) (*StateClaims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return secret, nil
-	})
+	}, parseOpts...)
 	if err != nil {
 		// jwt/v5 のエラーチェーンから期限切れを判別
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -220,5 +245,52 @@ func ValidateState(stateJWT string, secret []byte) (*StateClaims, error) {
 		return nil, ErrStateInvalid
 	}
 
+	if err := validateNewTokenClaims(claims); err != nil {
+		return nil, err
+	}
+
 	return claims, nil
+}
+
+// validateNewTokenClaims は Typ="oauth_state_v1" のトークンに追加の claim 検証を行う。
+// Backward compat: Typ="" の旧 token は basic チェックのみ（aud/iss は不問）。
+// ただし Typ="" かつ Flow が "" でも "single" でもない場合は ErrStateInvalid（devils-advocate 追加条件）。
+func validateNewTokenClaims(claims *StateClaims) error {
+	// Typ="" の旧 token
+	if claims.Typ == "" {
+		// Flow が multi 等 non-single の場合は旧フォーマットでは受理しない
+		if claims.Flow != "" && claims.Flow != "single" {
+			return fmt.Errorf("%w: old token (typ='') with flow=%q is not allowed", ErrStateInvalid, claims.Flow)
+		}
+		return nil
+	}
+
+	// Typ が設定されている新規トークン
+	if claims.Typ != OAuthStateTypeV1 {
+		return fmt.Errorf("%w: unknown typ %q", ErrStateInvalid, claims.Typ)
+	}
+
+	// aud 検証
+	found := false
+	for _, a := range claims.Audience {
+		if a == OAuthStateAudience {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("%w: audience mismatch", ErrStateInvalid)
+	}
+
+	// iss 検証
+	if claims.Issuer != OAuthStateIssuer {
+		return fmt.Errorf("%w: issuer mismatch", ErrStateInvalid)
+	}
+
+	// flow="multi" のとき BaseURL/Alias 必須
+	if claims.Flow == "multi" && (claims.BaseURL == "" || claims.Alias == "") {
+		return fmt.Errorf("%w: multi flow requires BaseURL and Alias", ErrStateInvalid)
+	}
+
+	return nil
 }

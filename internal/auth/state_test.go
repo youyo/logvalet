@@ -359,6 +359,250 @@ func TestStateClaims_FlowRoundTrip(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Step 5-A: state JWT 強化（Typ/Aud/Iss）テスト
+// ============================================================================
+
+// TestStateClaims_TypAudIss_RoundTrip: 新規発行トークンに Typ/Aud/Iss がセットされること。
+func TestStateClaims_TypAudIss_RoundTrip(t *testing.T) {
+	state, err := GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState: %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState: %v", err)
+	}
+	if claims.Typ != OAuthStateTypeV1 {
+		t.Errorf("Typ = %q, want %q", claims.Typ, OAuthStateTypeV1)
+	}
+	if len(claims.Audience) == 0 || claims.Audience[0] != OAuthStateAudience {
+		t.Errorf("Audience = %v, want [%q]", claims.Audience, OAuthStateAudience)
+	}
+	if claims.Issuer != OAuthStateIssuer {
+		t.Errorf("Issuer = %q, want %q", claims.Issuer, OAuthStateIssuer)
+	}
+}
+
+// TestValidateState_NewToken_RejectsWrongAudience: Typ=OAuthStateTypeV1 で aud 不正 → ErrStateInvalid。
+func TestValidateState_NewToken_RejectsWrongAudience(t *testing.T) {
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "test-nonce",
+		Typ:    OAuthStateTypeV1,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   testUserID,
+			Audience:  jwt.ClaimStrings{"wrong/audience"},
+			Issuer:    OAuthStateIssuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, err = ValidateState(tokenStr, testSecret)
+	if !errors.Is(err, ErrStateInvalid) {
+		t.Errorf("ValidateState() = %v, want ErrStateInvalid", err)
+	}
+}
+
+// TestValidateState_NewToken_RejectsWrongIssuer: Typ=OAuthStateTypeV1 で iss 不正 → ErrStateInvalid。
+func TestValidateState_NewToken_RejectsWrongIssuer(t *testing.T) {
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "test-nonce",
+		Typ:    OAuthStateTypeV1,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   testUserID,
+			Audience:  jwt.ClaimStrings{OAuthStateAudience},
+			Issuer:    "wrong-issuer",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, err = ValidateState(tokenStr, testSecret)
+	if !errors.Is(err, ErrStateInvalid) {
+		t.Errorf("ValidateState() = %v, want ErrStateInvalid", err)
+	}
+}
+
+// TestValidateState_NewToken_RejectsUnknownTyp: 未知の Typ → ErrStateInvalid。
+func TestValidateState_NewToken_RejectsUnknownTyp(t *testing.T) {
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "test-nonce",
+		Typ:    "something_else",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   testUserID,
+			Audience:  jwt.ClaimStrings{OAuthStateAudience},
+			Issuer:    OAuthStateIssuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, err = ValidateState(tokenStr, testSecret)
+	if !errors.Is(err, ErrStateInvalid) {
+		t.Errorf("ValidateState() = %v, want ErrStateInvalid", err)
+	}
+}
+
+// TestValidateState_OldToken_AcceptedWithoutTypAud: Typ="" の旧 token は受理（backward compat）。
+func TestValidateState_OldToken_AcceptedWithoutTypAud(t *testing.T) {
+	// Typ/Aud/Iss なしで直接構築（旧フォーマット）
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "old-nonce",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	gotClaims, err := ValidateState(tokenStr, testSecret)
+	if err != nil {
+		t.Errorf("ValidateState() = %v, want nil (backward compat)", err)
+	}
+	if gotClaims != nil && gotClaims.Typ != "" {
+		t.Errorf("old token Typ should be empty, got %q", gotClaims.Typ)
+	}
+}
+
+// TestValidateState_FlowDefaultsToSingle: Flow="" は single 扱い（エラーにならない）。
+func TestValidateState_FlowDefaultsToSingle(t *testing.T) {
+	state, err := GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState: %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState: %v", err)
+	}
+	if claims.Flow != "" && claims.Flow != "single" {
+		t.Errorf("Flow = %q, want empty or 'single'", claims.Flow)
+	}
+}
+
+// TestValidateState_FlowMulti_RequiresBaseURLAlias: multi なのに BaseURL/Alias 空は ErrStateInvalid。
+func TestValidateState_FlowMulti_RequiresBaseURLAlias(t *testing.T) {
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "test-nonce",
+		Typ:    OAuthStateTypeV1,
+		Flow:   "multi",
+		// BaseURL/Alias を空にする
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   testUserID,
+			Audience:  jwt.ClaimStrings{OAuthStateAudience},
+			Issuer:    OAuthStateIssuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, err = ValidateState(tokenStr, testSecret)
+	if !errors.Is(err, ErrStateInvalid) {
+		t.Errorf("ValidateState() = %v, want ErrStateInvalid (multi without BaseURL/Alias)", err)
+	}
+}
+
+// TestGenerateStateWithSpaceInfo_SetsMultiFlow: GenerateStateWithSpaceInfo で Flow="multi" + Typ がセット。
+func TestGenerateStateWithSpaceInfo_SetsMultiFlow(t *testing.T) {
+	state, err := GenerateStateWithSpaceInfo(testUserID, testTenant, "https://foo.backlog.com", "foo", testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo: %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState: %v", err)
+	}
+	if claims.Flow != "multi" {
+		t.Errorf("Flow = %q, want multi", claims.Flow)
+	}
+	if claims.Typ != OAuthStateTypeV1 {
+		t.Errorf("Typ = %q, want %q", claims.Typ, OAuthStateTypeV1)
+	}
+}
+
+// TestGenerateStateWithContinue_SetsSingleFlow: GenerateStateWithContinue で Typ がセット。
+func TestGenerateStateWithContinue_SetsSingleFlow(t *testing.T) {
+	state, err := GenerateStateWithContinue(testUserID, testTenant, "/authorize?x=1", testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateStateWithContinue: %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState: %v", err)
+	}
+	if claims.Typ != OAuthStateTypeV1 {
+		t.Errorf("Typ = %q, want %q", claims.Typ, OAuthStateTypeV1)
+	}
+}
+
+// TestGenerateState_SetsSingleFlow: GenerateState で Typ がセット。
+func TestGenerateState_SetsSingleFlow(t *testing.T) {
+	state, err := GenerateState(testUserID, testTenant, testSecret, testTTL)
+	if err != nil {
+		t.Fatalf("GenerateState: %v", err)
+	}
+	claims, err := ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState: %v", err)
+	}
+	if claims.Typ != OAuthStateTypeV1 {
+		t.Errorf("Typ = %q, want %q", claims.Typ, OAuthStateTypeV1)
+	}
+}
+
+// TestValidateState_TypEmptyWithMultiFlow_Rejected: Typ="" + Flow="multi" → ErrStateInvalid（devils-advocate 追加条件）。
+func TestValidateState_TypEmptyWithMultiFlow_Rejected(t *testing.T) {
+	claims := &StateClaims{
+		UserID: testUserID,
+		Tenant: testTenant,
+		Nonce:  "test-nonce",
+		Flow:   "multi",
+		// Typ を意図的に空にする
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(testTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(testSecret)
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, err = ValidateState(tokenStr, testSecret)
+	if !errors.Is(err, ErrStateInvalid) {
+		t.Errorf("ValidateState() = %v, want ErrStateInvalid (Typ='' + Flow='multi' must be rejected)", err)
+	}
+}
+
 // TestStateClaims_FlowEmpty_BackwardCompat: GenerateState/GenerateStateWithContinue は Flow="" のまま。
 func TestStateClaims_FlowEmpty_BackwardCompat(t *testing.T) {
 	for _, tc := range []struct {
