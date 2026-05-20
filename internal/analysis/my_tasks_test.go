@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -88,9 +89,9 @@ func TestMyTasksBuilder_WeekMode_Basic(t *testing.T) {
 		return myself, nil
 	}
 
-	callCount := 0
+	var callCount atomic.Int32
 	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
-		callCount++
+		callCount.Add(1)
 		if opt.DueDateUntil != nil && opt.DueDateSince == nil {
 			// overdue クエリ
 			return []domain.Issue{overdueIssue}, nil
