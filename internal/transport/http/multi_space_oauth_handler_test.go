@@ -46,6 +46,7 @@ var _ space.NonceStore = (*fakeNonceStore)(nil)
 
 type fakeSpaceStore struct {
 	upsertFn       func(ctx context.Context, reg *space.SpaceRegistration) error
+	getFn          func(ctx context.Context, userID, alias string) (*space.SpaceRegistration, error)
 	getPrefFn      func(ctx context.Context, userID string) (*space.UserPreference, error)
 	putPrefFn      func(ctx context.Context, pref *space.UserPreference) error
 }
@@ -54,6 +55,9 @@ func (f *fakeSpaceStore) List(ctx context.Context, userID string) ([]space.Space
 	return nil, nil
 }
 func (f *fakeSpaceStore) Get(ctx context.Context, userID, alias string) (*space.SpaceRegistration, error) {
+	if f.getFn != nil {
+		return f.getFn(ctx, userID, alias)
+	}
 	return nil, nil
 }
 func (f *fakeSpaceStore) Upsert(ctx context.Context, reg *space.SpaceRegistration) error {
@@ -333,6 +337,129 @@ func TestMultiSpaceOAuthHandler_HandleCallback_Success(t *testing.T) {
 	}
 	if upsertedReg.Alias != "foo" {
 		t.Errorf("upsertedReg.Alias = %q, want %q", upsertedReg.Alias, "foo")
+	}
+}
+
+// ============================================================================
+// Callback - SpaceRegistration タイムスタンプ設定（Bug A）
+// ============================================================================
+
+// callback 成功時に CreatedAt / UpdatedAt / LastVerifiedAt が非ゼロで設定されること。
+func TestMultiSpaceOAuthHandler_HandleCallback_SetsTimestamps(t *testing.T) {
+	var upsertedReg *space.SpaceRegistration
+
+	state, err := auth.GenerateStateWithSpaceInfo(
+		testUserID, "foo", "https://foo.backlog.com", "foo",
+		testSecret, testTTL,
+	)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo() error = %v", err)
+	}
+	claims, err := auth.ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v", err)
+	}
+	nonceStore := space.NewMemoryStore()
+	if err := nonceStore.Store(context.Background(), testUserID, claims.Nonce, testTTL); err != nil {
+		t.Fatalf("NonceStore.Store() error = %v", err)
+	}
+
+	spaceStore := &fakeSpaceStore{
+		upsertFn: func(ctx context.Context, reg *space.SpaceRegistration) error {
+			upsertedReg = reg
+			return nil
+		},
+	}
+	tm := &fakeTokenManager{
+		saveFn: func(ctx context.Context, record *auth.TokenRecord) error { return nil },
+	}
+
+	h, err := buildMultiSpaceHandler(
+		fakeProvider{exchangeFn: defaultExchangeFn, userFn: defaultUserFn},
+		*tm, nonceStore, spaceStore,
+	)
+	if err != nil {
+		t.Fatalf("NewMultiSpaceOAuthHandler() error = %v", err)
+	}
+
+	req := httptest.NewRequest(stdhttp.MethodGet,
+		"/oauth/backlog/multi/callback?code=auth-code&state="+state, nil)
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+	h.HandleCallback(httptest.NewRecorder(), req)
+
+	if upsertedReg == nil {
+		t.Fatal("SpaceRegistry.Upsert was not called")
+	}
+	if upsertedReg.CreatedAt.IsZero() {
+		t.Error("CreatedAt is zero, want non-zero")
+	}
+	if upsertedReg.UpdatedAt.IsZero() {
+		t.Error("UpdatedAt is zero, want non-zero")
+	}
+	if upsertedReg.LastVerifiedAt.IsZero() {
+		t.Error("LastVerifiedAt is zero, want non-zero")
+	}
+}
+
+// 再認証（2 回目の callback）で既存の CreatedAt が保持されること。
+func TestMultiSpaceOAuthHandler_HandleCallback_PreservesCreatedAt(t *testing.T) {
+	var upsertedReg *space.SpaceRegistration
+	existingCreatedAt := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	state, err := auth.GenerateStateWithSpaceInfo(
+		testUserID, "foo", "https://foo.backlog.com", "foo",
+		testSecret, testTTL,
+	)
+	if err != nil {
+		t.Fatalf("GenerateStateWithSpaceInfo() error = %v", err)
+	}
+	claims, err := auth.ValidateState(state, testSecret)
+	if err != nil {
+		t.Fatalf("ValidateState() error = %v", err)
+	}
+	nonceStore := space.NewMemoryStore()
+	if err := nonceStore.Store(context.Background(), testUserID, claims.Nonce, testTTL); err != nil {
+		t.Fatalf("NonceStore.Store() error = %v", err)
+	}
+
+	spaceStore := &fakeSpaceStore{
+		getFn: func(ctx context.Context, userID, alias string) (*space.SpaceRegistration, error) {
+			return &space.SpaceRegistration{
+				UserID:    userID,
+				Alias:     alias,
+				CreatedAt: existingCreatedAt,
+			}, nil
+		},
+		upsertFn: func(ctx context.Context, reg *space.SpaceRegistration) error {
+			upsertedReg = reg
+			return nil
+		},
+	}
+	tm := &fakeTokenManager{
+		saveFn: func(ctx context.Context, record *auth.TokenRecord) error { return nil },
+	}
+
+	h, err := buildMultiSpaceHandler(
+		fakeProvider{exchangeFn: defaultExchangeFn, userFn: defaultUserFn},
+		*tm, nonceStore, spaceStore,
+	)
+	if err != nil {
+		t.Fatalf("NewMultiSpaceOAuthHandler() error = %v", err)
+	}
+
+	req := httptest.NewRequest(stdhttp.MethodGet,
+		"/oauth/backlog/multi/callback?code=auth-code&state="+state, nil)
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), testUserID))
+	h.HandleCallback(httptest.NewRecorder(), req)
+
+	if upsertedReg == nil {
+		t.Fatal("SpaceRegistry.Upsert was not called")
+	}
+	if !upsertedReg.CreatedAt.Equal(existingCreatedAt) {
+		t.Errorf("CreatedAt = %v, want preserved %v", upsertedReg.CreatedAt, existingCreatedAt)
+	}
+	if upsertedReg.UpdatedAt.IsZero() {
+		t.Error("UpdatedAt is zero, want non-zero")
 	}
 }
 

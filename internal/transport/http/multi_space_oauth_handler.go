@@ -392,14 +392,25 @@ func (h *MultiSpaceOAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *std
 	record.ProviderUserID = providerUser.ID
 
 	// 7. SpaceStore.Upsert（C2: token 保存後に必ず Upsert）
+	// CreatedAt は既存レコードが非ゼロなら保持し、それ以外は now を設定する。
+	// DynamoDBStore.Upsert は blind PutItem のため、handler 側で不変条件を満たす。
+	now := time.Now()
+	createdAt := now
+	if existing, getErr := h.spaceStore.Get(ctx, ctxUserID, claims.Alias); getErr == nil &&
+		existing != nil && !existing.CreatedAt.IsZero() {
+		createdAt = existing.CreatedAt
+	}
 	reg := &space.SpaceRegistration{
-		UserID:    ctxUserID,
-		Alias:     claims.Alias,
-		Tenant:    claims.Tenant,
-		BaseURL:   claims.BaseURL,
-		AuthType:  space.AuthTypeOAuth,
-		Provider:  h.provider.Name(),
-		Status:    space.SpaceStatusOK,
+		UserID:         ctxUserID,
+		Alias:          claims.Alias,
+		Tenant:         claims.Tenant,
+		BaseURL:        claims.BaseURL,
+		AuthType:       space.AuthTypeOAuth,
+		Provider:       h.provider.Name(),
+		Status:         space.SpaceStatusOK,
+		CreatedAt:      createdAt,
+		UpdatedAt:      now,
+		LastVerifiedAt: now,
 	}
 	if err := h.spaceStore.Upsert(ctx, reg); err != nil {
 		h.logCallbackFailed(ctx, "upsert_failed", err, ctxUserID)
