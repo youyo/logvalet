@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.29.1] - 2026-05-29
+
+マルチスペース OAuth の独立した 2 バグを修正。
+
+### Fixed
+- fix(mcp): OAuth callback で `SpaceRegistration` のタイムスタンプ（`created_at`/`updated_at`/`last_verified_at`）が未設定のまま保存され、本番 DynamoDB 経路で `logvalet_space_list` の値がゼロ値（`0001-01-01T00:00:00Z`）になっていた問題を修正
+  - handler 側で `updated_at`/`last_verified_at` を現在時刻に設定し、`created_at` は既存レコードが非ゼロなら保持（`IsZero` ガード）。既存のゼロ値レコードも次回再認証で自己修復する
+- fix(auth): 非プライマリスペース（megumilog 等）の OAuth アクセストークンのリフレッシュが常にデフォルト（heptagon）の token エンドポイントを叩いて失敗していた問題を修正（#14）
+  - `TokenRefresher.RefreshToken` / `OAuthProvider.RefreshToken` / `TokenManager.GetValidToken` に `baseURL` 引数を追加（空ならデフォルトにフォールバック）
+  - `SpaceAwareClientFactory` が `reg.BaseURL` を伝播し、スペースごとに正しい token エンドポイントを使用
+
 ## [0.29.0] - 2026-05-21
 
 multi-space 呼び出し時に `AnalysisEnvelope` の `result.space` / `result.base_url` メタデータがスタートアップ設定値（heptagon）のままになっていた問題を修正（M22 secondary）。
