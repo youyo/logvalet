@@ -16,7 +16,7 @@ type fakeTM struct {
 	err    error
 }
 
-func (f *fakeTM) GetValidToken(ctx context.Context, uid, p, t string) (*auth.TokenRecord, error) {
+func (f *fakeTM) GetValidToken(ctx context.Context, uid, p, t, baseURL string) (*auth.TokenRecord, error) {
 	return f.result, f.err
 }
 

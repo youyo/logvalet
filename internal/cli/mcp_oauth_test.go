@@ -37,7 +37,7 @@ type fakeTokenManager struct {
 	revokeFn func(ctx context.Context, userID, provider, tenant string) error
 }
 
-func (f *fakeTokenManager) GetValidToken(ctx context.Context, userID, provider, tenant string) (*auth.TokenRecord, error) {
+func (f *fakeTokenManager) GetValidToken(ctx context.Context, userID, provider, tenant, baseURL string) (*auth.TokenRecord, error) {
 	if f.getFn != nil {
 		return f.getFn(ctx, userID, provider, tenant)
 	}

@@ -25,8 +25,10 @@ type OAuthProvider interface {
 	ExchangeCode(ctx context.Context, code, redirectURI string) (*auth.TokenRecord, error)
 
 	// RefreshToken はリフレッシュトークンで新しいトークンを取得する。
+	// baseURL が空でない場合はその baseURL（スペースごとに異なる token エンドポイント）を使う。
+	// 空の場合は provider のデフォルト baseURL を使う。
 	// 返り値の TokenRecord には UserID と ProviderUserID は設定されない（caller 側で設定すること）。
-	RefreshToken(ctx context.Context, refreshToken string) (*auth.TokenRecord, error)
+	RefreshToken(ctx context.Context, refreshToken, baseURL string) (*auth.TokenRecord, error)
 
 	// GetCurrentUser はアクセストークンで現在のユーザー情報を取得する。
 	GetCurrentUser(ctx context.Context, accessToken string) (*auth.ProviderUser, error)

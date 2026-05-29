@@ -52,7 +52,7 @@ func NewBacklogAuthorizeGate(
 			userID := sess.User.Subject
 
 			// 条件 4: Backlog 接続状態を確認
-			_, tmErr := tm.GetValidToken(r.Context(), userID, providerName, tenant)
+			_, tmErr := tm.GetValidToken(r.Context(), userID, providerName, tenant, "")
 			if !needsBacklogAuthorization(tmErr) {
 				next.ServeHTTP(w, r)
 				return

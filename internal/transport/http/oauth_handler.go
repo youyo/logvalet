@@ -497,7 +497,8 @@ func (h *OAuthHandler) HandleStatus(w stdhttp.ResponseWriter, r *stdhttp.Request
 	providerName := h.provider.Name()
 
 	// 3. GetValidToken で接続状態を判定
-	record, err := h.tokenManager.GetValidToken(ctx, userID, providerName, h.tenant)
+	// single-space 経路: baseURL は provider のデフォルト（このスペース）を使うため空文字で良い
+	record, err := h.tokenManager.GetValidToken(ctx, userID, providerName, h.tenant, "")
 	switch {
 	case err == nil && record != nil:
 		// 接続済み・有効

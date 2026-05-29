@@ -124,9 +124,15 @@ func (p *BacklogOAuthProvider) ExchangeCode(ctx context.Context, code, redirectU
 
 // RefreshToken はリフレッシュトークンで新しいトークンを取得する。
 // grant_type=refresh_token で Backlog token endpoint を呼び出す。
+// baseURL が空でない場合はその baseURL を使う（スペースごとに token エンドポイントが異なるため）。
+// 空の場合は provider のデフォルト baseURL を使う。
 // 返り値の TokenRecord には UserID と ProviderUserID は設定されない。
-func (p *BacklogOAuthProvider) RefreshToken(ctx context.Context, refreshToken string) (*auth.TokenRecord, error) {
-	tokenURL := p.baseURL + backlogTokenPath
+func (p *BacklogOAuthProvider) RefreshToken(ctx context.Context, refreshToken, baseURL string) (*auth.TokenRecord, error) {
+	effectiveBaseURL := p.baseURL
+	if baseURL != "" {
+		effectiveBaseURL = baseURL
+	}
+	tokenURL := effectiveBaseURL + backlogTokenPath
 
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
