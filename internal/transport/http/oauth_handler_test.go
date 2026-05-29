@@ -77,7 +77,7 @@ func (f *fakeProvider) ExchangeCode(ctx context.Context, code, redirectURI strin
 	return nil, errors.New("not implemented")
 }
 
-func (f *fakeProvider) RefreshToken(ctx context.Context, refreshToken string) (*auth.TokenRecord, error) {
+func (f *fakeProvider) RefreshToken(ctx context.Context, refreshToken, baseURL string) (*auth.TokenRecord, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -126,7 +126,7 @@ type fakeTokenManager struct {
 	revokeFn func(ctx context.Context, userID, providerName, tenant string) error
 }
 
-func (f *fakeTokenManager) GetValidToken(ctx context.Context, userID, providerName, tenant string) (*auth.TokenRecord, error) {
+func (f *fakeTokenManager) GetValidToken(ctx context.Context, userID, providerName, tenant, baseURL string) (*auth.TokenRecord, error) {
 	if f.getFn != nil {
 		return f.getFn(ctx, userID, providerName, tenant)
 	}

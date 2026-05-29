@@ -23,8 +23,9 @@ type TokenRefresher interface {
 	Name() string
 
 	// RefreshToken はリフレッシュトークンで新しいトークンを取得する。
+	// baseURL が空でない場合はその baseURL（スペースごとに異なる token エンドポイント）を使う。
 	// 返り値の TokenRecord には UserID と ProviderUserID は設定されない（caller 側で設定すること）。
-	RefreshToken(ctx context.Context, refreshToken string) (*TokenRecord, error)
+	RefreshToken(ctx context.Context, refreshToken, baseURL string) (*TokenRecord, error)
 }
 
 // TokenManager は TokenStore と TokenRefresher を組み合わせて、
@@ -32,9 +33,11 @@ type TokenRefresher interface {
 type TokenManager interface {
 	// GetValidToken はユーザー・プロバイダー・テナントに対応する有効なトークンを返す。
 	// トークンが期限切れ間近の場合は自動的にリフレッシュする。
+	// baseURL はリフレッシュ時に使う token エンドポイントの baseURL（スペースごとに異なる）。
+	// 空の場合は provider のデフォルト baseURL を使う。
 	// レコード未存在の場合は ErrProviderNotConnected を返す。
 	// リフレッシュ失敗の場合は ErrTokenRefreshFailed を返す。
-	GetValidToken(ctx context.Context, userID, provider, tenant string) (*TokenRecord, error)
+	GetValidToken(ctx context.Context, userID, provider, tenant, baseURL string) (*TokenRecord, error)
 
 	// SaveToken はトークンレコードを保存する。
 	SaveToken(ctx context.Context, record *TokenRecord) error
@@ -76,7 +79,7 @@ func NewTokenManager(store TokenStore, providers map[string]TokenRefresher, opts
 }
 
 // GetValidToken はユーザー・プロバイダー・テナントに対応する有効なトークンを返す。
-func (tm *tokenManager) GetValidToken(ctx context.Context, userID, provider, tenant string) (*TokenRecord, error) {
+func (tm *tokenManager) GetValidToken(ctx context.Context, userID, provider, tenant, baseURL string) (*TokenRecord, error) {
 	rec, err := tm.store.Get(ctx, userID, provider, tenant)
 	if err != nil {
 		return nil, fmt.Errorf("get token from store: %w", err)
@@ -100,7 +103,7 @@ func (tm *tokenManager) GetValidToken(ctx context.Context, userID, provider, ten
 	// 並行リクエストが同時に古い refresh_token を使うと 2 件目が認証不能になる。
 	sfKey := userID + ":" + provider + ":" + tenant
 	result, err, _ := tm.sfGroup.Do(sfKey, func() (any, error) {
-		refreshed, err := refresher.RefreshToken(ctx, rec.RefreshToken)
+		refreshed, err := refresher.RefreshToken(ctx, rec.RefreshToken, baseURL)
 		if err != nil {
 			slog.Warn("token refresh failed",
 				"provider", provider,

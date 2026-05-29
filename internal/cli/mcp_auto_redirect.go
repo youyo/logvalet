@@ -63,7 +63,7 @@ func EnsureBacklogConnected(
 			}
 
 			// 条件 6: トークン状態を確認
-			_, err := tm.GetValidToken(r.Context(), userID, providerName, tenant)
+			_, err := tm.GetValidToken(r.Context(), userID, providerName, tenant, "")
 			if needsBacklogAuthorization(err) {
 				http.Redirect(w, r, authorizeURL, http.StatusFound)
 				return

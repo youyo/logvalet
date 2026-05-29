@@ -68,16 +68,18 @@ func (m *mockStore) Close() error { return nil }
 
 // mockRefresher は TokenRefresher のテスト用モック。
 type mockRefresher struct {
-	name       string
-	record     *auth.TokenRecord
-	err        error
-	calledWith string
+	name              string
+	record            *auth.TokenRecord
+	err               error
+	calledWith        string
+	calledWithBaseURL string
 }
 
 func (m *mockRefresher) Name() string { return m.name }
 
-func (m *mockRefresher) RefreshToken(_ context.Context, refreshToken string) (*auth.TokenRecord, error) {
+func (m *mockRefresher) RefreshToken(_ context.Context, refreshToken, baseURL string) (*auth.TokenRecord, error) {
 	m.calledWith = refreshToken
+	m.calledWithBaseURL = baseURL
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -99,7 +101,7 @@ type concurrentMockRefresher struct {
 
 func (m *concurrentMockRefresher) Name() string { return m.name }
 
-func (m *concurrentMockRefresher) RefreshToken(_ context.Context, _ string) (*auth.TokenRecord, error) {
+func (m *concurrentMockRefresher) RefreshToken(_ context.Context, _, _ string) (*auth.TokenRecord, error) {
 	m.callCnt.Add(1)
 	m.ready <- struct{}{}
 	<-m.gate
@@ -131,7 +133,7 @@ func TestGetValidToken_ValidToken(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("GetValidToken returned error: %v", err)
 	}
@@ -172,7 +174,7 @@ func TestGetValidToken_AutoRefresh(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("GetValidToken returned error: %v", err)
 	}
@@ -190,6 +192,41 @@ func TestGetValidToken_AutoRefresh(t *testing.T) {
 	}
 	if stored.AccessToken != "new-access-token" {
 		t.Errorf("stored AccessToken = %q, want %q", stored.AccessToken, "new-access-token")
+	}
+}
+
+// リフレッシュ時に GetValidToken の baseURL 引数が refresher に伝播すること（issue #14）。
+func TestGetValidToken_AutoRefresh_PassesBaseURL(t *testing.T) {
+	store := newMockStore()
+	rec := &auth.TokenRecord{
+		UserID:       "user1",
+		Provider:     "backlog",
+		Tenant:       "megumilog",
+		AccessToken:  "old-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		Expiry:       time.Now().Add(2 * time.Minute), // リフレッシュ対象
+	}
+	store.records[auth.StoreKey("user1", "backlog", "megumilog")] = rec
+
+	refresher := &mockRefresher{
+		name: "backlog",
+		record: &auth.TokenRecord{
+			AccessToken:  "new-access-token",
+			RefreshToken: "new-refresh-token",
+			TokenType:    "Bearer",
+			Expiry:       time.Now().Add(1 * time.Hour),
+		},
+	}
+	mgr := auth.NewTokenManager(store, map[string]auth.TokenRefresher{"backlog": refresher})
+
+	const megumilogURL = "https://megumilog.backlog.jp"
+	_, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "megumilog", megumilogURL)
+	if err != nil {
+		t.Fatalf("GetValidToken returned error: %v", err)
+	}
+	if refresher.calledWithBaseURL != megumilogURL {
+		t.Errorf("RefreshToken baseURL = %q, want %q", refresher.calledWithBaseURL, megumilogURL)
 	}
 }
 
@@ -224,7 +261,7 @@ func TestGetValidToken_IdentityFieldsPreserved(t *testing.T) {
 
 	beforeRefresh := time.Now()
 	mgr := auth.NewTokenManager(store, providers)
-	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("GetValidToken returned error: %v", err)
 	}
@@ -258,7 +295,7 @@ func TestGetValidToken_RecordNotFound(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	_, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	_, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err == nil {
 		t.Fatal("GetValidToken should return error for missing record")
 	}
@@ -288,7 +325,7 @@ func TestGetValidToken_RefreshFailed(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	_, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	_, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err == nil {
 		t.Fatal("GetValidToken should return error when refresh fails")
 	}
@@ -316,7 +353,7 @@ func TestGetValidToken_ProviderNotRegistered(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	_, err := mgr.GetValidToken(context.Background(), "user1", "github", "example.com")
+	_, err := mgr.GetValidToken(context.Background(), "user1", "github", "example.com", "")
 	if err == nil {
 		t.Fatal("GetValidToken should return error for unregistered provider")
 	}
@@ -344,7 +381,7 @@ func TestGetValidToken_DefaultMargin(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers)
 
-	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("GetValidToken returned error: %v", err)
 	}
@@ -381,7 +418,7 @@ func TestGetValidToken_CustomMargin(t *testing.T) {
 
 	mgr := auth.NewTokenManager(store, providers, auth.WithRefreshMargin(10*time.Minute))
 
-	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+	got, err := mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 	if err != nil {
 		t.Fatalf("GetValidToken returned error: %v", err)
 	}
@@ -489,7 +526,7 @@ func TestGetValidToken_ConcurrentRefresh(t *testing.T) {
 		i := i
 		go func() {
 			defer wg.Done()
-			results[i], errs[i] = mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com")
+			results[i], errs[i] = mgr.GetValidToken(context.Background(), "user1", "backlog", "example.backlog.com", "")
 		}()
 	}
 

@@ -252,7 +252,7 @@ func TestBacklogProvider_RefreshToken(t *testing.T) {
 	p.baseURL = ts.URL
 
 	before := time.Now()
-	record, err := p.RefreshToken(context.Background(), "old-refresh-token")
+	record, err := p.RefreshToken(context.Background(), "old-refresh-token", "")
 	after := time.Now()
 
 	if err != nil {
@@ -292,9 +292,50 @@ func TestBacklogProvider_RefreshToken_Error(t *testing.T) {
 	p, _ := NewBacklogOAuthProvider("test-space", "my-client-id", "my-secret")
 	p.baseURL = ts.URL
 
-	_, err := p.RefreshToken(context.Background(), "bad-token")
+	_, err := p.RefreshToken(context.Background(), "bad-token", "")
 	if err == nil {
 		t.Fatal("RefreshToken() with bad token should return error")
+	}
+}
+
+// baseURL 引数を渡したとき、provider のデフォルト baseURL ではなく
+// 引数の baseURL の token エンドポイントを叩くこと（issue #14）。
+func TestBacklogProvider_RefreshToken_UsesBaseURLArg(t *testing.T) {
+	var defaultHit, targetHit bool
+
+	defaultServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defaultHit = true
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer defaultServer.Close()
+
+	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetHit = true
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token":  "new-access-token",
+			"refresh_token": "new-refresh-token",
+			"token_type":    "Bearer",
+			"expires_in":    3600,
+		})
+	}))
+	defer targetServer.Close()
+
+	p, _ := NewBacklogOAuthProvider("test-space", "my-client-id", "my-secret")
+	p.baseURL = defaultServer.URL // デフォルトは別スペース（heptagon 相当）
+
+	record, err := p.RefreshToken(context.Background(), "old-refresh-token", targetServer.URL)
+	if err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if record.AccessToken != "new-access-token" {
+		t.Errorf("AccessToken = %q, want new-access-token", record.AccessToken)
+	}
+	if defaultHit {
+		t.Error("default baseURL was hit; want target baseURL only")
+	}
+	if !targetHit {
+		t.Error("target baseURL was not hit")
 	}
 }
 

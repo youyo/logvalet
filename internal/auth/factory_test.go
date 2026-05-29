@@ -16,7 +16,7 @@ type mockTokenManager struct {
 	getValidTokenFunc func(ctx context.Context, userID, provider, tenant string) (*auth.TokenRecord, error)
 }
 
-func (m *mockTokenManager) GetValidToken(ctx context.Context, userID, provider, tenant string) (*auth.TokenRecord, error) {
+func (m *mockTokenManager) GetValidToken(ctx context.Context, userID, provider, tenant, baseURL string) (*auth.TokenRecord, error) {
 	return m.getValidTokenFunc(ctx, userID, provider, tenant)
 }
 

@@ -49,7 +49,7 @@ func buildOAuthClient(ctx context.Context, tm TokenManager, reg space.SpaceRegis
 		return nil, fmt.Errorf("space factory: userID not in context: %w", ErrUnauthenticated)
 	}
 
-	rec, err := tm.GetValidToken(ctx, userID, "backlog", reg.Tenant)
+	rec, err := tm.GetValidToken(ctx, userID, "backlog", reg.Tenant, reg.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("space factory: get token for space %q (user %q): %w", reg.Alias, userID, err)
 	}

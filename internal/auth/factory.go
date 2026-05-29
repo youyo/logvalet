@@ -26,7 +26,7 @@ func NewClientFactory(tm TokenManager, provider, tenant, baseURL string) ClientF
 			return nil, fmt.Errorf("client factory: userID not found in context: %w", ErrUnauthenticated)
 		}
 
-		rec, err := tm.GetValidToken(ctx, userID, provider, tenant)
+		rec, err := tm.GetValidToken(ctx, userID, provider, tenant, baseURL)
 		if err != nil {
 			return nil, fmt.Errorf("client factory: get token for user %q: %w", userID, err)
 		}
