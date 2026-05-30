@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.2] - 2026-05-30
+
+`logvalet_user_activity` MCP ツールの日付フィルタ不具合を修正。
+
+### Fixed
+- fix(mcp): `logvalet_user_activity` で `since`/`until` を指定しても対象期間のデータが返らない問題を修正
+  - ハンドラが1回しか API を呼ばなかったため、最新20件が全て指定期間外だと0件になっていた
+  - `internal/backlog.FetchUserActivities` 共通ページネーション関数を追加し、`since` より古いデータに到達するまで `maxId` カーソルでページネーション
+- fix(mcp): `until=YYYY-MM-DD` 指定時に当日の活動が除外される問題を修正
+  - `parseDateStr` が `T00:00:00Z`（深夜0時）を返すため当日全件が `After(midnight)` として除外されていた
+  - `until` を end-of-day（`T23:59:59`）として扱うよう変更
+- refactor(cli): `fetchUserActivities` を削除し `backlog.FetchUserActivities` を直接使用するよう変更
+
 ## [0.29.1] - 2026-05-29
 
 マルチスペース OAuth の独立した 2 バグを修正。
