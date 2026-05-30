@@ -8,7 +8,6 @@ import (
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
-	"github.com/youyo/logvalet/internal/domain"
 )
 
 // RegisterUserTools はユーザー関連の MCP tools を ToolRegistry に登録する。
@@ -67,26 +66,22 @@ func RegisterUserTools(r *ToolRegistry) {
 			userID = strconv.Itoa(myself.ID)
 		}
 
-		opt := backlog.ListUserActivitiesOptions{
-			Count: 20,
+		limit := 20
+		if l, ok := intArg(args, "limit"); ok && l > 0 {
+			limit = l
 		}
-		if limit, ok := intArg(args, "limit"); ok && limit > 0 {
-			opt.Count = limit
-		}
+
+		// activity_type_ids をパース
+		fetchOpt := backlog.ListUserActivitiesOptions{}
 		if activityTypeIDsStr, ok := stringArg(args, "activity_type_ids"); ok && activityTypeIDsStr != "" {
 			ids, err := parseCSVIntList(activityTypeIDsStr, "activity_type_ids")
 			if err != nil {
 				return nil, err
 			}
-			opt.ActivityTypeIDs = ids
+			fetchOpt.ActivityTypeIDs = ids
 		}
 
-		activities, err := client.ListUserActivities(ctx, userID, opt)
-		if err != nil {
-			return nil, err
-		}
-
-		// since/until のクライアント側フィルタ（API 非対応）
+		// since/until をパース（until は end-of-day に拡張）
 		var sinceTime, untilTime *time.Time
 		if sinceStr, ok := stringArg(args, "since"); ok && sinceStr != "" {
 			t, err := parseDateStr(sinceStr)
@@ -100,27 +95,14 @@ func RegisterUserTools(r *ToolRegistry) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid until: %w", err)
 			}
-			untilTime = &t
-		}
-		projectFilter, hasProjectFilter := stringArg(args, "project")
-
-		// フィルタが不要な場合はそのまま返す
-		if sinceTime == nil && untilTime == nil && !hasProjectFilter {
-			return activities, nil
+			// YYYY-MM-DD は 00:00:00 になるため、その日の終わり（23:59:59）に拡張する
+			eod := t.Add(24*time.Hour - time.Second)
+			untilTime = &eod
 		}
 
-		// クライアント側フィルタ適用（since/until のみ。project は Content に構造化情報がないためスキップ）
-		_ = projectFilter // project フィルタは活動コンテンツが非構造化のため未適用
-		filtered := make([]domain.Activity, 0, len(activities))
-		for _, a := range activities {
-			if sinceTime != nil && a.Created != nil && a.Created.Before(*sinceTime) {
-				continue
-			}
-			if untilTime != nil && a.Created != nil && a.Created.After(*untilTime) {
-				continue
-			}
-			filtered = append(filtered, a)
-		}
-		return filtered, nil
+		// project フィルタは活動コンテンツが非構造化のため未適用
+		_, _ = stringArg(args, "project")
+
+		return backlog.FetchUserActivities(ctx, client, userID, sinceTime, untilTime, limit, fetchOpt)
 	})
 }

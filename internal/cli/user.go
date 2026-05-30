@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
-	"github.com/youyo/logvalet/internal/domain"
 	"github.com/youyo/logvalet/internal/render"
 )
 
@@ -117,66 +116,10 @@ func (c *UserActivityCmd) run(ctx context.Context, client backlog.Client, render
 		}
 		until = &t
 	}
-	activities, err := fetchUserActivities(ctx, client, c.UserID, since, until, c.Limit)
+	activities, err := backlog.FetchUserActivities(ctx, client, c.UserID, since, until, c.Limit)
 	if err != nil {
 		return err
 	}
 	return renderer.Render(out, activities)
-}
-
-// fetchUserActivities は Since/Until に基づいてページネーションしながらアクティビティを取得する。
-// Backlog API はアクティビティの日付フィルタを持たないため、maxId によるカーソルページネーションと
-// クライアントサイドの日付フィルタリングで対応する。
-func fetchUserActivities(ctx context.Context, client backlog.Client, userID string, since, until *time.Time, limit int) ([]domain.Activity, error) {
-	const batchSize = 100
-	var result []domain.Activity
-	var maxID int64 = 0
-
-	for {
-		opt := backlog.ListUserActivitiesOptions{
-			Count: batchSize,
-			MaxId: int(maxID),
-		}
-		batch, err := client.ListUserActivities(ctx, userID, opt)
-		if err != nil {
-			return nil, err
-		}
-		if len(batch) == 0 {
-			break
-		}
-
-		done := false
-		for _, a := range batch {
-			if a.Created == nil {
-				continue
-			}
-			// Activities are returned newest first. Skip those after Until.
-			if until != nil && a.Created.After(*until) {
-				continue
-			}
-			// Stop when we reach activities older than Since.
-			if since != nil && a.Created.Before(*since) {
-				done = true
-				break
-			}
-			result = append(result, a)
-			// When no date filter, stop once limit is reached.
-			if since == nil && until == nil && limit > 0 && len(result) >= limit {
-				done = true
-				break
-			}
-		}
-
-		if done || len(batch) < batchSize {
-			break
-		}
-		// Cursor for next page: fetch activities older than the last one.
-		maxID = batch[len(batch)-1].ID - 1
-		if maxID <= 0 {
-			break
-		}
-	}
-
-	return result, nil
 }
 
