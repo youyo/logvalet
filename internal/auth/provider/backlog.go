@@ -54,7 +54,7 @@ type ProviderOption func(*BacklogOAuthProvider)
 func WithBaseURL(url string) ProviderOption {
 	return func(p *BacklogOAuthProvider) {
 		if url != "" {
-			p.baseURL = url
+			p.baseURL = strings.TrimRight(url, "/")
 		}
 	}
 }
@@ -100,7 +100,7 @@ func (p *BacklogOAuthProvider) BuildAuthorizationURL(state, redirectURI string) 
 // シャローコピーなので httpClient は共有される（*http.Client は並行安全なため安全）。
 func (p *BacklogOAuthProvider) CloneWithBaseURL(baseURL string) OAuthProvider {
 	cloned := *p
-	cloned.baseURL = baseURL
+	cloned.baseURL = strings.TrimRight(baseURL, "/")
 	// baseURL からスペース名を派生させる（カスタムドメインの場合は元の space を維持）
 	if derived, err := space.DeriveInitialTenant(baseURL); err == nil {
 		cloned.space = derived
@@ -132,7 +132,10 @@ func (p *BacklogOAuthProvider) RefreshToken(ctx context.Context, refreshToken, b
 	if baseURL != "" {
 		effectiveBaseURL = baseURL
 	}
-	tokenURL := effectiveBaseURL + backlogTokenPath
+	// 末尾スラッシュを除去して二重スラッシュ（//api/v2/oauth2/token）を防ぐ。
+	// LOGVALET_BASE_URL が "https://...backlog.com/" のように末尾スラッシュ付きで
+	// 渡されると Backlog が "Undefined resource" (400) を返し refresh が失敗する。
+	tokenURL := strings.TrimRight(effectiveBaseURL, "/") + backlogTokenPath
 
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")

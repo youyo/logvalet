@@ -339,6 +339,35 @@ func TestBacklogProvider_RefreshToken_UsesBaseURLArg(t *testing.T) {
 	}
 }
 
+// baseURL に末尾スラッシュが付いていても token エンドポイントのパスが
+// 二重スラッシュ（//api/v2/oauth2/token）にならず、正しく /api/v2/oauth2/token に
+// なること。LOGVALET_BASE_URL="https://heptagon.backlog.com/" 構成での
+// 「セッションが毎日切れる」回帰（#14 で refresh が baseURL 引数を使うようになり顕在化）の再発防止。
+func TestBacklogProvider_RefreshToken_TrailingSlashBaseURL(t *testing.T) {
+	var gotPath string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token":  "new-access-token",
+			"refresh_token": "new-refresh-token",
+			"token_type":    "Bearer",
+			"expires_in":    3600,
+		})
+	}))
+	defer ts.Close()
+
+	p, _ := NewBacklogOAuthProvider("test-space", "my-client-id", "my-secret")
+
+	// 末尾スラッシュ付き baseURL（LOGVALET_BASE_URL 由来の実構成を再現）
+	if _, err := p.RefreshToken(context.Background(), "old-refresh-token", ts.URL+"/"); err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if gotPath != "/api/v2/oauth2/token" {
+		t.Errorf("token endpoint path = %q, want %q (baseURL の末尾スラッシュで二重スラッシュになってはいけない)", gotPath, "/api/v2/oauth2/token")
+	}
+}
+
 func TestBacklogProvider_GetCurrentUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v2/users/myself" {
