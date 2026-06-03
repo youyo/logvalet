@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.29.3] - 2026-06-03
+
+OAuth token refresh の baseURL 二重スラッシュ問題を修正。
+
+### Fixed
+- fix(auth): token refresh で `baseURL` の末尾スラッシュが原因で二重スラッシュ（`//`）が発生する問題を修正
+
+### Tests
+- test(auth): `RefreshToken` テストのデータレースをチャネル同期で解消
+
 ## [0.29.2] - 2026-05-30
 
 `logvalet_user_activity` MCP ツールの日付フィルタ不具合を修正。
