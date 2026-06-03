@@ -344,9 +344,11 @@ func TestBacklogProvider_RefreshToken_UsesBaseURLArg(t *testing.T) {
 // なること。LOGVALET_BASE_URL="https://heptagon.backlog.com/" 構成での
 // 「セッションが毎日切れる」回帰（#14 で refresh が baseURL 引数を使うようになり顕在化）の再発防止。
 func TestBacklogProvider_RefreshToken_TrailingSlashBaseURL(t *testing.T) {
-	var gotPath string
+	// ハンドラ goroutine とテスト goroutine 間のデータレースを避けるため
+	// リクエストパスはチャネル経由で受け渡す（go test -race 対応）。
+	gotPathCh := make(chan string, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
+		gotPathCh <- r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token":  "new-access-token",
@@ -363,6 +365,7 @@ func TestBacklogProvider_RefreshToken_TrailingSlashBaseURL(t *testing.T) {
 	if _, err := p.RefreshToken(context.Background(), "old-refresh-token", ts.URL+"/"); err != nil {
 		t.Fatalf("RefreshToken() error = %v", err)
 	}
+	gotPath := <-gotPathCh
 	if gotPath != "/api/v2/oauth2/token" {
 		t.Errorf("token endpoint path = %q, want %q (baseURL の末尾スラッシュで二重スラッシュになってはいけない)", gotPath, "/api/v2/oauth2/token")
 	}
