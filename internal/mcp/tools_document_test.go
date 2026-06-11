@@ -2,9 +2,12 @@ package mcp_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/digest"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
@@ -244,5 +247,59 @@ func TestDocumentSearch_CountClamped(t *testing.T) {
 	}
 	if capturedOpt.Count != 100 {
 		t.Errorf("Count クランプ: 期待 100, 実際 %d", capturedOpt.Count)
+	}
+}
+
+// TestDocumentSearch_PossiblyMore_Count50 は count=50 で50件返却時に
+// possibly_more=true かつ next_offset=50 になることを確認する（M7 バグ修正検証）。
+func TestDocumentSearch_PossiblyMore_Count50(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		docs := make([]domain.Document, 50)
+		for i := range docs {
+			docs[i] = domain.Document{ID: "doc", Title: "t", ProjectID: 0}
+		}
+		return docs, nil
+	}
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return []domain.Project{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_document_search", map[string]any{
+		"keyword": "test",
+		"count":   float64(50),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	// DigestEnvelope としてデコードする
+	var envelope domain.DigestEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal envelope: %v", err)
+	}
+
+	// Digest フィールド（interface{}→map[string]any）を DocumentSearchDigest としてデコード
+	digestBytes, err := json.Marshal(envelope.Digest)
+	if err != nil {
+		t.Fatalf("failed to marshal digest: %v", err)
+	}
+	var d digest.DocumentSearchDigest
+	if err := json.Unmarshal(digestBytes, &d); err != nil {
+		t.Fatalf("failed to unmarshal DocumentSearchDigest: %v", err)
+	}
+
+	if !d.PossiblyMore {
+		t.Error("PossiblyMore = false, want true (count=50, 50件返却)")
+	}
+	if d.NextOffset != 50 {
+		t.Errorf("NextOffset = %d, want 50", d.NextOffset)
 	}
 }

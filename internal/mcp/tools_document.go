@@ -147,13 +147,15 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 				projectIDs = append(projectIDs, proj.ID)
 			}
 		}
+		offset := 0
+		if o, ok := intArg(args, "offset"); ok && o > 0 {
+			offset = o
+		}
 		opt := backlog.SearchDocumentsOptions{
 			Keyword:    keyword,
 			ProjectIDs: projectIDs,
 			Count:      count,
-		}
-		if offset, ok := intArg(args, "offset"); ok && offset > 0 {
-			opt.Offset = offset
+			Offset:     offset,
 		}
 		if sort, ok := stringArg(args, "sort"); ok {
 			opt.Sort = sort
@@ -171,6 +173,11 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		}
 		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
 		builder := digest.NewDefaultDocumentSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
-		return builder.Build(ctx, docs, digest.DocumentSearchOptions{Keyword: keyword, Detail: detail}), nil
+		return builder.Build(ctx, docs, digest.DocumentSearchOptions{
+			Keyword:        keyword,
+			Detail:         detail,
+			RequestedCount: count,
+			Offset:         offset,
+		}), nil
 	})
 }

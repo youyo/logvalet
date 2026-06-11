@@ -33,14 +33,17 @@ type DocumentSearchDigest struct {
 	Keyword       string                 `json:"keyword"`
 	Detail        string                 `json:"detail"` // "snippet" | "meta" | "full"
 	TotalReturned int                    `json:"total_returned"`
-	PossiblyMore  bool                   `json:"possibly_more"` // true = 100件ちょうど返却
+	PossiblyMore  bool                   `json:"possibly_more"` // true when len(docs) >= requestedCount
+	NextOffset    int                    `json:"next_offset,omitempty"` // possibly_more=true のときのみ設定
 	Items         []DocumentSearchDetail `json:"items"`
 }
 
 // DocumentSearchOptions は DocumentSearchBuilder.Build() のオプション。
 type DocumentSearchOptions struct {
-	Keyword string // スニペット抽出のアンカー語（空可）
-	Detail  string // "snippet"（既定）| "meta" | "full"
+	Keyword        string // スニペット抽出のアンカー語（空可）
+	Detail         string // "snippet"（既定）| "meta" | "full"
+	RequestedCount int    // CLI/MCP で指定した count（0は100として扱う）
+	Offset         int    // 今回のオフセット（next_offset 計算用）
 }
 
 // DocumentSearchBuilder は []domain.Document から DigestEnvelope を生成するインターフェース。
@@ -119,11 +122,24 @@ func (b *DefaultDocumentSearchBuilder) Build(ctx context.Context, docs []domain.
 		items = append(items, item)
 	}
 
+	// requestedCount の正規化（0は100として扱う）
+	requestedCount := opt.RequestedCount
+	if requestedCount <= 0 {
+		requestedCount = 100
+	}
+
+	possiblyMore := len(docs) >= requestedCount
+	nextOffset := 0
+	if possiblyMore {
+		nextOffset = opt.Offset + len(docs)
+	}
+
 	digestData := &DocumentSearchDigest{
 		Keyword:       opt.Keyword,
 		Detail:        detail,
 		TotalReturned: len(docs),
-		PossiblyMore:  len(docs) >= 100,
+		PossiblyMore:  possiblyMore,
+		NextOffset:    nextOffset,
 		Items:         items,
 	}
 

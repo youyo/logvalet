@@ -487,6 +487,104 @@ func TestDocumentSearchBuilder_Build_URL_VerbosityIndependent(t *testing.T) {
 	}
 }
 
+// ---- M7: ページネーション改善テスト ----
+
+// P1: バグ修正確認 - count=50 で 50件返却時 PossiblyMore=true（旧実装は偽陰性）
+func TestDocumentSearchBuilder_Build_PossiblyMore_Count50_ExactlyFull(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 50)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 50})
+	d := env.Digest.(*DocumentSearchDigest)
+	if !d.PossiblyMore {
+		t.Error("PossiblyMore = false, want true (50 docs == requestedCount=50)")
+	}
+	if d.NextOffset != 50 {
+		t.Errorf("NextOffset = %d, want 50", d.NextOffset)
+	}
+}
+
+// P2: count=50 で 49件返却 → PossiblyMore=false
+func TestDocumentSearchBuilder_Build_PossiblyMore_Count50_LessThan(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 49)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 50})
+	d := env.Digest.(*DocumentSearchDigest)
+	if d.PossiblyMore {
+		t.Error("PossiblyMore = true, want false (49 docs < requestedCount=50)")
+	}
+}
+
+// P3: AD7 維持 - count=100 で 100件返却 → PossiblyMore=true
+func TestDocumentSearchBuilder_Build_PossiblyMore_Count100_Full(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 100)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 100})
+	d := env.Digest.(*DocumentSearchDigest)
+	if !d.PossiblyMore {
+		t.Error("PossiblyMore = false, want true (100 docs == requestedCount=100)")
+	}
+	if d.NextOffset != 100 {
+		t.Errorf("NextOffset = %d, want 100", d.NextOffset)
+	}
+}
+
+// P4: offset=50 で 50件 → NextOffset=100
+func TestDocumentSearchBuilder_Build_NextOffset_WithOffset(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 50)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 50, Offset: 50})
+	d := env.Digest.(*DocumentSearchDigest)
+	if !d.PossiblyMore {
+		t.Error("PossiblyMore = false, want true")
+	}
+	if d.NextOffset != 100 {
+		t.Errorf("NextOffset = %d, want 100 (offset=50 + len=50)", d.NextOffset)
+	}
+}
+
+// P5: possibly_more=false の場合 NextOffset=0
+func TestDocumentSearchBuilder_Build_NextOffset_Zero_WhenNotPossiblyMore(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 99)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 100})
+	d := env.Digest.(*DocumentSearchDigest)
+	if d.PossiblyMore {
+		t.Error("PossiblyMore = true, want false (99 docs < 100)")
+	}
+	if d.NextOffset != 0 {
+		t.Errorf("NextOffset = %d, want 0 (possibly_more=false)", d.NextOffset)
+	}
+}
+
+// P6: RequestedCount=0 フォールバック → 0は100として扱う → 100件で PossiblyMore=true
+func TestDocumentSearchBuilder_Build_RequestedCount_Zero_Fallback(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := make([]domain.Document, 100)
+	for i := range docs {
+		docs[i] = makeTestDoc("doc", "t", "p")
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "", RequestedCount: 0})
+	d := env.Digest.(*DocumentSearchDigest)
+	if !d.PossiblyMore {
+		t.Error("PossiblyMore = false, want true (RequestedCount=0 falls back to 100)")
+	}
+}
+
 // U6: baseURL 末尾スラッシュ → 二重スラッシュにならない
 func TestDocumentSearchBuilder_Build_URL_TrailingSlash(t *testing.T) {
 	mock := backlog.NewMockClient()
