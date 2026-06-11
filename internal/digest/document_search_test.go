@@ -1,7 +1,9 @@
 package digest
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"testing"
@@ -149,6 +151,9 @@ func containsRune(s, substr string) bool {
 
 func newTestDocumentSearchBuilder() *DefaultDocumentSearchBuilder {
 	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return []domain.Project{{ID: 10, ProjectKey: "PROJ"}}, nil
+	}
 	return NewDefaultDocumentSearchBuilder(mock, "default", "myspace", "https://example.backlog.com")
 }
 
@@ -167,7 +172,7 @@ func makeTestDoc(id string, title, plain string) domain.Document {
 // B1: 空スライス → Items=[], total_returned=0, possibly_more=false
 func TestDocumentSearchBuilder_Build_Empty(t *testing.T) {
 	b := newTestDocumentSearchBuilder()
-	env := b.Build([]domain.Document{}, DocumentSearchOptions{Keyword: "test"})
+	env := b.Build(context.Background(), []domain.Document{}, DocumentSearchOptions{Keyword: "test"})
 	d := env.Digest.(*DocumentSearchDigest)
 	if d.TotalReturned != 0 {
 		t.Errorf("TotalReturned = %d, want 0", d.TotalReturned)
@@ -190,7 +195,7 @@ func TestDocumentSearchBuilder_Build_SnippetMode(t *testing.T) {
 		makeTestDoc("doc-001", "OAuth ドキュメント", "OAuth トークンの説明テキストが含まれます"),
 		makeTestDoc("doc-002", "別ドキュメント", "OAuth に関する別の説明です"),
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "OAuth", Detail: "snippet"})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "OAuth", Detail: "snippet"})
 	d := env.Digest.(*DocumentSearchDigest)
 	for i, item := range d.Items {
 		if item.Snippet == "" {
@@ -208,7 +213,7 @@ func TestDocumentSearchBuilder_Build_MetaMode(t *testing.T) {
 	docs := []domain.Document{
 		makeTestDoc("doc-001", "タイトル", "本文テキスト"),
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "k", Detail: "meta"})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "meta"})
 	d := env.Digest.(*DocumentSearchDigest)
 	for i, item := range d.Items {
 		if item.Snippet != "" {
@@ -227,7 +232,7 @@ func TestDocumentSearchBuilder_Build_FullMode(t *testing.T) {
 	docs := []domain.Document{
 		makeTestDoc("doc-001", "タイトル", plain),
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "キーワード", Detail: "full"})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "キーワード", Detail: "full"})
 	d := env.Digest.(*DocumentSearchDigest)
 	if len(d.Items) != 1 {
 		t.Fatalf("Items len = %d, want 1", len(d.Items))
@@ -247,7 +252,7 @@ func TestDocumentSearchBuilder_Build_PossiblyMore_True(t *testing.T) {
 	for i := range docs {
 		docs[i] = makeTestDoc("doc", "t", "p")
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: ""})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: ""})
 	d := env.Digest.(*DocumentSearchDigest)
 	if !d.PossiblyMore {
 		t.Error("PossiblyMore = false, want true (100 items)")
@@ -261,7 +266,7 @@ func TestDocumentSearchBuilder_Build_PossiblyMore_False(t *testing.T) {
 	for i := range docs {
 		docs[i] = makeTestDoc("doc", "t", "p")
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: ""})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: ""})
 	d := env.Digest.(*DocumentSearchDigest)
 	if d.PossiblyMore {
 		t.Error("PossiblyMore = true, want false (99 items)")
@@ -275,7 +280,7 @@ func TestDocumentSearchBuilder_Build_KeywordNoMatch_LeadExcerpt(t *testing.T) {
 	docs := []domain.Document{
 		makeTestDoc("doc-001", "タイトル", plain),
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "zzz", Detail: "snippet"})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "zzz", Detail: "snippet"})
 	d := env.Digest.(*DocumentSearchDigest)
 	if len(d.Items) == 0 {
 		t.Fatal("Items is empty")
@@ -289,7 +294,7 @@ func TestDocumentSearchBuilder_Build_KeywordNoMatch_LeadExcerpt(t *testing.T) {
 // B8: DigestEnvelope 構造 → Resource="document_search"、Warnings=[]
 func TestDocumentSearchBuilder_Build_EnvelopeStructure(t *testing.T) {
 	b := newTestDocumentSearchBuilder()
-	env := b.Build([]domain.Document{}, DocumentSearchOptions{})
+	env := b.Build(context.Background(), []domain.Document{}, DocumentSearchOptions{})
 	if env.Resource != "document_search" {
 		t.Errorf("Resource = %q, want %q", env.Resource, "document_search")
 	}
@@ -313,12 +318,12 @@ func TestDocumentSearchBuilder_Build_Golden(t *testing.T) {
 	now := time.Date(2026, 1, 15, 9, 0, 0, 0, time.UTC)
 	docs := []domain.Document{
 		{
-			ID:        "doc-golden-001",
-			ProjectID: 10,
-			Title:     "OAuth 認証ガイド",
-			Plain:     "OAuth 2.0 を使った認証フローの説明です。クライアントIDとシークレットを設定してください。",
-			Created:   &now,
-			Updated:   &now,
+			ID:          "doc-golden-001",
+			ProjectID:   10,
+			Title:       "OAuth 認証ガイド",
+			Plain:       "OAuth 2.0 を使った認証フローの説明です。クライアントIDとシークレットを設定してください。",
+			Created:     &now,
+			Updated:     &now,
 			CreatedUser: &domain.User{ID: 1, Name: "Alice"},
 			UpdatedUser: &domain.User{ID: 2, Name: "Bob"},
 		},
@@ -332,7 +337,7 @@ func TestDocumentSearchBuilder_Build_Golden(t *testing.T) {
 		},
 	}
 
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "OAuth", Detail: "snippet"})
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "OAuth", Detail: "snippet"})
 	digestData := env.Digest.(*DocumentSearchDigest)
 
 	got, err := json.MarshalIndent(digestData, "", "  ")
@@ -367,9 +372,135 @@ func TestDocumentSearchBuilder_Build_DetailDefault(t *testing.T) {
 	docs := []domain.Document{
 		makeTestDoc("doc-001", "タイトル", "キーワードを含む本文テキスト"),
 	}
-	env := b.Build(docs, DocumentSearchOptions{Keyword: "キーワード"}) // Detail 未指定
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "キーワード"}) // Detail 未指定
 	d := env.Digest.(*DocumentSearchDigest)
 	if d.Detail != "snippet" {
 		t.Errorf("Detail = %q, want %q (default should be snippet)", d.Detail, "snippet")
+	}
+}
+
+// ---- URL フィールドテスト（M6）----
+
+// U1: ListProjects 成功 → url が "{baseURL}/document/{projectKey}/{docID}" 形式で構築される
+func TestDocumentSearchBuilder_Build_URL_Constructed(t *testing.T) {
+	b := newTestDocumentSearchBuilder() // ListProjects → {ID:10, ProjectKey:"PROJ"}
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"),
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "snippet"})
+	d := env.Digest.(*DocumentSearchDigest)
+	if len(d.Items) != 1 {
+		t.Fatalf("Items len = %d, want 1", len(d.Items))
+	}
+	want := "https://example.backlog.com/document/PROJ/doc-001"
+	if d.Items[0].URL != want {
+		t.Errorf("URL = %q, want %q", d.Items[0].URL, want)
+	}
+	if len(env.Warnings) != 0 {
+		t.Errorf("Warnings len = %d, want 0 (no failure)", len(env.Warnings))
+	}
+}
+
+// U2: ListProjects 失敗 → url が空・warnings が1件（partial success）
+func TestDocumentSearchBuilder_Build_URL_ListProjectsFailed(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return nil, errors.New("api error")
+	}
+	b := NewDefaultDocumentSearchBuilder(mock, "default", "myspace", "https://example.backlog.com")
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"),
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "snippet"})
+	d := env.Digest.(*DocumentSearchDigest)
+	if d.Items[0].URL != "" {
+		t.Errorf("URL = %q, want empty (ListProjects failed)", d.Items[0].URL)
+	}
+	if len(env.Warnings) != 1 {
+		t.Fatalf("Warnings len = %d, want 1 (partial success)", len(env.Warnings))
+	}
+	// digest 本体は返ること（partial success）
+	if d.TotalReturned != 1 {
+		t.Errorf("TotalReturned = %d, want 1 (digest still returned)", d.TotalReturned)
+	}
+}
+
+// U3: projectKey 不在（マップに projectID がない）→ url が空・エラーなし
+func TestDocumentSearchBuilder_Build_URL_ProjectKeyMissing(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		// projectID=10 を含まないプロジェクトのみ返す
+		return []domain.Project{{ID: 999, ProjectKey: "OTHER"}}, nil
+	}
+	b := NewDefaultDocumentSearchBuilder(mock, "default", "myspace", "https://example.backlog.com")
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"), // ProjectID=10
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "snippet"})
+	d := env.Digest.(*DocumentSearchDigest)
+	if d.Items[0].URL != "" {
+		t.Errorf("URL = %q, want empty (projectKey missing)", d.Items[0].URL)
+	}
+	if len(env.Warnings) != 0 {
+		t.Errorf("Warnings len = %d, want 0 (no error when key missing)", len(env.Warnings))
+	}
+}
+
+// U4: baseURL 空 → url が空・ListProjects 呼ばれず・エラーなし
+func TestDocumentSearchBuilder_Build_URL_EmptyBaseURL(t *testing.T) {
+	mock := backlog.NewMockClient()
+	called := false
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		called = true
+		return []domain.Project{{ID: 10, ProjectKey: "PROJ"}}, nil
+	}
+	b := NewDefaultDocumentSearchBuilder(mock, "default", "myspace", "")
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"),
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "snippet"})
+	d := env.Digest.(*DocumentSearchDigest)
+	if d.Items[0].URL != "" {
+		t.Errorf("URL = %q, want empty (baseURL empty)", d.Items[0].URL)
+	}
+	if called {
+		t.Error("ListProjects should NOT be called when baseURL is empty (AD12)")
+	}
+	if len(env.Warnings) != 0 {
+		t.Errorf("Warnings len = %d, want 0", len(env.Warnings))
+	}
+}
+
+// U5: verbosity 非依存 → detail="meta" でも url が設定される
+func TestDocumentSearchBuilder_Build_URL_VerbosityIndependent(t *testing.T) {
+	b := newTestDocumentSearchBuilder()
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"),
+	}
+	for _, detail := range []string{"snippet", "meta", "full"} {
+		env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: detail})
+		d := env.Digest.(*DocumentSearchDigest)
+		want := "https://example.backlog.com/document/PROJ/doc-001"
+		if d.Items[0].URL != want {
+			t.Errorf("detail=%q: URL = %q, want %q (url is verbosity independent)", detail, d.Items[0].URL, want)
+		}
+	}
+}
+
+// U6: baseURL 末尾スラッシュ → 二重スラッシュにならない
+func TestDocumentSearchBuilder_Build_URL_TrailingSlash(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return []domain.Project{{ID: 10, ProjectKey: "PROJ"}}, nil
+	}
+	b := NewDefaultDocumentSearchBuilder(mock, "default", "myspace", "https://example.backlog.com/")
+	docs := []domain.Document{
+		makeTestDoc("doc-001", "タイトル", "本文"),
+	}
+	env := b.Build(context.Background(), docs, DocumentSearchOptions{Keyword: "k", Detail: "snippet"})
+	d := env.Digest.(*DocumentSearchDigest)
+	want := "https://example.backlog.com/document/PROJ/doc-001"
+	if d.Items[0].URL != want {
+		t.Errorf("URL = %q, want %q (no double slash)", d.Items[0].URL, want)
 	}
 }

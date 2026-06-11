@@ -171,6 +171,6 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		}
 		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
 		builder := digest.NewDefaultDocumentSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
-		return builder.Build(docs, digest.DocumentSearchOptions{Keyword: keyword, Detail: detail}), nil
+		return builder.Build(ctx, docs, digest.DocumentSearchOptions{Keyword: keyword, Detail: detail}), nil
 	})
 }

@@ -1,6 +1,9 @@
 package digest
 
 import (
+	"context"
+	"fmt"
+	"strings"
 	"time"
 	"unicode"
 
@@ -16,8 +19,9 @@ type DocumentSearchDetail struct {
 	ID          string          `json:"id"`
 	ProjectID   int             `json:"project_id"`
 	Title       string          `json:"title"`
-	Snippet     string          `json:"snippet,omitempty"`   // snippet/full のみ
-	Plain       string          `json:"plain,omitempty"`     // full のみ
+	URL         string          `json:"url,omitempty"`     // Backlog Web UI リンク（verbosity 非依存）
+	Snippet     string          `json:"snippet,omitempty"` // snippet/full のみ
+	Plain       string          `json:"plain,omitempty"`   // full のみ
 	Created     *time.Time      `json:"created,omitempty"`
 	Updated     *time.Time      `json:"updated,omitempty"`
 	CreatedUser *domain.UserRef `json:"created_user,omitempty"`
@@ -27,7 +31,7 @@ type DocumentSearchDetail struct {
 // DocumentSearchDigest は document search digest のトップレベル。
 type DocumentSearchDigest struct {
 	Keyword       string                 `json:"keyword"`
-	Detail        string                 `json:"detail"`         // "snippet" | "meta" | "full"
+	Detail        string                 `json:"detail"` // "snippet" | "meta" | "full"
 	TotalReturned int                    `json:"total_returned"`
 	PossiblyMore  bool                   `json:"possibly_more"` // true = 100件ちょうど返却
 	Items         []DocumentSearchDetail `json:"items"`
@@ -41,7 +45,7 @@ type DocumentSearchOptions struct {
 
 // DocumentSearchBuilder は []domain.Document から DigestEnvelope を生成するインターフェース。
 type DocumentSearchBuilder interface {
-	Build(docs []domain.Document, opt DocumentSearchOptions) *domain.DigestEnvelope
+	Build(ctx context.Context, docs []domain.Document, opt DocumentSearchOptions) *domain.DigestEnvelope
 }
 
 // DefaultDocumentSearchBuilder は DocumentSearchBuilder の標準実装。
@@ -55,12 +59,35 @@ func NewDefaultDocumentSearchBuilder(client backlog.Client, profile, space, base
 }
 
 // Build は []domain.Document から DigestEnvelope を構築する。
-// API コールは行わず、渡されたデータから純粋に digest を構築する。
-func (b *DefaultDocumentSearchBuilder) Build(docs []domain.Document, opt DocumentSearchOptions) *domain.DigestEnvelope {
+// URL 構築のため projectID → projectKey のマッピングが必要で、
+// baseURL が空でなく docs が存在する場合のみ ListProjects を1回呼び出す（AD12）。
+// ListProjects 失敗時も warning を付与して digest 本体を返す（partial success）。
+func (b *DefaultDocumentSearchBuilder) Build(ctx context.Context, docs []domain.Document, opt DocumentSearchOptions) *domain.DigestEnvelope {
 	// Detail のデフォルトは "snippet"
 	detail := opt.Detail
 	if detail == "" {
 		detail = "snippet"
+	}
+
+	baseURL := strings.TrimRight(b.baseURL, "/")
+
+	// baseURL が空 or docs が空なら ListProjects を呼ばない（AD12）
+	projectKeyMap := make(map[int]string)
+	var warnings []domain.Warning
+	if baseURL != "" && len(docs) > 0 {
+		projects, err := b.client.ListProjects(ctx)
+		if err != nil {
+			warnings = append(warnings, domain.Warning{
+				Code:      "project_fetch_failed",
+				Message:   fmt.Sprintf("failed to list projects for URL construction: %v", err),
+				Component: "url",
+				Retryable: true,
+			})
+		} else {
+			for _, p := range projects {
+				projectKeyMap[p.ID] = p.ProjectKey
+			}
+		}
 	}
 
 	items := make([]DocumentSearchDetail, 0, len(docs))
@@ -75,13 +102,18 @@ func (b *DefaultDocumentSearchBuilder) Build(docs []domain.Document, opt Documen
 			UpdatedUser: toUserRef(doc.UpdatedUser),
 		}
 
+		// URL は verbosity 非依存（projectKey 不在なら省略）
+		if key, ok := projectKeyMap[doc.ProjectID]; ok && key != "" {
+			item.URL = fmt.Sprintf("%s/document/%s/%s", baseURL, key, doc.ID)
+		}
+
 		switch detail {
 		case "snippet":
 			item.Snippet = extractSnippet(doc.Plain, opt.Keyword)
 		case "full":
 			item.Snippet = extractSnippet(doc.Plain, opt.Keyword)
 			item.Plain = doc.Plain
-		// "meta": Snippet も Plain も返さない（ゼロ値のまま）
+			// "meta": Snippet も Plain も返さない（ゼロ値のまま）
 		}
 
 		items = append(items, item)
@@ -95,7 +127,7 @@ func (b *DefaultDocumentSearchBuilder) Build(docs []domain.Document, opt Documen
 		Items:         items,
 	}
 
-	return b.newEnvelope("document_search", digestData, nil)
+	return b.newEnvelope("document_search", digestData, warnings)
 }
 
 // extractSnippet は plain からキーワード周辺 ±snippetRadius rune を切り出す。

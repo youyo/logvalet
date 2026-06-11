@@ -228,6 +228,6 @@ func (c *DocumentSearchCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 	builder := digest.NewDefaultDocumentSearchBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
-	envelope := builder.Build(docs, digest.DocumentSearchOptions{Keyword: c.Keyword, Detail: c.Detail})
+	envelope := builder.Build(ctx, docs, digest.DocumentSearchOptions{Keyword: c.Keyword, Detail: c.Detail})
 	return rc.Renderer.Render(os.Stdout, envelope)
 }
