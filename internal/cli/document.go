@@ -216,15 +216,16 @@ func (c *DocumentSearchCmd) Run(g *GlobalFlags) error {
 		count = 100
 	}
 	// offset クランプ（負数は0にする）
-	if c.Offset < 0 {
-		c.Offset = 0
+	offset := c.Offset
+	if offset < 0 {
+		offset = 0
 	}
 	opt := backlog.SearchDocumentsOptions{
 		Keyword:    c.Keyword,
 		ProjectIDs: projectIDs,
 		Sort:       c.Sort,
 		Order:      c.Order,
-		Offset:     c.Offset,
+		Offset:     offset,
 		Count:      count,
 	}
 	docs, err := rc.Client.SearchDocuments(ctx, opt)
@@ -235,8 +236,9 @@ func (c *DocumentSearchCmd) Run(g *GlobalFlags) error {
 	envelope := builder.Build(ctx, docs, digest.DocumentSearchOptions{
 		Keyword:        c.Keyword,
 		Detail:         c.Detail,
+		// RequestedCount は API の Count と同値（不一致だと possibly_more が偽陰性に戻る・AD11）
 		RequestedCount: count,
-		Offset:         c.Offset,
+		Offset:         offset,
 	})
 	return rc.Renderer.Render(os.Stdout, envelope)
 }

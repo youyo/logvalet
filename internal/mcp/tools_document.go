@@ -176,6 +176,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		return builder.Build(ctx, docs, digest.DocumentSearchOptions{
 			Keyword:        keyword,
 			Detail:         detail,
+			// RequestedCount は API の Count と同値（不一致だと possibly_more が偽陰性に戻る・AD11）
 			RequestedCount: count,
 			Offset:         offset,
 		}), nil

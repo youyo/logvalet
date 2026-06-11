@@ -94,11 +94,11 @@
 - 詳細: plans/document-search-m06-url-field.md
 
 ### M7: ページネーション改善（possibly_more バグ修正 + next_offset）
-- [ ] **バグ修正**: `PossiblyMore: len(docs) >= 100` のハードコードを廃止。`DocumentSearchOptions.RequestedCount int` を追加し `PossiblyMore: len(docs) >= requestedCount`（0は100として扱う）
-- [ ] `DocumentSearchDigest` に `next_offset int` フィールド追加（`json:"next_offset,omitempty"`）: `possibly_more=true` のとき `opt.Offset + len(docs)` を設定
-- [ ] `DocumentSearchOptions.Offset int` を追加（next_offset 計算のため CLI/MCP 層から渡す）
-- [ ] CLI（`document.go`）・MCP（`tools_document.go`）で `Offset` と `RequestedCount` を `DocumentSearchOptions` に渡す
-- [ ] テスト: count=50 で 50件返却 → `possibly_more=true`（50>=50、バグ修正後の正挙動）/ count=100 で 100件返却 → `possibly_more=true`（AD7維持）/ next_offset が正しく設定される
+- [x] **バグ修正**: `PossiblyMore: len(docs) >= 100` のハードコードを廃止。`DocumentSearchOptions.RequestedCount int` を追加し `PossiblyMore: len(docs) >= requestedCount`（0は100として扱う）
+- [x] `DocumentSearchDigest` に `next_offset int` フィールド追加（`json:"next_offset,omitempty"`）: `possibly_more=true` のとき `opt.Offset + len(docs)` を設定
+- [x] `DocumentSearchOptions.Offset int` を追加（next_offset 計算のため CLI/MCP 層から渡す）
+- [x] CLI（`document.go`）・MCP（`tools_document.go`）で `Offset` と `RequestedCount` を `DocumentSearchOptions` に渡す
+- [x] テスト: count=50 で 50件返却 → `possibly_more=true`（50>=50、バグ修正後の正挙動）/ count=100 で 100件返却 → `possibly_more=true`（AD7維持）/ next_offset が正しく設定される
 - 詳細: plans/document-search-m07-pagination.md
 
 ### M5: E2E 検証 & リリース
