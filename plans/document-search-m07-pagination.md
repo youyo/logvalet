@@ -107,11 +107,16 @@ envelope := builder.Build(ctx, docs, digest.DocumentSearchOptions{
 ### MCP の更新（`internal/mcp/tools_document.go`）
 
 ```go
+offset := 0
+if o, ok := intArg(args, "offset"); ok && o > 0 {
+    offset = o
+}
+
 return builder.Build(ctx, docs, digest.DocumentSearchOptions{
     Keyword:        keyword,
     Detail:         detail,
     RequestedCount: count,   // ← 追加
-    Offset:         offset,  // ← 追加（intArg で取得）
+    Offset:         offset,  // ← 追加
 }), nil
 ```
 
@@ -121,24 +126,19 @@ return builder.Build(ctx, docs, digest.DocumentSearchOptions{
 
 | # | テストケース | 入力 | 期待 |
 |---|-------------|------|------|
-| 1 | **バグ修正**: count=50 で 50件返却 | RequestedCount=50, 50件 | PossiblyMore=false（修正前は false だったが偽陰性確認のため明示） |
-| 2 | **バグ修正**: count=50 で 50件返却（以前の偽陽性テストの逆） | RequestedCount=50, 49件 | PossiblyMore=false |
+| 1 | **バグ修正**: count=50 で 50件返却（旧実装は 50<100=false の偽陰性） | RequestedCount=50, 50件 | PossiblyMore=true（50>=50）, NextOffset=50 |
+| 2 | count=50 で 49件返却 | RequestedCount=50, 49件 | PossiblyMore=false |
 | 3 | **AD7 維持**: count=100 で 100件返却 | RequestedCount=100, 100件 | PossiblyMore=true |
-| 4 | count=50 で 50件 | RequestedCount=50, 50件 | PossiblyMore=true, NextOffset=50 |
-| 5 | offset=100 で 50件 | RequestedCount=50, Offset=100, 50件 | NextOffset=150 |
-| 6 | possibly_more=false → next_offset=0 | RequestedCount=100, 99件 | NextOffset=0（omitempty で出力なし） |
-| 7 | RequestedCount=0（未設定） | 100件 | PossiblyMore=true（0→100 として扱う） |
-
-### golden test 更新
-
-`testdata/document_search_snippet.json` の `possibly_more`・`next_offset` フィールドを更新。
+| 4 | offset=50 で 50件 | RequestedCount=50, Offset=50, 50件 | PossiblyMore=true, NextOffset=100 |
+| 5 | possibly_more=false → next_offset=0 | RequestedCount=100, 99件 | NextOffset=0（omitempty で出力なし） |
+| 6 | RequestedCount=0（未設定） | 100件 | PossiblyMore=true（0→100 として扱う） |
 
 ## Implementation Steps（TDD: Red → Green → Refactor）
 
-- [ ] Step 1 (Red): `document_search_test.go` に上記7テストを追加 → 既存テストとの差分を確認（特に Test #3 は M2 の 100件テストと重複する可能性 → テスト統合または追加）
-- [ ] Step 2 (Green): `DocumentSearchOptions` に `RequestedCount`・`Offset` 追加、`DocumentSearchDigest` に `NextOffset` 追加、`Build` ロジック更新
+- [ ] Step 1 (Red): `document_search_test.go` に上記6テストを追加 → 既存テストとの差分を確認（特に Test #3 は M2 の 100件テストと重複する可能性 → テスト統合または追加）
+- [ ] Step 2 (Green): `DocumentSearchOptions` に `RequestedCount`・`Offset` 追加、`DocumentSearchDigest` に `NextOffset` 追加、`Build` ロジック更新。`document_search.go` の `// true = 100件ちょうど返却` コメントを `// true when len(docs) >= requestedCount` に更新する
 - [ ] Step 3 (Green): `cli/document.go` / `mcp/tools_document.go` の DocumentSearchOptions に `RequestedCount`・`Offset` を渡すように更新
-- [ ] Step 4 (Refactor): `go vet ./...`、golden test 更新（`-update` フラグ）
+- [ ] Step 4 (Refactor): `go vet ./...`、golden は変更不要
 
 ## ユーザーへの提示例（スキル内）
 
@@ -161,7 +161,7 @@ MCP の場合は `next_offset` フィールドをそのまま参照:
 
 | リスク | 影響度 | 対策 |
 |--------|--------|------|
-| M2 の golden test が `possibly_more`・`next_offset` フィールド変更で壊れる | 中 | Step 2 後に `-update` で再生成 |
+| M2 の golden test が `possibly_more`・`next_offset` フィールド変更で壊れる | 低 | golden は変更不要（RequestedCount 未指定→0→100→2>=100=false→next_offset が omitempty で出力なし。バイト単位で不変） |
 | `RequestedCount=0` のデフォルト扱いが CLI のデフォルト count=100 と不一致 | 低 | CLI は常に count（クランプ後）を渡すので 0 にならない。0 は「オプション未設定時のフォールバック」 |
 
 ## Definition of Done
@@ -169,3 +169,4 @@ MCP の場合は `next_offset` フィールドをそのまま参照:
 - `go vet ./...` グリーン
 - `--count 50` のとき `possibly_more` が正しく設定される
 - `next_offset` が `possibly_more=true` のときのみ出力される
+- `skills/document-search/SKILL.md` と `claude-plugins/.../SKILL.md` の Pagination Tips が `next_offset` ベースの記述に更新済み（`--offset 100` ハードコードが残っていないこと）

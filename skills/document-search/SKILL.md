@@ -102,6 +102,6 @@ logvalet_document_search
 ## Tips
 
 - **Cross-project search**: Omit `--project` to search all projects in the current space (default)
-- **Pagination**: If `possibly_more=true`, the space likely has more than 100 matching documents. Use `--offset 100` for the next page
+- **Pagination**: If `possibly_more=true`, use the `next_offset` value from the response as `--offset N` to get the next page. Example: if `next_offset=50`, run `lv document search "keyword" --count 50 --offset 50`
 - **Keyword scope**: Backlog searches document content (title and body). Use specific technical terms for best results
 - **Multi-space**: When multiple Backlog spaces are connected, results are per-space (fan-out). Each space returns its own digest
