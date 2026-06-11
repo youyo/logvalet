@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.30.0] - 2026-06-11
+
+Backlog ドキュメントのキーワード横断検索を CLI / MCP / Skill の全層に追加。
+
+### Added
+- feat(backlog): `SearchDocuments(ctx, opt)` メソッドを `Client` interface と `HTTPClient` に追加（`GET /api/v2/documents`、keyword/projectId[]/sort/order/offset/count 対応）
+- feat(digest): `DocumentSearchBuilder` を追加。`[]domain.Document` → `DigestEnvelope`。スニペット抽出（`[]rune` ベース・ケースインセンシティブ・複数語対応）、verbosity モード（snippet/meta/full）
+- feat(digest): `DocumentSearchDetail` に `url` フィールドを追加。`ListProjects` で `projectId → projectKey` を解決し `{baseURL}/document/{projectKey}/{id}` 形式の URL を構築
+- feat(cli): `lv document search <keyword>` コマンドを追加（`--project`・`--detail`・`--count`・`--offset`・`--sort`・`--order`）
+- feat(mcp): `logvalet_document_search` MCP ツールを追加（`RegisterWithSpaces`・read-only）
+- feat(skills): `logvalet:document-search` スキルを追加（`logvalet/skills/` と `claude-plugins` の両リポジトリに配置）
+
+### Fixed
+- fix(digest): `possibly_more` のハードコード `>= 100` を廃止。`DocumentSearchOptions.RequestedCount` を導入し `len(docs) >= requestedCount` に変更（`--count 50` 時の偽陰性バグを修正）
+- fix(cli): `lv document search` の `--project-keys` を `--project` に修正（スキル記述との整合）
+
+### Changed
+- feat(digest): `DocumentSearchDigest` に `next_offset` フィールドを追加（`possibly_more=true` のとき `offset + len(docs)` を設定。ページネーション利便性向上）
+
 ## [0.29.3] - 2026-06-03
 
 OAuth token refresh の baseURL 二重スラッシュ問題を修正。
