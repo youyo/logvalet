@@ -1,0 +1,32 @@
+{
+  "keyword": "OAuth",
+  "detail": "snippet",
+  "total_returned": 2,
+  "possibly_more": false,
+  "items": [
+    {
+      "id": "doc-golden-001",
+      "project_id": 10,
+      "title": "OAuth 認証ガイド",
+      "snippet": "OAuth 2.0 を使った認証フローの説明です。クライアントIDとシークレットを設定してください。",
+      "created": "2026-01-15T09:00:00Z",
+      "updated": "2026-01-15T09:00:00Z",
+      "created_user": {
+        "id": 1,
+        "name": "Alice"
+      },
+      "updated_user": {
+        "id": 2,
+        "name": "Bob"
+      }
+    },
+    {
+      "id": "doc-golden-002",
+      "project_id": 10,
+      "title": "API リファレンス",
+      "snippet": "OAuth トークンを Authorization ヘッダーに付与してリクエストします。",
+      "created": "2026-01-15T09:00:00Z",
+      "updated": "2026-01-15T09:00:00Z"
+    }
+  ]
+}
