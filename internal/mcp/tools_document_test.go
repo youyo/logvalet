@@ -153,3 +153,96 @@ func TestDocumentDigest_MissingDocumentID(t *testing.T) {
 		t.Fatal("expected tool error but got none")
 	}
 }
+
+// ===== logvalet_document_search =====
+
+// TestDocumentSearch_Normal は keyword 指定で SearchDocuments が呼ばれることを確認する。
+func TestDocumentSearch_Normal(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.SearchDocumentsOptions
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		capturedOpt = opt
+		return []domain.Document{
+			{ID: "doc-1", Title: "OAuth ドキュメント"},
+		}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_document_search", map[string]any{
+		"keyword": "OAuth",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Keyword != "OAuth" {
+		t.Errorf("Keyword: 期待 %q, 実際 %q", "OAuth", capturedOpt.Keyword)
+	}
+	if mock.GetCallCount("SearchDocuments") != 1 {
+		t.Errorf("expected SearchDocuments called 1 time, got %d", mock.GetCallCount("SearchDocuments"))
+	}
+}
+
+// TestDocumentSearch_MissingKeyword は keyword 未指定で IsError=true になることを確認する。
+func TestDocumentSearch_MissingKeyword(t *testing.T) {
+	mock := backlog.NewMockClient()
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_document_search", map[string]any{})
+
+	if !result.IsError {
+		t.Fatal("expected tool error but got none")
+	}
+}
+
+// TestDocumentSearch_WithProjectKeys は project_keys 指定で GetProject + SearchDocuments が呼ばれることを確認する。
+func TestDocumentSearch_WithProjectKeys(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetProjectFunc = func(ctx context.Context, projectKey string) (*domain.Project, error) {
+		if projectKey != "PROJ" {
+			t.Errorf("projectKey = %q, want %q", projectKey, "PROJ")
+		}
+		return &domain.Project{ID: 100}, nil
+	}
+	var capturedOpt backlog.SearchDocumentsOptions
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		capturedOpt = opt
+		return []domain.Document{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_document_search", map[string]any{
+		"keyword":      "auth",
+		"project_keys": "PROJ",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(capturedOpt.ProjectIDs) != 1 || capturedOpt.ProjectIDs[0] != 100 {
+		t.Errorf("ProjectIDs: 期待 [100], 実際 %v", capturedOpt.ProjectIDs)
+	}
+}
+
+// TestDocumentSearch_CountClamped は count > 100 の場合に 100 にクランプされることを確認する。
+func TestDocumentSearch_CountClamped(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.SearchDocumentsOptions
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		capturedOpt = opt
+		return []domain.Document{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_document_search", map[string]any{
+		"keyword": "test",
+		"count":   float64(200),
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedOpt.Count != 100 {
+		t.Errorf("Count クランプ: 期待 100, 実際 %d", capturedOpt.Count)
+	}
+}
