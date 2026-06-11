@@ -187,7 +187,7 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 // lv document search <keyword> [--project KEY ...] [--detail snippet|meta|full]
 type DocumentSearchCmd struct {
 	Keyword     string   `arg:"" required:"" help:"search keyword"`
-	ProjectKeys []string `help:"project key(s) to filter (optional, multiple)"`
+	ProjectKeys []string `name:"project" help:"project key(s) to filter (optional, multiple)"`
 	Sort        string   `help:"sort field: created | updated"`
 	Order       string   `help:"sort order: asc | desc"`
 	Count       int      `default:"100" help:"max results (1-100)"`

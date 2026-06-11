@@ -50,7 +50,7 @@ func TestDocumentSearchCmd_Parse_WithFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("kong.New() エラー: %v", err)
 	}
-	_, err = p.Parse([]string{"document", "search", "login", "--project-keys", "PROJ", "--detail", "meta", "--count", "50"})
+	_, err = p.Parse([]string{"document", "search", "login", "--project", "PROJ", "--detail", "meta", "--count", "50"})
 	if err != nil {
 		t.Fatalf("パースエラー: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestDocumentSearchCmd_Parse_MultipleProjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("kong.New() エラー: %v", err)
 	}
-	_, err = p.Parse([]string{"document", "search", "auth", "--project-keys", "A", "--project-keys", "B"})
+	_, err = p.Parse([]string{"document", "search", "auth", "--project", "A", "--project", "B"})
 	if err != nil {
 		t.Fatalf("パースエラー: %v", err)
 	}
