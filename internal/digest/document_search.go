@@ -113,8 +113,8 @@ func (b *DefaultDocumentSearchBuilder) Build(ctx context.Context, docs []domain.
 		case "full":
 			item.Snippet = extractSnippet(doc.Plain, opt.Keyword)
 			item.Plain = doc.Plain
-			// "meta": Snippet も Plain も返さない（ゼロ値のまま）
 		}
+		// "meta": Snippet も Plain も返さない（ゼロ値のまま）
 
 		items = append(items, item)
 	}
