@@ -1469,3 +1469,225 @@ func TestHTTPClientDownloadSharedFileBounded(t *testing.T) {
 		}
 	})
 }
+
+func TestHTTPClientSearchDocuments(t *testing.T) {
+	t.Run("case1: keyword のみ・projectId[] なし", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Keyword: "OAuth",
+			Offset:  0,
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if gotQuery.Get("keyword") != "OAuth" {
+			t.Errorf("keyword = %q, want %q", gotQuery.Get("keyword"), "OAuth")
+		}
+		if gotQuery.Has("projectId[]") {
+			t.Errorf("projectId[] should not be present, got %v", gotQuery["projectId[]"])
+		}
+		if !gotQuery.Has("offset") {
+			t.Error("offset should be present")
+		}
+	})
+
+	t.Run("case2: 複数プロジェクト絞り込み", func(t *testing.T) {
+		var gotProjectIDs []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotProjectIDs = r.URL.Query()["projectId[]"]
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Keyword:    "k",
+			ProjectIDs: []int{1, 2},
+			Offset:     0,
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if len(gotProjectIDs) != 2 {
+			t.Errorf("projectId[] count = %d, want 2", len(gotProjectIDs))
+		}
+		if gotProjectIDs[0] != "1" || gotProjectIDs[1] != "2" {
+			t.Errorf("projectId[] = %v, want [1 2]", gotProjectIDs)
+		}
+	})
+
+	t.Run("case3: sort/order/count 指定", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Sort:   "updated",
+			Order:  "desc",
+			Count:  50,
+			Offset: 20,
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if gotQuery.Get("sort") != "updated" {
+			t.Errorf("sort = %q, want %q", gotQuery.Get("sort"), "updated")
+		}
+		if gotQuery.Get("order") != "desc" {
+			t.Errorf("order = %q, want %q", gotQuery.Get("order"), "desc")
+		}
+		if gotQuery.Get("count") != "50" {
+			t.Errorf("count = %q, want %q", gotQuery.Get("count"), "50")
+		}
+		if gotQuery.Get("offset") != "20" {
+			t.Errorf("offset = %q, want %q", gotQuery.Get("offset"), "20")
+		}
+	})
+
+	t.Run("case4: offset は Offset=0 でも必ず送出", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Keyword: "k",
+			// Offset はゼロ値
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if !gotQuery.Has("offset") {
+			t.Error("offset should always be present even when Offset=0")
+		}
+		if gotQuery.Get("offset") != "0" {
+			t.Errorf("offset = %q, want %q", gotQuery.Get("offset"), "0")
+		}
+	})
+
+	t.Run("case5: レスポンスデコード plain 付き2件", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			docs := []map[string]interface{}{
+				{"id": "doc1", "title": "Doc 1", "plain": "本文テキスト1"},
+				{"id": "doc2", "title": "Doc 2", "plain": "本文テキスト2"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(docs)
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		docs, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Keyword: "テキスト",
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if len(docs) != 2 {
+			t.Fatalf("len(docs) = %d, want 2", len(docs))
+		}
+		if docs[0].Plain == "" {
+			t.Error("docs[0].Plain should be non-empty")
+		}
+	})
+
+	t.Run("case6: API エラー（400/500）はエラーを返す", func(t *testing.T) {
+		for _, statusCode := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
+			statusCode := statusCode
+			t.Run(http.StatusText(statusCode), func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(statusCode)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"errors": []map[string]interface{}{
+							{"message": "error", "code": statusCode},
+						},
+					})
+				}))
+				defer srv.Close()
+
+				client := newOAuthClient(t, srv.URL)
+				_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+					Keyword: "k",
+				})
+				if err == nil {
+					t.Fatalf("expected error for status %d, got nil", statusCode)
+				}
+				if !errors.Is(err, backlog.ErrAPI) {
+					t.Errorf("error = %v, want errors.Is(err, ErrAPI) = true", err)
+				}
+			})
+		}
+	})
+
+	t.Run("case7: Count=0 のとき count を送らない", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+			Keyword: "k",
+			// Count はゼロ値
+		})
+		if err != nil {
+			t.Fatalf("SearchDocuments() error = %v", err)
+		}
+		if gotQuery.Has("count") {
+			t.Errorf("count should not be present when Count=0, got %q", gotQuery.Get("count"))
+		}
+	})
+
+	t.Run("case8: count 境界値 Count=1 と Count=100", func(t *testing.T) {
+		for _, tc := range []struct {
+			count int
+			want  string
+		}{
+			{1, "1"},
+			{100, "100"},
+		} {
+			tc := tc
+			t.Run("count="+tc.want, func(t *testing.T) {
+				var gotQuery url.Values
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					gotQuery = r.URL.Query()
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+				}))
+				defer srv.Close()
+
+				client := newOAuthClient(t, srv.URL)
+				_, err := client.SearchDocuments(context.Background(), backlog.SearchDocumentsOptions{
+					Count: tc.count,
+				})
+				if err != nil {
+					t.Fatalf("SearchDocuments() error = %v", err)
+				}
+				if gotQuery.Get("count") != tc.want {
+					t.Errorf("count = %q, want %q", gotQuery.Get("count"), tc.want)
+				}
+			})
+		}
+	})
+}

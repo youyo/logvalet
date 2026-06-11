@@ -44,6 +44,7 @@ type MockClient struct {
 	GetDocumentTreeFunc        func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
 	CreateDocumentFunc         func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
 	ListDocumentAttachmentsFunc func(ctx context.Context, documentID string) ([]domain.Attachment, error)
+	SearchDocumentsFunc        func(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
 
 	// Project meta
 	ListProjectStatusesFunc      func(ctx context.Context, projectKey string) ([]domain.Status, error)
@@ -279,6 +280,14 @@ func (m *MockClient) ListDocumentAttachments(ctx context.Context, documentID str
 	m.increment("ListDocumentAttachments")
 	if m.ListDocumentAttachmentsFunc != nil {
 		return m.ListDocumentAttachmentsFunc(ctx, documentID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) SearchDocuments(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error) {
+	m.increment("SearchDocuments")
+	if m.SearchDocumentsFunc != nil {
+		return m.SearchDocumentsFunc(ctx, opt)
 	}
 	return nil, ErrNotFound
 }
