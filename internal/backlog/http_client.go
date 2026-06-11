@@ -581,6 +581,37 @@ func (c *HTTPClient) ListDocuments(ctx context.Context, projectID int, opt ListD
 	return docs, nil
 }
 
+// SearchDocuments はキーワードでドキュメントを横断検索する。
+// GET /api/v2/documents?keyword=...&projectId[]=...&offset=N
+func (c *HTTPClient) SearchDocuments(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error) {
+	q := url.Values{}
+	q.Set("offset", strconv.Itoa(opt.Offset)) // 必須：Offset=0 でも送出
+	if opt.Keyword != "" {
+		q.Set("keyword", opt.Keyword)
+	}
+	for _, pid := range opt.ProjectIDs {
+		q.Add("projectId[]", strconv.Itoa(pid))
+	}
+	if opt.Sort != "" {
+		q.Set("sort", opt.Sort)
+	}
+	if opt.Order != "" {
+		q.Set("order", opt.Order)
+	}
+	if opt.Count > 0 {
+		q.Set("count", strconv.Itoa(opt.Count))
+	}
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/documents", q)
+	if err != nil {
+		return nil, err
+	}
+	var docs []domain.Document
+	if err := c.do(req, &docs); err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
 // GetDocumentTree は指定プロジェクトのドキュメントツリーを返す。
 // GET /api/v2/documents/tree?projectIdOrKey={key}
 func (c *HTTPClient) GetDocumentTree(ctx context.Context, projectKey string) (*domain.DocumentTree, error) {

@@ -16,6 +16,7 @@ type DocumentCmd struct {
 	Tree   DocumentTreeCmd   `cmd:"" help:"get document tree"`
 	Digest DocumentDigestCmd `cmd:"" help:"generate document digest"`
 	Create DocumentCreateCmd `cmd:"" help:"create document"`
+	Search DocumentSearchCmd `cmd:"" help:"search documents by keyword"`
 }
 
 // DocumentGetCmd は document get コマンド（spec §14.18）。
@@ -180,4 +181,64 @@ func (c *DocumentCreateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 	return rc.Renderer.Render(os.Stdout, doc)
+}
+
+// DocumentSearchCmd は document search コマンド。
+// lv document search <keyword> [--project KEY ...] [--detail snippet|meta|full]
+type DocumentSearchCmd struct {
+	Keyword     string   `arg:"" required:"" help:"search keyword"`
+	ProjectKeys []string `name:"project" help:"project key(s) to filter (optional, multiple)"`
+	Sort        string   `help:"sort field: created | updated"`
+	Order       string   `help:"sort order: asc | desc"`
+	Count       int      `default:"100" help:"max results (1-100)"`
+	Offset      int      `default:"0" help:"pagination offset"`
+	Detail      string   `default:"snippet" help:"verbosity: snippet | meta | full"`
+}
+
+func (c *DocumentSearchCmd) Run(g *GlobalFlags) error {
+	ctx := context.Background()
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+	// projectKey → projectID 変換（任意）
+	var projectIDs []int
+	for _, key := range c.ProjectKeys {
+		proj, err := rc.Client.GetProject(ctx, key)
+		if err != nil {
+			return fmt.Errorf("failed to resolve project key %q: %w", key, err)
+		}
+		projectIDs = append(projectIDs, proj.ID)
+	}
+	// count クランプ（上限 100）
+	count := c.Count
+	if count <= 0 || count > 100 {
+		count = 100
+	}
+	// offset クランプ（負数は0にする）
+	offset := c.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	opt := backlog.SearchDocumentsOptions{
+		Keyword:    c.Keyword,
+		ProjectIDs: projectIDs,
+		Sort:       c.Sort,
+		Order:      c.Order,
+		Offset:     offset,
+		Count:      count,
+	}
+	docs, err := rc.Client.SearchDocuments(ctx, opt)
+	if err != nil {
+		return err
+	}
+	builder := digest.NewDefaultDocumentSearchBuilder(rc.Client, rc.Config.Profile, rc.Config.Space, rc.Config.BaseURL)
+	envelope := builder.Build(ctx, docs, digest.DocumentSearchOptions{
+		Keyword:        c.Keyword,
+		Detail:         c.Detail,
+		// RequestedCount は API の Count と同値（不一致だと possibly_more が偽陰性に戻る・AD11）
+		RequestedCount: count,
+		Offset:         offset,
+	})
+	return rc.Renderer.Render(os.Stdout, envelope)
 }

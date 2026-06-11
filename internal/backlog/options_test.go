@@ -153,3 +153,56 @@ func TestListDocumentsOptions(t *testing.T) {
 		}
 	})
 }
+
+func TestSearchDocumentsOptions(t *testing.T) {
+	t.Run("zero value is valid", func(t *testing.T) {
+		var opt backlog.SearchDocumentsOptions
+		if opt.Keyword != "" {
+			t.Errorf("Keyword zero value = %q, want empty string", opt.Keyword)
+		}
+		if opt.ProjectIDs != nil {
+			t.Error("ProjectIDs zero value should be nil")
+		}
+		if opt.Sort != "" {
+			t.Errorf("Sort zero value = %q, want empty string", opt.Sort)
+		}
+		if opt.Order != "" {
+			t.Errorf("Order zero value = %q, want empty string", opt.Order)
+		}
+		if opt.Offset != 0 {
+			t.Errorf("Offset zero value = %d, want 0", opt.Offset)
+		}
+		if opt.Count != 0 {
+			t.Errorf("Count zero value = %d, want 0", opt.Count)
+		}
+	})
+
+	t.Run("all fields settable", func(t *testing.T) {
+		opt := backlog.SearchDocumentsOptions{
+			Keyword:    "OAuth",
+			ProjectIDs: []int{1, 2, 3},
+			Sort:       "updated",
+			Order:      "desc",
+			Offset:     20,
+			Count:      50,
+		}
+		if opt.Keyword != "OAuth" {
+			t.Errorf("Keyword = %q, want %q", opt.Keyword, "OAuth")
+		}
+		if len(opt.ProjectIDs) != 3 || opt.ProjectIDs[0] != 1 {
+			t.Errorf("ProjectIDs = %v, want [1 2 3]", opt.ProjectIDs)
+		}
+		if opt.Sort != "updated" {
+			t.Errorf("Sort = %q, want %q", opt.Sort, "updated")
+		}
+		if opt.Order != "desc" {
+			t.Errorf("Order = %q, want %q", opt.Order, "desc")
+		}
+		if opt.Offset != 20 {
+			t.Errorf("Offset = %d, want 20", opt.Offset)
+		}
+		if opt.Count != 50 {
+			t.Errorf("Count = %d, want 50", opt.Count)
+		}
+	})
+}

@@ -111,4 +111,74 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		builder := digest.NewDefaultDocumentDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, documentID, digest.DocumentDigestOptions{})
 	})
+
+	// logvalet_document_search
+	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_search",
+		gomcp.WithDescription("Search documents by keyword within a Backlog space"),
+		gomcp.WithString("keyword", gomcp.Required(), gomcp.Description("Search keyword")),
+		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys to filter (e.g. PROJ1,PROJ2)")),
+		gomcp.WithNumber("count", gomcp.Description("Max results (1-100, default 100)")),
+		gomcp.WithNumber("offset", gomcp.Description("Pagination offset (default 0)")),
+		gomcp.WithString("sort", gomcp.Description("Sort field: created | updated")),
+		gomcp.WithString("order", gomcp.Description("Sort order: asc | desc")),
+		gomcp.WithString("detail", gomcp.Description("Verbosity: snippet | meta | full (default: snippet)")),
+		readOnlyAnnotation("ドキュメント検索"),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		keyword, ok := stringArg(args, "keyword")
+		if !ok || keyword == "" {
+			return nil, fmt.Errorf("keyword is required")
+		}
+		// count クランプ（上限 100）
+		count := 100
+		if c, ok := intArg(args, "count"); ok && c > 0 {
+			count = c
+		}
+		if count > 100 {
+			count = 100
+		}
+		// project_keys をカンマ区切り文字列から解決（任意）
+		var projectIDs []int
+		if projectKeys, ok := stringArg(args, "project_keys"); ok && projectKeys != "" {
+			for _, key := range parseCSVStringList(projectKeys) {
+				proj, err := client.GetProject(ctx, key)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get project %s: %w", key, err)
+				}
+				projectIDs = append(projectIDs, proj.ID)
+			}
+		}
+		offset := 0
+		if o, ok := intArg(args, "offset"); ok && o > 0 {
+			offset = o
+		}
+		opt := backlog.SearchDocumentsOptions{
+			Keyword:    keyword,
+			ProjectIDs: projectIDs,
+			Count:      count,
+			Offset:     offset,
+		}
+		if sort, ok := stringArg(args, "sort"); ok {
+			opt.Sort = sort
+		}
+		if order, ok := stringArg(args, "order"); ok {
+			opt.Order = order
+		}
+		docs, err := client.SearchDocuments(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+		detail := "snippet"
+		if d, ok := stringArg(args, "detail"); ok && d != "" {
+			detail = d
+		}
+		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		builder := digest.NewDefaultDocumentSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
+		return builder.Build(ctx, docs, digest.DocumentSearchOptions{
+			Keyword:        keyword,
+			Detail:         detail,
+			// RequestedCount は API の Count と同値（不一致だと possibly_more が偽陰性に戻る・AD11）
+			RequestedCount: count,
+			Offset:         offset,
+		}), nil
+	})
 }

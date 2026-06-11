@@ -16,7 +16,7 @@ type ToolCategorySpec struct {
 	Title    string // 日本語 UI タイトル（MCP クライアントが表示する）
 }
 
-// toolCategories は全 70 MCP ツールの annotation カテゴリと日本語 title を宣言する。
+// toolCategories は全 71 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
 	// Read-only (32+14=46)
@@ -59,6 +59,7 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_activity_digest":           {CategoryReadOnly, "アクティビティダイジェスト生成"},
 	"logvalet_document_tree":             {CategoryReadOnly, "ドキュメントツリー取得"},
 	"logvalet_document_digest":           {CategoryReadOnly, "ドキュメントダイジェスト生成"},
+	"logvalet_document_search":           {CategoryReadOnly, "ドキュメント検索"},
 	"logvalet_space_digest":              {CategoryReadOnly, "スペースダイジェスト生成"},
 	"logvalet_space_disk_usage":          {CategoryReadOnly, "スペースディスク使用量取得"},
 	"logvalet_meta_version":              {CategoryReadOnly, "バージョン一覧取得"},

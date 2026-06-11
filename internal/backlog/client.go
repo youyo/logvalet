@@ -97,6 +97,10 @@ type Client interface {
 	// Backlog API: GET /api/v2/documents/tree?projectIdOrKey={key}
 	GetDocumentTree(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
 
+	// SearchDocuments はキーワードでドキュメントを横断検索する。
+	// Backlog API: GET /api/v2/documents?keyword=...&projectId[]=...&offset=N
+	SearchDocuments(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
+
 	// CreateDocument は新しいドキュメントを作成する。
 	// Backlog API: POST /api/v2/documents
 	CreateDocument(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)

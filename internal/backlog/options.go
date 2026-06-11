@@ -56,6 +56,17 @@ type ListDocumentsOptions struct {
 	Offset int
 }
 
+// SearchDocumentsOptions は SearchDocuments リクエストのオプション。
+// Backlog API: GET /api/v2/documents（keyword 検索）
+type SearchDocumentsOptions struct {
+	Keyword    string // 検索語（空可だが通常は指定）
+	ProjectIDs []int  // 絞り込み対象プロジェクト ID（空＝スペース全体横断）
+	Sort       string // "created" | "updated"（空＝API デフォルト）
+	Order      string // "asc" | "desc"（空＝API デフォルト）
+	Offset     int    // ページネーション開始位置
+	Count      int    // 取得件数 1-100（0＝API デフォルト）
+}
+
 // ListSharedFilesOptions は ListSharedFiles リクエストのオプション。
 type ListSharedFilesOptions struct {
 	Path   string
