@@ -51,6 +51,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("order", gomcp.Description("Sort order (asc/desc)")),
 		gomcp.WithString("assignee_id", gomcp.Description("Assignee filter: me (resolved via GetMyself) or numeric user ID")),
 		gomcp.WithString("status_id", gomcp.Description("Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs")),
+		gomcp.WithString("keyword", gomcp.Description("Keyword search against Backlog issues")),
 		gomcp.WithString("due_date", gomcp.Description("Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
 		gomcp.WithString("start_date", gomcp.Description("Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
 		gomcp.WithString("updated_since", gomcp.Description("Updated since (YYYY-MM-DD)")),
@@ -70,6 +71,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		if order, ok := stringArg(args, "order"); ok {
 			opt.Order = order
+		}
+		if keyword, ok := stringArg(args, "keyword"); ok {
+			opt.Keyword = keyword
 		}
 
 		// project_key from legacy param

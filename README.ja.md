@@ -103,6 +103,7 @@ end
 |---------|------|
 | `configure` | 対話的な設定初期化 |
 | `completion bash/zsh/fish` | シェル補完スクリプト生成 |
+| `search <KEYWORD>` | 課題・ドキュメント・Wiki をキーワードで横断検索 |
 | `digest` | 課題・プロジェクト・ユーザー・チーム・スペースのダイジェスト生成 |
 | `issue get <KEY>` | 課題の取得 |
 | `issue list` | 課題一覧（フィルタ付き） |

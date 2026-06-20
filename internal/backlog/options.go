@@ -5,19 +5,20 @@ import "time"
 // ListIssuesOptions は GetIssues リクエストのオプション。
 // spec §18.2 準拠。
 type ListIssuesOptions struct {
-	ProjectIDs   []int
-	AssigneeIDs  []int
-	StatusIDs    []int
+	ProjectIDs     []int
+	AssigneeIDs    []int
+	StatusIDs      []int
+	Keyword        string
 	DueDateSince   *time.Time
 	DueDateUntil   *time.Time
 	StartDateSince *time.Time
 	StartDateUntil *time.Time
-	UpdatedSince *time.Time
-	UpdatedUntil *time.Time
-	Sort         string
-	Order        string
-	Limit        int
-	Offset       int
+	UpdatedSince   *time.Time
+	UpdatedUntil   *time.Time
+	Sort           string
+	Order          string
+	Limit          int
+	Offset         int
 }
 
 // ListCommentsOptions は ListIssueComments リクエストのオプション。
@@ -85,12 +86,12 @@ type ListTeamsOptions struct {
 // ListWatchingsOptions は ListWatchings リクエストのオプション。
 // Backlog API: GET /api/v2/users/{userId}/watchings
 type ListWatchingsOptions struct {
-	Order                    string // "asc" or "desc"（空文字 = API デフォルト）
-	Sort                     string // "created", "updated", "issueUpdated"
-	Count                    int    // 取得件数（最大100）
-	Offset                   int
-	ResourceAlreadyRead      *bool  // true=既読のみ、false=未読のみ、nil=全件
-	IssueID                  int    // 特定課題 ID でフィルタ（0=フィルタなし）
+	Order               string // "asc" or "desc"（空文字 = API デフォルト）
+	Sort                string // "created", "updated", "issueUpdated"
+	Count               int    // 取得件数（最大100）
+	Offset              int
+	ResourceAlreadyRead *bool // true=既読のみ、false=未読のみ、nil=全件
+	IssueID             int   // 特定課題 ID でフィルタ（0=フィルタなし）
 }
 
 // ListWikisOptions は ListWikis リクエストのオプション。

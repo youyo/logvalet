@@ -95,6 +95,7 @@ This enables completion for both `logvalet` and `lv`.
 |---------|-------------|
 | `configure` | Interactive configuration setup |
 | `completion bash/zsh/fish` | Generate shell completion scripts |
+| `search <KEYWORD>` | Search issues, documents, and wiki pages by keyword |
 | `digest` | Generate digest for issues, projects, users, teams, or space |
 | `issue get <KEY>` | Get a single issue |
 | `issue list` | List issues with filters |

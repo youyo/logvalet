@@ -217,6 +217,27 @@ func TestHTTPClientListIssues(t *testing.T) {
 		}
 	})
 
+	t.Run("keyword", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			Keyword: "OAuth",
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if got := gotQuery.Get("keyword"); got != "OAuth" {
+			t.Errorf("keyword = %q, want OAuth", got)
+		}
+	})
+
 	t.Run("assigneeId[] multiple values", func(t *testing.T) {
 		var gotQuery url.Values
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

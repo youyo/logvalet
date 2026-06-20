@@ -282,6 +282,9 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	for _, id := range opt.StatusIDs {
 		q.Add("statusId[]", strconv.Itoa(id))
 	}
+	if opt.Keyword != "" {
+		q.Set("keyword", opt.Keyword)
+	}
 	if opt.DueDateSince != nil {
 		q.Set("dueDateSince", opt.DueDateSince.Format("2006-01-02"))
 	}
@@ -930,7 +933,6 @@ func (c *HTTPClient) ListSharedFiles(ctx context.Context, projectKey string, opt
 	}
 	return files, nil
 }
-
 
 // DownloadSharedFile は指定共有ファイルのコンテンツを返す。
 // GET /api/v2/projects/{projectIdOrKey}/files/{sharedFileId}

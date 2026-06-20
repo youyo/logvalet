@@ -8,20 +8,21 @@ type CLI struct {
 	Configure   ConfigureCmd  `cmd:"" help:"interactively initialize configuration"`
 	Completion  CompletionCmd `cmd:"" help:"output shell completion scripts"`
 	Digest      DigestCmd     `cmd:"" help:"generate integrated digest"`
+	Search      SearchCmd     `cmd:"" help:"search Backlog resources by keyword"`
 	Issue       IssueCmd      `cmd:"" help:"manage issues"`
 	Project     ProjectCmd    `cmd:"" help:"manage projects"`
 	Activity    ActivityCmd   `cmd:"" help:"manage activities"`
 	User        UserCmd       `cmd:"" help:"manage users"`
-	Document    DocumentCmd    `cmd:"" help:"manage documents"`
-	Wiki        WikiCmd        `cmd:"" help:"manage Backlog wiki pages"`
-	SharedFile  SharedFileCmd  `cmd:"" help:"manage shared files"`
-	Star        StarCmd        `cmd:"" help:"manage stars"`
-	Watching    WatchingCmd    `cmd:"" help:"manage watchings"`
-	Meta        MetaCmd        `cmd:"" help:"get metadata (statuses, categories, etc.)"`
-	Team        TeamCmd        `cmd:"" help:"manage teams"`
-	Space       SpaceCmd       `cmd:"" help:"manage spaces"`
-	Spaces      SpacesCmd      `cmd:"" help:"manage space registry (list/add/connect/use/remove/verify)"`
-	Mcp         McpCmd         `cmd:"" help:"start MCP server (Streamable HTTP)"`
-	McpStdio    McpStdioCmd    `cmd:"" name:"mcp-stdio" help:"start MCP server (stdio transport)"`
-	VersionInfo VersionCmd     `cmd:"" name:"version" help:"display version information"`
+	Document    DocumentCmd   `cmd:"" help:"manage documents"`
+	Wiki        WikiCmd       `cmd:"" help:"manage Backlog wiki pages"`
+	SharedFile  SharedFileCmd `cmd:"" help:"manage shared files"`
+	Star        StarCmd       `cmd:"" help:"manage stars"`
+	Watching    WatchingCmd   `cmd:"" help:"manage watchings"`
+	Meta        MetaCmd       `cmd:"" help:"get metadata (statuses, categories, etc.)"`
+	Team        TeamCmd       `cmd:"" help:"manage teams"`
+	Space       SpaceCmd      `cmd:"" help:"manage spaces"`
+	Spaces      SpacesCmd     `cmd:"" help:"manage space registry (list/add/connect/use/remove/verify)"`
+	Mcp         McpCmd        `cmd:"" help:"start MCP server (Streamable HTTP)"`
+	McpStdio    McpStdioCmd   `cmd:"" name:"mcp-stdio" help:"start MCP server (stdio transport)"`
+	VersionInfo VersionCmd    `cmd:"" name:"version" help:"display version information"`
 }
