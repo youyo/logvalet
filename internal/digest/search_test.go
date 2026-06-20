@@ -113,3 +113,92 @@ func TestSearchBuilder_Build_ProjectFilterResolvesKeys(t *testing.T) {
 		t.Errorf("document ProjectIDs = %v, want [7]", docOpt.ProjectIDs)
 	}
 }
+
+func TestSearchBuilder_Build_WhitespaceProjectKeysFallBackToAllProjects(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return []domain.Project{{ID: 1, ProjectKey: "PROJ"}}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		return []domain.Document{}, nil
+	}
+	var wikiCalled bool
+	mock.ListWikisFunc = func(ctx context.Context, projectKey string, opt backlog.ListWikisOptions) ([]domain.WikiPage, error) {
+		wikiCalled = true
+		if projectKey != "PROJ" {
+			t.Errorf("projectKey = %q, want PROJ", projectKey)
+		}
+		return []domain.WikiPage{}, nil
+	}
+
+	builder := NewDefaultSearchBuilder(mock, "", "", "")
+	_, err := builder.Build(context.Background(), SearchOptions{
+		Keyword:     "auth",
+		ProjectKeys: []string{" ", "\t"},
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if !wikiCalled {
+		t.Fatal("ListWikis was not called; whitespace-only project keys should fall back to all projects")
+	}
+	if mock.GetCallCount("GetProject") != 0 {
+		t.Errorf("GetProject calls = %d, want 0", mock.GetCallCount("GetProject"))
+	}
+}
+
+func TestSearchBuilder_Build_WikiSearchStopsAfterEnoughResults(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectsFunc = func(ctx context.Context) ([]domain.Project, error) {
+		return []domain.Project{
+			{ID: 1, ProjectKey: "P1"},
+			{ID: 2, ProjectKey: "P2"},
+			{ID: 3, ProjectKey: "P3"},
+		}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mock.SearchDocumentsFunc = func(ctx context.Context, opt backlog.SearchDocumentsOptions) ([]domain.Document, error) {
+		return []domain.Document{}, nil
+	}
+	var wikiCalls int
+	mock.ListWikisFunc = func(ctx context.Context, projectKey string, opt backlog.ListWikisOptions) ([]domain.WikiPage, error) {
+		wikiCalls++
+		return []domain.WikiPage{
+			{ID: int64(wikiCalls*10 + 1), ProjectID: wikiCalls, Name: projectKey + "-1"},
+			{ID: int64(wikiCalls*10 + 2), ProjectID: wikiCalls, Name: projectKey + "-2"},
+		}, nil
+	}
+
+	builder := NewDefaultSearchBuilder(mock, "", "", "")
+	env, err := builder.Build(context.Background(), SearchOptions{
+		Keyword: "auth",
+		Count:   2,
+		Offset:  0,
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	var d SearchDigest
+	b, err := json.Marshal(env.Digest)
+	if err != nil {
+		t.Fatalf("Marshal digest: %v", err)
+	}
+	if err := json.Unmarshal(b, &d); err != nil {
+		t.Fatalf("Unmarshal SearchDigest: %v", err)
+	}
+	if wikiCalls != 2 {
+		t.Errorf("wikiCalls = %d, want 2 (stop after count+1 results)", wikiCalls)
+	}
+	if d.ReturnedByType.Wikis != 2 {
+		t.Errorf("ReturnedByType.Wikis = %d, want 2", d.ReturnedByType.Wikis)
+	}
+	if !d.PossiblyMore || d.PossiblyMoreByType.Wikis != 1 {
+		t.Errorf("PossiblyMore = %v, PossiblyMoreByType = %+v; want wiki possibly more", d.PossiblyMore, d.PossiblyMoreByType)
+	}
+}

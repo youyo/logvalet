@@ -195,12 +195,10 @@ func (b *DefaultSearchBuilder) resolveSearchProjects(ctx context.Context, projec
 	projectIDFilter := make([]int, 0, len(projectKeys))
 	var warnings []domain.Warning
 
-	if len(projectKeys) > 0 {
-		for _, key := range projectKeys {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
+	normalizedKeys := normalizeProjectKeys(projectKeys)
+
+	if len(normalizedKeys) > 0 {
+		for _, key := range normalizedKeys {
 			p, err := b.client.GetProject(ctx, key)
 			if err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("failed to resolve project key %q: %w", key, err)
@@ -227,6 +225,17 @@ func (b *DefaultSearchBuilder) resolveSearchProjects(ctx context.Context, projec
 		projectKeyMap[p.ID] = p.ProjectKey
 	}
 	return projects, projectKeyMap, nil, warnings, nil
+}
+
+func normalizeProjectKeys(projectKeys []string) []string {
+	normalized := make([]string, 0, len(projectKeys))
+	for _, key := range projectKeys {
+		key = strings.TrimSpace(key)
+		if key != "" {
+			normalized = append(normalized, key)
+		}
+	}
+	return normalized
 }
 
 func (b *DefaultSearchBuilder) issueResults(issues []domain.Issue, projectKeyMap map[int]string, keyword, detail string) []SearchResult {
@@ -295,6 +304,7 @@ func (b *DefaultSearchBuilder) searchWikis(ctx context.Context, projects []domai
 
 	all := make([]SearchResult, 0)
 	baseURL := strings.TrimRight(b.baseURL, "/")
+	maxNeeded := offset + count + 1
 	for _, project := range projects {
 		pages, err := b.client.ListWikis(ctx, project.ProjectKey, backlog.ListWikisOptions{Keyword: keyword})
 		if err != nil {
@@ -329,6 +339,12 @@ func (b *DefaultSearchBuilder) searchWikis(ctx context.Context, projects []domai
 				item.Snippet = extractSnippet(page.Content, keyword)
 			}
 			all = append(all, item)
+			if len(all) >= maxNeeded {
+				break
+			}
+		}
+		if len(all) >= maxNeeded {
+			break
 		}
 	}
 
