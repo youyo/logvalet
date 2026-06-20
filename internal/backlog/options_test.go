@@ -22,6 +22,7 @@ func TestListIssuesOptions(t *testing.T) {
 			ProjectIDs:   []int{1, 2},
 			AssigneeIDs:  []int{10, 11},
 			StatusIDs:    []int{1, 2},
+			Keyword:      "OAuth",
 			DueDateSince: &since,
 			DueDateUntil: &until,
 			Sort:         "dueDate",
@@ -37,6 +38,9 @@ func TestListIssuesOptions(t *testing.T) {
 		}
 		if len(opt.StatusIDs) != 2 {
 			t.Errorf("StatusIDs = %v, want [1 2]", opt.StatusIDs)
+		}
+		if opt.Keyword != "OAuth" {
+			t.Errorf("Keyword = %q, want OAuth", opt.Keyword)
 		}
 		if opt.DueDateSince == nil || !opt.DueDateSince.Equal(since) {
 			t.Errorf("DueDateSince = %v, want %v", opt.DueDateSince, since)

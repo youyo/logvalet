@@ -58,6 +58,7 @@ type IssueListCmd struct {
 	ProjectKey []string `short:"k" help:"project key (required if --status is open/named)"`
 	Assignee   string   `help:"assignee (me, numeric ID, or user name)"`
 	Status     string   `help:"status (not-closed, open, name, comma-separated, numeric ID). open/named requires -k"`
+	Keyword    string   `help:"keyword search against Backlog issues"`
 	DueDate    string   `help:"due date filter (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
 	StartDate  string   `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
 	Sort       string   `help:"sort key (dueDate, created, updated, priority, status, assignee)"`
@@ -89,8 +90,9 @@ func (c *IssueListCmd) Run(g *GlobalFlags) error {
 // listIssues はオプション構築と API 呼び出しを行うヘルパー。
 func (c *IssueListCmd) listIssues(ctx context.Context, client backlog.Client) ([]domain.Issue, error) {
 	opt := backlog.ListIssuesOptions{
-		Limit:  c.Count,
-		Offset: c.Offset,
+		Limit:   c.Count,
+		Offset:  c.Offset,
+		Keyword: c.Keyword,
 	}
 	// projectKey → projectId 変換
 	for _, key := range c.ProjectKey {
@@ -755,4 +757,3 @@ func ptrOrNil(s *string) interface{} {
 	}
 	return *s
 }
-

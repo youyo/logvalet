@@ -4,7 +4,7 @@ package mcp
 type ToolCategory int
 
 const (
-	CategoryReadOnly          ToolCategory = iota
+	CategoryReadOnly           ToolCategory = iota
 	CategoryWriteNonIdempotent              // create 系（同じ操作を繰り返すと副作用が積み上がる）
 	CategoryWriteIdempotent                 // update / add / mark_as_read 系（同じ操作を繰り返しても副作用は変わらない）
 	CategoryDestructive                     // delete 系
@@ -32,6 +32,7 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_user_workload":          {CategoryReadOnly, "ユーザー稼働状況取得"},
 	"logvalet_activity_list":          {CategoryReadOnly, "アクティビティ一覧取得"},
 	"logvalet_activity_stats":         {CategoryReadOnly, "アクティビティ統計取得"},
+	"logvalet_search":                 {CategoryReadOnly, "横断検索"},
 	"logvalet_issue_list":             {CategoryReadOnly, "課題一覧取得"},
 	"logvalet_issue_get":              {CategoryReadOnly, "課題詳細取得"},
 	"logvalet_issue_context":          {CategoryReadOnly, "課題コンテキスト取得"},

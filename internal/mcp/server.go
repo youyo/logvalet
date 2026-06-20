@@ -79,6 +79,7 @@ func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, err
 // space 管理5ツールは SpaceStore の有無に関わらず常に登録する。
 func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterIssueTools(reg)
+	RegisterSearchTools(reg, cfg)
 	RegisterProjectTools(reg)
 	RegisterUserTools(reg)
 	RegisterActivityTools(reg, cfg)
