@@ -36,6 +36,10 @@ type McpCmd struct {
 	AllowedDomains   string `help:"comma-separated allowed email domains" group:"auth" env:"LOGVALET_MCP_ALLOWED_DOMAINS"`
 	AllowedEmails    string `help:"comma-separated allowed email addresses" group:"auth" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
 
+	// Bearer 認証フラグ（Mode C: Claude Tag 専用）
+	AuthMode    string `name:"auth-mode" help:"auth mode: oidc|bearer|none (overrides --auth when set)" group:"auth" env:"LOGVALET_MCP_AUTH_MODE"`
+	BearerToken string `name:"bearer-token" help:"static bearer token for mode=bearer (min 32 chars)" group:"auth" env:"LOGVALET_MCP_BEARER_TOKEN"`
+
 	// Backlog OAuth フラグ（OIDC と同じ group + env タグ様式）
 	BacklogClientID     string `name:"backlog-client-id" help:"Backlog OAuth client ID" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_ID"`
 	BacklogClientSecret string `name:"backlog-client-secret" help:"Backlog OAuth client secret" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_SECRET"`
@@ -43,17 +47,17 @@ type McpCmd struct {
 	OAuthStateSecret    string `name:"oauth-state-secret" help:"HMAC-SHA256 signing key for OAuth state (hex-encoded, 32+ bytes)" group:"auth" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
 
 	// TokenStore フラグ
-	TokenStore              string `name:"token-store" help:"token store type (memory/sqlite/dynamodb)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE"`
-	TokenStoreSQLitePath    string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
+	TokenStore               string `name:"token-store" help:"token store type (memory/sqlite/dynamodb)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE"`
+	TokenStoreSQLitePath     string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
 	TokenStoreDynamoDBTable  string `name:"token-store-dynamodb-table" help:"DynamoDB table name (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"`
 	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
 
 	// idproxy Store / JWT 署名鍵フラグ (Lambda マルチインスタンス対応)
 	SigningKey                 string        `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
 	RefreshTokenTTL            time.Duration `name:"refresh-token-ttl" help:"MCP OAuth refresh token TTL (e.g. 720h for 30d). 0 = idproxy default (30 days)" group:"auth" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
-	IDProxyStore               string `name:"idproxy-store" help:"idproxy store type (memory|dynamodb|sqlite|redis)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
-	IDProxyStoreDynamoDBTable  string `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
-	IDProxyStoreDynamoDBRegion string `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`
+	IDProxyStore               string        `name:"idproxy-store" help:"idproxy store type (memory|dynamodb|sqlite|redis)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
+	IDProxyStoreDynamoDBTable  string        `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
+	IDProxyStoreDynamoDBRegion string        `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`
 
 	// idproxy SQLite Store フラグ (単一ノード永続化用)
 	IDProxyStoreSQLitePath string `name:"idproxy-store-sqlite-path" help:"SQLite DB file path for idproxy store (use ':memory:' for ephemeral)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_SQLITE_PATH"`
@@ -64,6 +68,26 @@ type McpCmd struct {
 	IDProxyStoreRedisDB        int    `name:"idproxy-store-redis-db" help:"Redis DB number for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_DB"`
 	IDProxyStoreRedisTLS       bool   `name:"idproxy-store-redis-tls" help:"enable TLS for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_TLS"`
 	IDProxyStoreRedisKeyPrefix string `name:"idproxy-store-redis-key-prefix" help:"key prefix for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_KEY_PREFIX"`
+}
+
+// resolvedAuthMode は --auth と --auth-mode の組み合わせから実効認証モードを決定する。
+// 真理値表:
+//
+//	Auth=true,  AuthMode=""       → "oidc"（後方互換：既存本番スタック維持）
+//	Auth=false, AuthMode=""       → "none"
+//	any,        AuthMode="oidc"   → "oidc"
+//	Auth=false, AuthMode="bearer" → "bearer"
+//	Auth=true,  AuthMode="bearer" → "bearer"（Validate()で排他エラー）
+//	Auth=true,  AuthMode="none"   → "none"（Validate()で矛盾エラー）
+func (c *McpCmd) resolvedAuthMode() string {
+	mode := strings.ToLower(strings.TrimSpace(c.AuthMode))
+	if mode != "" {
+		return mode
+	}
+	if c.Auth {
+		return "oidc"
+	}
+	return "none"
 }
 
 // Validate は McpCmd のフィールドを検証する。
@@ -99,6 +123,30 @@ func (c *McpCmd) Validate() error {
 		}
 	default:
 		return fmt.Errorf("invalid --idproxy-store: %q (must be memory, dynamodb, sqlite, or redis)", c.IDProxyStore)
+	}
+
+	// Bearer/OIDC 排他検証
+	authMode := c.resolvedAuthMode()
+	switch authMode {
+	case "bearer":
+		if c.Auth {
+			return fmt.Errorf("--auth-mode=bearer and --auth are mutually exclusive; use only --auth-mode=bearer")
+		}
+		if c.BearerToken == "" {
+			return fmt.Errorf("--bearer-token is required when --auth-mode=bearer (fail-closed: missing token would expose unauthenticated MCP)")
+		}
+		if len(c.BearerToken) < 32 {
+			return fmt.Errorf("--bearer-token: must be at least 32 characters, got %d", len(c.BearerToken))
+		}
+		return nil // bearer モードはOIDC検証不要
+	case "none":
+		if c.Auth {
+			return fmt.Errorf("--auth-mode=none and --auth=true are contradictory; disable --auth or use --auth-mode=oidc")
+		}
+	case "oidc", "":
+		// 既存のOIDC検証に続く
+	default:
+		return fmt.Errorf("--auth-mode: invalid value %q; must be oidc, bearer, or none", c.AuthMode)
 	}
 
 	// Backlog OAuth fast-fail: --auth なしに --backlog-client-id を設定しても動かない
@@ -272,7 +320,8 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 
 	var handler http.Handler
 
-	if c.Auth {
+	authMode := c.resolvedAuthMode()
+	if authMode == "oidc" {
 		authCfg, err := BuildAuthConfig(c)
 		if err != nil {
 			return err
@@ -343,6 +392,12 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		} else {
 			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)
 		}
+	} else if authMode == "bearer" {
+		topMux := http.NewServeMux()
+		topMux.HandleFunc("/healthz", healthHandler)
+		topMux.Handle("/", bearerAuthMiddleware(c.BearerToken)(innerMux))
+		handler = topMux
+		fmt.Fprintf(os.Stderr, "logvalet MCP server (bearer auth) listening on %s/mcp\n", addr)
 	} else {
 		innerMux.HandleFunc("/healthz", healthHandler)
 		handler = innerMux
