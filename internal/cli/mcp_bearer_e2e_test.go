@@ -56,8 +56,8 @@ func TestE2E_BearerAuth_ValidToken(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		t.Errorf("expected non-401 with valid token, got 401")
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
 	}
 }
 
@@ -156,7 +156,50 @@ func TestE2E_BearerAuth_CaseInsensitive(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		t.Errorf("expected non-401 with lowercase 'bearer' scheme, got 401")
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200 (lowercase 'bearer' scheme should be accepted)", resp.StatusCode)
+	}
+}
+
+func TestE2E_BearerAuth_UppercaseSchemeCaseSensitiveToken(t *testing.T) {
+	// スキームはcase-insensitive、トークンはcase-sensitiveであることをE2Eレベルで検証する。
+	// "BEARER Token123" → スキームは大文字でもOK、トークン "Token123" はcase-sensitiveに比較される。
+	token := "Token123" + strings.Repeat("x", 24) // 32文字
+	srv := setupBearerTestServer(t, token)
+
+	// 大文字スキーム + 正しいトークン → 200
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/mcp", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("NewRequest failed: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "BEARER "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /mcp failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200 (BEARER scheme + correct token)", resp.StatusCode)
+	}
+
+	// 大文字スキーム + トークンを小文字にしたもの → 401（トークンはcase-sensitive）
+	req2, err := http.NewRequest(http.MethodPost, srv.URL+"/mcp", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("NewRequest failed: %v", err)
+	}
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "BEARER "+strings.ToLower(token))
+
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatalf("POST /mcp failed: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401 (token is case-sensitive, lowercase token should fail)", resp2.StatusCode)
 	}
 }
