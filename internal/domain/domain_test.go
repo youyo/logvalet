@@ -326,6 +326,33 @@ func TestIssueJSON_nullStartDate(t *testing.T) {
 	}
 }
 
+// TestIssueJSON_parentIssueIDDecode は Backlog レスポンスの parentIssueId が
+// Issue.ParentIssueID にデコードされることを検証する。
+func TestIssueJSON_parentIssueIDDecode(t *testing.T) {
+	raw := `{"id":1,"issueKey":"TEST-1","summary":"test","parentIssueId":123}`
+	var issue domain.Issue
+	if err := json.Unmarshal([]byte(raw), &issue); err != nil {
+		t.Fatalf("json.Unmarshal() エラー: %v", err)
+	}
+	if issue.ParentIssueID == nil || *issue.ParentIssueID != 123 {
+		t.Errorf("ParentIssueID が正しくデコードされない: %+v", issue.ParentIssueID)
+	}
+}
+
+// TestIssueJSON_nullParentIssueID は親なし Issue の JSON 出力に
+// parentIssueId:null が明示されることを検証する。
+func TestIssueJSON_nullParentIssueID(t *testing.T) {
+	issue := domain.Issue{ID: 1, IssueKey: "TEST-1", Summary: "test"}
+	b, err := json.Marshal(issue)
+	if err != nil {
+		t.Fatalf("json.Marshal() エラー: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `"parentIssueId":null`) {
+		t.Errorf("null ParentIssueID が出力されない: %s", s)
+	}
+}
+
 // TestDocument_JSONFieldAsObject は Document の json フィールドが JSON オブジェクトとして返された場合に
 // 正しくパースできることを検証する（GitHub Issue #1 対応）。
 func TestDocument_JSONFieldAsObject(t *testing.T) {
