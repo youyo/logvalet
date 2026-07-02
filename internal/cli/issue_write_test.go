@@ -212,6 +212,32 @@ func TestIssueUpdateCmd_run_dryRunWithSummary(t *testing.T) {
 	}
 }
 
+func TestIssueUpdateCmd_run_dryRunWithParentIssueID(t *testing.T) {
+	parentID := 100
+	cmd := &IssueUpdateCmd{
+		WriteFlags:    WriteFlags{DryRun: true},
+		IssueIDOrKey:  "PROJ-1",
+		ParentIssueID: &parentID,
+	}
+	err := cmd.Run(&GlobalFlags{})
+	if err != nil {
+		t.Fatalf("dry-run with parent-issue-id は成功するはず: %v", err)
+	}
+}
+
+func TestIssueUpdateCmd_run_dryRunWithParentIssueIDZero(t *testing.T) {
+	parentID := 0
+	cmd := &IssueUpdateCmd{
+		WriteFlags:    WriteFlags{DryRun: true},
+		IssueIDOrKey:  "PROJ-1",
+		ParentIssueID: &parentID,
+	}
+	err := cmd.Run(&GlobalFlags{})
+	if err != nil {
+		t.Fatalf("dry-run with parent-issue-id=0（解除）は成功するはず: %v", err)
+	}
+}
+
 // ---- IssueCommentAddCmd.Run() テスト ----
 
 func TestIssueCommentAddCmd_run_noContent(t *testing.T) {

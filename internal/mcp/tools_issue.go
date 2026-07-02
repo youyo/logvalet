@@ -265,6 +265,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
 		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
 		gomcp.WithNumber("issue_type_id", gomcp.Description("Issue type ID")),
+		gomcp.WithNumber("parent_issue_id", gomcp.Description("Parent issue ID (0 to remove parent)")),
 		gomcp.WithString("category_ids", gomcp.Description("Comma-separated category IDs (e.g. \"10,20\")")),
 		gomcp.WithString("version_ids", gomcp.Description("Comma-separated version IDs")),
 		gomcp.WithString("milestone_ids", gomcp.Description("Comma-separated milestone IDs")),
@@ -297,6 +298,9 @@ func RegisterIssueTools(r *ToolRegistry) {
 		}
 		if issueTypeID, ok := intArg(args, "issue_type_id"); ok {
 			req.IssueTypeID = &issueTypeID
+		}
+		if parentIssueID, ok := intArg(args, "parent_issue_id"); ok {
+			req.ParentIssueID = &parentIssueID
 		}
 		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok && categoryIDsStr != "" {
 			ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
