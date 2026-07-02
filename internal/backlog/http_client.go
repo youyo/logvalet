@@ -89,6 +89,40 @@ func buildActivityQuery(typeIDs []int, minID, maxID, count int, order string) ur
 	return q
 }
 
+// redactedError はエラー表示文字列全体から APIKey の平文値を除去するラッパー型。
+// Error() はマスク済み文字列を返し、Unwrap() は元エラーを返すため
+// errors.Is/As による型チェックとの互換性を保つ。
+type redactedError struct {
+	err    error
+	apiKey string
+}
+
+func (e *redactedError) Error() string {
+	msg := e.err.Error()
+	if e.apiKey == "" {
+		return msg
+	}
+	msg = strings.ReplaceAll(msg, e.apiKey, "***")
+	msg = strings.ReplaceAll(msg, url.QueryEscape(e.apiKey), "***")
+	return msg
+}
+
+func (e *redactedError) Unwrap() error {
+	return e.err
+}
+
+// redactAPIKey は err のエラー文字列から c.cred.APIKey の平文値を除去したエラーを返す。
+// err が nil の場合や APIKey が空文字の場合は err をそのまま返す（誤置換事故防止）。
+func (c *HTTPClient) redactAPIKey(err error) error {
+	if err == nil {
+		return err
+	}
+	if c.cred == nil || c.cred.APIKey == "" {
+		return err
+	}
+	return &redactedError{err: err, apiKey: c.cred.APIKey}
+}
+
 // ---- リクエストヘルパー ----
 
 // newRequest は認証情報付きの *http.Request を生成する。
@@ -111,7 +145,7 @@ func (c *HTTPClient) newRequest(ctx context.Context, method, path string, query 
 
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("backlog: failed to create request: %w", err)
+		return nil, c.redactAPIKey(fmt.Errorf("backlog: failed to create request: %w", err))
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -137,7 +171,10 @@ const maxAPIResponseBytes = 32 * 1024 * 1024 // 32MB
 
 // do はリクエストを実行し、レスポンスボディを out にデシリアライズする。
 // HTTP エラーは typed errors に変換する。
-func (c *HTTPClient) do(req *http.Request, out interface{}) error {
+func (c *HTTPClient) do(req *http.Request, out interface{}) (retErr error) {
+	// 単一の出口を経由して APIKey マスクを一括適用し、適用漏れを防ぐ。
+	defer func() { retErr = c.redactAPIKey(retErr) }()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("backlog: HTTP request failed: %w", err)
@@ -851,7 +888,10 @@ func (c *HTTPClient) GetSpaceDiskUsage(ctx context.Context) (*domain.DiskUsage, 
 
 // doDownload はリクエストを実行し、レスポンス Body を io.ReadCloser としてそのまま返す。
 // ファイル名は Content-Disposition ヘッダから取得する。取得できない場合は URL パス末尾を使用する。
-func (c *HTTPClient) doDownload(req *http.Request) (io.ReadCloser, string, error) {
+func (c *HTTPClient) doDownload(req *http.Request) (rc io.ReadCloser, filename string, retErr error) {
+	// 単一の出口を経由して APIKey マスクを一括適用し、適用漏れを防ぐ。
+	defer func() { retErr = c.redactAPIKey(retErr) }()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("backlog: HTTP request failed: %w", err)
@@ -864,7 +904,7 @@ func (c *HTTPClient) doDownload(req *http.Request) (io.ReadCloser, string, error
 	}
 
 	// ファイル名を Content-Disposition から取得
-	filename := filenameFromResponse(resp)
+	filename = filenameFromResponse(resp)
 
 	return resp.Body, filename, nil
 }
@@ -872,7 +912,10 @@ func (c *HTTPClient) doDownload(req *http.Request) (io.ReadCloser, string, error
 // doDownloadBounded はリクエストを実行し、maxBytes 以内のコンテンツをバイト列で返す。
 // maxBytes を超えるレスポンスは ErrDownloadTooLarge を返す。
 // Content-Type も resp から取得して返す。
-func (c *HTTPClient) doDownloadBounded(req *http.Request, maxBytes int64) ([]byte, string, string, error) {
+func (c *HTTPClient) doDownloadBounded(req *http.Request, maxBytes int64) (data []byte, filename string, contentType string, retErr error) {
+	// 単一の出口を経由して APIKey マスクを一括適用し、適用漏れを防ぐ。
+	defer func() { retErr = c.redactAPIKey(retErr) }()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("backlog: HTTP request failed: %w", err)
@@ -884,12 +927,12 @@ func (c *HTTPClient) doDownloadBounded(req *http.Request, maxBytes int64) ([]byt
 		return nil, "", "", c.normalizeError(resp.StatusCode, body)
 	}
 
-	filename := filenameFromResponse(resp)
-	contentType := resp.Header.Get("Content-Type")
+	filename = filenameFromResponse(resp)
+	contentType = resp.Header.Get("Content-Type")
 
 	// maxBytes+1 バイト読み込んで、超過を検出する
 	limited := io.LimitReader(resp.Body, maxBytes+1)
-	data, err := io.ReadAll(limited)
+	data, err = io.ReadAll(limited)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("backlog: reading response body: %w", err)
 	}
@@ -998,7 +1041,7 @@ func (c *HTTPClient) UploadAttachment(ctx context.Context, filename string, cont
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), &buf)
 	if err != nil {
-		return nil, fmt.Errorf("backlog: failed to create request: %w", err)
+		return nil, c.redactAPIKey(fmt.Errorf("backlog: failed to create request: %w", err))
 	}
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("User-Agent", c.userAgent)
