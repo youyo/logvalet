@@ -401,6 +401,8 @@ func (c *HTTPClient) UpdateIssue(ctx context.Context, issueKey string, reqBody U
 	}
 	if reqBody.ParentIssueID != nil {
 		if *reqBody.ParentIssueID == 0 {
+			// 公式 REST API ドキュメントには解除方法の明記がないが、
+			// Nulab 管理の backlog4j (Java client) が同様に空文字を送信して解除している。
 			q.Set("parentIssueId", "")
 		} else {
 			q.Set("parentIssueId", strconv.Itoa(*reqBody.ParentIssueID))
