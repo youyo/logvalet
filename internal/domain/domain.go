@@ -32,24 +32,25 @@ type UserRef struct {
 // Issue は Backlog の課題モデル。
 // JSON タグは Backlog API レスポンス（camelCase）に準拠。
 type Issue struct {
-	ID           int           `json:"id"`
-	ProjectID    int           `json:"projectId"`
-	IssueKey     string        `json:"issueKey"`
-	Summary      string        `json:"summary"`
-	Description  string        `json:"description"`
-	Status       *IDName       `json:"status,omitempty"`
-	Priority     *IDName       `json:"priority,omitempty"`
-	IssueType    *IDName       `json:"issueType,omitempty"`
-	Assignee     *User         `json:"assignee,omitempty"`
-	Reporter     *User         `json:"createdUser,omitempty"`
-	Categories   []IDName      `json:"category"`
-	Versions     []IDName      `json:"versions"`
-	Milestones   []IDName      `json:"milestone"`
-	DueDate      *time.Time    `json:"dueDate"`
-	StartDate    *time.Time    `json:"startDate"`
-	Created      *time.Time    `json:"created,omitempty"`
-	Updated      *time.Time    `json:"updated,omitempty"`
-	CustomFields []CustomField `json:"customFields,omitempty"`
+	ID            int           `json:"id"`
+	ProjectID     int           `json:"projectId"`
+	IssueKey      string        `json:"issueKey"`
+	Summary       string        `json:"summary"`
+	Description   string        `json:"description"`
+	Status        *IDName       `json:"status,omitempty"`
+	Priority      *IDName       `json:"priority,omitempty"`
+	IssueType     *IDName       `json:"issueType,omitempty"`
+	Assignee      *User         `json:"assignee,omitempty"`
+	Reporter      *User         `json:"createdUser,omitempty"`
+	Categories    []IDName      `json:"category"`
+	Versions      []IDName      `json:"versions"`
+	Milestones    []IDName      `json:"milestone"`
+	DueDate       *time.Time    `json:"dueDate"`
+	StartDate     *time.Time    `json:"startDate"`
+	ParentIssueID *int          `json:"parentIssueId"`
+	Created       *time.Time    `json:"created,omitempty"`
+	Updated       *time.Time    `json:"updated,omitempty"`
+	CustomFields  []CustomField `json:"customFields,omitempty"`
 }
 
 // Comment は Backlog のコメントモデル。
