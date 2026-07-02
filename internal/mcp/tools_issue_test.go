@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -875,6 +876,94 @@ func TestIssueUpdate_InvalidDueDate(t *testing.T) {
 
 	if result.IsError == false {
 		t.Error("expected IsError=true for invalid due_date")
+	}
+}
+
+// TestIssueUpdate_NoFieldsSpecified は issue_key のみ指定した場合にエラーになり、
+// UpdateIssue が呼ばれないことを確認する。
+func TestIssueUpdate_NoFieldsSpecified(t *testing.T) {
+	mock := backlog.NewMockClient()
+	called := false
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		called = true
+		return &domain.Issue{ID: 1}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_update", map[string]any{
+		"issue_key": "PROJ-1",
+	})
+
+	if result.IsError == false {
+		t.Fatal("expected IsError=true when no update fields are specified")
+	}
+	textContent, ok := result.Content[0].(gomcp.TextContent)
+	if ok == false {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	if !strings.Contains(textContent.Text, "at least one field") {
+		t.Errorf("expected error message to mention 'at least one field', got %q", textContent.Text)
+	}
+	if called {
+		t.Error("expected UpdateIssue not to be called")
+	}
+}
+
+// TestIssueUpdate_ParentIssueIDZeroOnly は parent_issue_id=0 のみの指定が
+// 有効な更新（親課題解除）として通ることを確認する。
+func TestIssueUpdate_ParentIssueIDZeroOnly(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedReq backlog.UpdateIssueRequest
+	called := false
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		called = true
+		capturedReq = req
+		return &domain.Issue{ID: 1}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_update", map[string]any{
+		"issue_key":       "PROJ-1",
+		"parent_issue_id": 0,
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if called == false {
+		t.Fatal("expected UpdateIssue to be called")
+	}
+	if capturedReq.ParentIssueID == nil || *capturedReq.ParentIssueID != 0 {
+		t.Errorf("expected ParentIssueID=&0, got %v", capturedReq.ParentIssueID)
+	}
+}
+
+// TestIssueUpdate_EmptySummaryOnly は summary="" のみの指定が
+// 有効な更新として通ることを確認する。
+func TestIssueUpdate_EmptySummaryOnly(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedReq backlog.UpdateIssueRequest
+	called := false
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		called = true
+		capturedReq = req
+		return &domain.Issue{ID: 1}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_update", map[string]any{
+		"issue_key": "PROJ-1",
+		"summary":   "",
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if called == false {
+		t.Fatal("expected UpdateIssue to be called")
+	}
+	if capturedReq.Summary == nil || *capturedReq.Summary != "" {
+		t.Errorf("expected Summary=&\"\", got %v", capturedReq.Summary)
 	}
 }
 
