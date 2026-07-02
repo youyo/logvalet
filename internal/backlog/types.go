@@ -17,7 +17,7 @@ type CreateIssueRequest struct {
 	MilestoneIDs    []int
 	DueDate         *time.Time
 	StartDate       *time.Time
-	ParentIssueID   int // 0 = 未指定
+	ParentIssueID   int // 0 = 未指定（UpdateIssueRequest.ParentIssueID の 0=解除とは意味が異なる）
 	NotifiedUserIDs []int
 	CustomFields    map[string]string
 	AttachmentIDs   []int64 // UploadAttachment で取得した添付 ID
@@ -32,7 +32,7 @@ type UpdateIssueRequest struct {
 	PriorityID      *int
 	AssigneeID      *int
 	IssueTypeID     *int
-	ParentIssueID   *int // 0 = 親課題解除、nil = 変更しない
+	ParentIssueID   *int // 0 = 親課題解除、nil = 変更しない（CreateIssueRequest.ParentIssueID の 0=未指定とは意味が異なる）
 	CategoryIDs     []int
 	VersionIDs      []int
 	MilestoneIDs    []int
