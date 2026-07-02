@@ -348,6 +348,10 @@ func RegisterIssueTools(r *ToolRegistry) {
 			req.Comment = &comment
 		}
 
+		if !hasUpdateField(req) {
+			return nil, fmt.Errorf("at least one field to update must be specified")
+		}
+
 		return client.UpdateIssue(ctx, issueKey, req)
 	})
 
@@ -605,6 +609,32 @@ func openFile(path string) (io.ReadCloser, error) {
 // fileBase はファイルパスからベース名を返すヘルパー。
 func fileBase(path string) string {
 	return filepath.Base(path)
+}
+
+// hasUpdateField は UpdateIssueRequest に更新対象フィールドが1つでも
+// 指定されているかを判定する。ポインタ/スライスフィールドが非 nil であれば
+// 「指定あり」とみなし、値の中身（空文字・0 など）では判定しない。
+// これにより summary="" や parent_issue_id=0（親課題解除）も有効な更新として扱える。
+//
+// 注意: backlog.UpdateIssueRequest にフィールドを追加した場合は、
+// ここへの列挙漏れがないか必ず確認すること。
+func hasUpdateField(req backlog.UpdateIssueRequest) bool {
+	return req.Summary != nil ||
+		req.Description != nil ||
+		req.StatusID != nil ||
+		req.PriorityID != nil ||
+		req.AssigneeID != nil ||
+		req.IssueTypeID != nil ||
+		req.ParentIssueID != nil ||
+		req.CategoryIDs != nil ||
+		req.VersionIDs != nil ||
+		req.MilestoneIDs != nil ||
+		req.DueDate != nil ||
+		req.StartDate != nil ||
+		req.NotifiedUserIDs != nil ||
+		req.Comment != nil ||
+		req.CustomFields != nil ||
+		req.AttachmentIDs != nil
 }
 
 // backlogUpdateIssueReqWithAttachments は AttachmentIDs を持つ UpdateIssueRequest を生成する。
