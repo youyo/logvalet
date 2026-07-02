@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -1759,5 +1760,97 @@ func TestHTTPClientSearchDocuments(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+// TestHTTPClient_ErrorMessagesDoNotLeakAPIKey は HEP_ISSUES-1523 の回帰テスト。
+// 接続失敗・ダウンロード失敗・API エラー本文の各経路で、エラー文字列に
+// apiKey の平文値が含まれないことを検証する。
+func TestHTTPClient_ErrorMessagesDoNotLeakAPIKey(t *testing.T) {
+	const secretAPIKey = "super-secret-api-key-value"
+
+	t.Run("接続失敗時のエラーにapiKeyが含まれない", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		baseURL := srv.URL
+		srv.Close() // 即座に閉じて接続失敗を誘発
+
+		client := newAPIKeyClientWithKey(t, baseURL, secretAPIKey)
+		_, err := client.GetMyself(context.Background())
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if strings.Contains(err.Error(), secretAPIKey) {
+			t.Errorf("error message leaks apiKey: %q", err.Error())
+		}
+
+		var urlErr *url.Error
+		if !errors.As(err, &urlErr) {
+			t.Errorf("errors.As(*url.Error) failed for err = %v", err)
+		}
+	})
+
+	t.Run("ダウンロード経路の接続失敗時にapiKeyが含まれない", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		baseURL := srv.URL
+		srv.Close()
+
+		client := newAPIKeyClientWithKey(t, baseURL, secretAPIKey)
+		_, _, err := client.DownloadSharedFile(context.Background(), "PROJ", 1)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if strings.Contains(err.Error(), secretAPIKey) {
+			t.Errorf("error message leaks apiKey: %q", err.Error())
+		}
+
+		var urlErr *url.Error
+		if !errors.As(err, &urlErr) {
+			t.Errorf("errors.As(*url.Error) failed for err = %v", err)
+		}
+	})
+
+	t.Run("APIエラー本文にクエリ付きURLが含まれてもapiKeyが漏れない", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			body := map[string]interface{}{
+				"errors": []map[string]interface{}{
+					{
+						"message": "invalid request: " + r.URL.String(),
+						"code":    1,
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(body)
+		}))
+		defer srv.Close()
+
+		client := newAPIKeyClientWithKey(t, srv.URL, secretAPIKey)
+		_, err := client.GetMyself(context.Background())
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if strings.Contains(err.Error(), secretAPIKey) {
+			t.Errorf("error message leaks apiKey: %q", err.Error())
+		}
+
+		var backlogErr *backlog.BacklogError
+		if !errors.As(err, &backlogErr) {
+			t.Errorf("errors.As(*backlog.BacklogError) failed for err = %v", err)
+		}
+	})
+}
+
+// newAPIKeyClientWithKey は指定した APIKey を持つ HTTPClient を生成する。
+func newAPIKeyClientWithKey(t *testing.T, baseURL, apiKey string) *backlog.HTTPClient {
+	t.Helper()
+	cred := &credentials.ResolvedCredential{
+		AuthType: credentials.AuthTypeAPIKey,
+		APIKey:   apiKey,
+		Source:   "env",
+	}
+	return backlog.NewHTTPClient(backlog.ClientConfig{
+		BaseURL:    baseURL,
+		Credential: cred,
 	})
 }
