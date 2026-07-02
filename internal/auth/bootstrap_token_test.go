@@ -418,14 +418,17 @@ func TestValidateBootstrapToken_Tampered(t *testing.T) {
 		t.Fatalf("GenerateBootstrapToken() error = %v", err)
 	}
 
-	// 末尾 1 文字を変更
-	tampered := tok[:len(tok)-1] + func() string {
-		last := tok[len(tok)-1]
-		if last == 'A' {
-			return "B"
-		}
-		return "A"
-	}()
+	// 中間の 1 文字を変更（base64url の末尾文字は下位の余りビットがデコード時に
+	// 無視されることがあり、末尾改竄では署名バイト列が変わらず検出できない場合がある）
+	idx := len(tok) / 2
+	if tok[idx] == '.' {
+		idx++
+	}
+	repl := "A"
+	if tok[idx] == 'A' {
+		repl = "B"
+	}
+	tampered := tok[:idx] + repl + tok[idx+1:]
 
 	_, _, err = ValidateBootstrapToken(tampered, btTestBaseURL, btTestAlias, key)
 	if !errors.Is(err, ErrBootstrapInvalid) {
