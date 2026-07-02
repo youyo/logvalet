@@ -653,6 +653,55 @@ func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
 	}
 }
 
+func TestHTTPClientUpdateIssue_parentIssueID(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	parentIssueID := 42
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.UpdateIssue(context.Background(), "PROJ-1", backlog.UpdateIssueRequest{
+		ParentIssueID: &parentIssueID,
+	})
+	if err != nil {
+		t.Fatalf("UpdateIssue() error = %v", err)
+	}
+	if gotQuery.Get("parentIssueId") != "42" {
+		t.Errorf("parentIssueId = %q, want %q", gotQuery.Get("parentIssueId"), "42")
+	}
+}
+
+func TestHTTPClientUpdateIssue_parentIssueIDUnset(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(issue)
+	}))
+	defer srv.Close()
+
+	parentIssueID := 0
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.UpdateIssue(context.Background(), "PROJ-1", backlog.UpdateIssueRequest{
+		ParentIssueID: &parentIssueID,
+	})
+	if err != nil {
+		t.Fatalf("UpdateIssue() error = %v", err)
+	}
+	if _, ok := gotQuery["parentIssueId"]; !ok {
+		t.Fatal("parentIssueId should be present (empty) when unsetting parent")
+	}
+	if gotQuery.Get("parentIssueId") != "" {
+		t.Errorf("parentIssueId = %q, want empty string", gotQuery.Get("parentIssueId"))
+	}
+}
+
 func TestHTTPClientUpdateIssue_nilSkip(t *testing.T) {
 	var gotQuery url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -668,7 +717,7 @@ func TestHTTPClientUpdateIssue_nilSkip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateIssue() error = %v", err)
 	}
-	for _, key := range []string{"statusId", "priorityId", "assigneeId", "issueTypeId", "comment"} {
+	for _, key := range []string{"statusId", "priorityId", "assigneeId", "issueTypeId", "parentIssueId", "comment"} {
 		if _, ok := gotQuery[key]; ok {
 			t.Errorf("query[%q] should not be present for nil fields", key)
 		}

@@ -353,6 +353,7 @@ type IssueUpdateCmd struct {
 	Priority        *string  `help:"priority (name or ID)"`
 	Assignee        *string  `help:"assignee user ID"`
 	IssueType       *string  `help:"issue type (name or ID)"`
+	ParentIssueID   *int     `help:"parent issue ID (0 to remove parent)"`
 	Category        []string `help:"category (multiple allowed)"`
 	Version         []string `name:"versions" help:"version (multiple allowed)"`
 	Milestone       []string `help:"milestone (multiple allowed)"`
@@ -389,8 +390,8 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 		c.DueDate, c.StartDate, descStr,
 		c.Category, c.Version, c.Milestone, notifiedUserIDSlice,
 	); err != nil {
-		// IssueType や Comment もチェック
-		if c.IssueType == nil && c.Comment == nil {
+		// IssueType, Comment, ParentIssueID もチェック
+		if c.IssueType == nil && c.Comment == nil && c.ParentIssueID == nil {
 			return err
 		}
 	}
@@ -416,6 +417,7 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 			"priority":         ptrOrNil(c.Priority),
 			"assignee":         ptrOrNil(c.Assignee),
 			"issue_type":       ptrOrNil(c.IssueType),
+			"parent_issue_id":  intPtrOrNil(c.ParentIssueID),
 			"due_date":         ptrOrNil(c.DueDate),
 			"start_date":       ptrOrNil(c.StartDate),
 			"notified_user_id": c.NotifiedUserID,
@@ -561,6 +563,7 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		PriorityID:      priorityID,
 		AssigneeID:      assigneeID,
 		IssueTypeID:     issueTypeID,
+		ParentIssueID:   c.ParentIssueID,
 		CategoryIDs:     categoryIDs,
 		VersionIDs:      versionIDs,
 		MilestoneIDs:    milestoneIDs,
@@ -756,4 +759,11 @@ func ptrOrNil(s *string) interface{} {
 		return nil
 	}
 	return *s
+}
+
+func intPtrOrNil(i *int) interface{} {
+	if i == nil {
+		return nil
+	}
+	return *i
 }

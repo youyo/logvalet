@@ -677,6 +677,52 @@ func TestIssueUpdate_WithIssueTypeID(t *testing.T) {
 	}
 }
 
+// TestIssueUpdate_WithParentIssueID は parent_issue_id が ParentIssueID に設定されることを確認する。
+func TestIssueUpdate_WithParentIssueID(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedReq backlog.UpdateIssueRequest
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		capturedReq = req
+		return &domain.Issue{ID: 1}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_update", map[string]any{
+		"issue_key":       "PROJ-1",
+		"parent_issue_id": 100,
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedReq.ParentIssueID == nil || *capturedReq.ParentIssueID != 100 {
+		t.Errorf("expected ParentIssueID=&100, got %v", capturedReq.ParentIssueID)
+	}
+}
+
+// TestIssueUpdate_WithParentIssueIDZero は parent_issue_id=0 で親課題解除が指定できることを確認する。
+func TestIssueUpdate_WithParentIssueIDZero(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedReq backlog.UpdateIssueRequest
+	mock.UpdateIssueFunc = func(ctx context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		capturedReq = req
+		return &domain.Issue{ID: 1}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_update", map[string]any{
+		"issue_key":       "PROJ-1",
+		"parent_issue_id": 0,
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedReq.ParentIssueID == nil || *capturedReq.ParentIssueID != 0 {
+		t.Errorf("expected ParentIssueID=&0, got %v", capturedReq.ParentIssueID)
+	}
+}
+
 // TestIssueUpdate_WithCategoryIDs_CSV は category_ids が CategoryIDs に設定されることを確認する。
 func TestIssueUpdate_WithCategoryIDs_CSV(t *testing.T) {
 	mock := backlog.NewMockClient()

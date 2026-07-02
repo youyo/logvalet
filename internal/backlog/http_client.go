@@ -399,6 +399,13 @@ func (c *HTTPClient) UpdateIssue(ctx context.Context, issueKey string, reqBody U
 	if reqBody.IssueTypeID != nil {
 		q.Set("issueTypeId", strconv.Itoa(*reqBody.IssueTypeID))
 	}
+	if reqBody.ParentIssueID != nil {
+		if *reqBody.ParentIssueID == 0 {
+			q.Set("parentIssueId", "")
+		} else {
+			q.Set("parentIssueId", strconv.Itoa(*reqBody.ParentIssueID))
+		}
+	}
 	for _, id := range reqBody.CategoryIDs {
 		q.Add("categoryId[]", strconv.Itoa(id))
 	}

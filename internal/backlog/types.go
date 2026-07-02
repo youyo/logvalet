@@ -32,6 +32,7 @@ type UpdateIssueRequest struct {
 	PriorityID      *int
 	AssigneeID      *int
 	IssueTypeID     *int
+	ParentIssueID   *int // 0 = 親課題解除、nil = 変更しない
 	CategoryIDs     []int
 	VersionIDs      []int
 	MilestoneIDs    []int
