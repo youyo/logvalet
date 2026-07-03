@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 )
@@ -1210,6 +1212,45 @@ func TestResolveTeamIDs_multipleMatch(t *testing.T) {
 	_, err := resolveTeamIDs(context.Background(), []string{"チームA"}, mc)
 	if err == nil {
 		t.Fatal("エラーが期待されたが nil")
+	}
+}
+
+// ---- --parent-issue-id フラグ伝播テスト ----
+
+// T1: ParentIssueID フラグが ListIssuesOptions.ParentIssueIDs に伝播する
+func TestIssueListCmd_listIssues_ParentIssueIDs(t *testing.T) {
+	mc := backlog.NewMockClient()
+	var gotOpt backlog.ListIssuesOptions
+	mc.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		gotOpt = opt
+		return nil, nil
+	}
+	cmd := IssueListCmd{ParentIssueID: []int{123, 456}}
+	if _, err := cmd.listIssues(context.Background(), mc); err != nil {
+		t.Fatalf("listIssues() エラー: %v", err)
+	}
+	if !intSliceEqual(gotOpt.ParentIssueIDs, []int{123, 456}) {
+		t.Errorf("ParentIssueIDs 期待 [123 456], 実際 %v", gotOpt.ParentIssueIDs)
+	}
+}
+
+// T2: kong parse で --parent-issue-id を複数指定できる
+func TestIssueList_KongParse_ParentIssueID(t *testing.T) {
+	var root CLI
+	p, err := kong.New(&root,
+		kong.Name("logvalet"),
+		kong.Writers(bytes.NewBuffer(nil), bytes.NewBuffer(nil)),
+		kong.Exit(func(int) {}),
+	)
+	if err != nil {
+		t.Fatalf("kong.New() エラー: %v", err)
+	}
+	_, err = p.Parse([]string{"issue", "list", "--parent-issue-id", "123", "--parent-issue-id", "456"})
+	if err != nil {
+		t.Fatalf("パースエラー: %v", err)
+	}
+	if !intSliceEqual(root.Issue.List.ParentIssueID, []int{123, 456}) {
+		t.Errorf("ParentIssueID 期待 [123 456], 実際 %v", root.Issue.List.ParentIssueID)
 	}
 }
 

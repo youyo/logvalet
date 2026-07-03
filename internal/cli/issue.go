@@ -55,14 +55,15 @@ func (c *IssueGetCmd) Run(g *GlobalFlags) error {
 // IssueListCmd は issue list コマンド。
 type IssueListCmd struct {
 	ListFlags
-	ProjectKey []string `short:"k" help:"project key (required if --status is open/named)"`
-	Assignee   string   `help:"assignee (me, numeric ID, or user name)"`
-	Status     string   `help:"status (not-closed, open, name, comma-separated, numeric ID). open/named requires -k"`
-	Keyword    string   `help:"keyword search against Backlog issues"`
-	DueDate    string   `help:"due date filter (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
-	StartDate  string   `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
-	Sort       string   `help:"sort key (dueDate, created, updated, priority, status, assignee)"`
-	Order      string   `help:"sort order (asc, desc)" default:"desc" enum:"asc,desc,"`
+	ProjectKey    []string `short:"k" help:"project key (required if --status is open/named)"`
+	Assignee      string   `help:"assignee (me, numeric ID, or user name)"`
+	Status        string   `help:"status (not-closed, open, name, comma-separated, numeric ID). open/named requires -k"`
+	Keyword       string   `help:"keyword search against Backlog issues"`
+	DueDate       string   `help:"due date filter (today, overdue, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
+	StartDate     string   `help:"start date filter (today, this-week, this-month, YYYY-MM-DD, YYYY-MM-DD:YYYY-MM-DD). auto-paginate if specified"`
+	Sort          string   `help:"sort key (dueDate, created, updated, priority, status, assignee)"`
+	Order         string   `help:"sort order (asc, desc)" default:"desc" enum:"asc,desc,"`
+	ParentIssueID []int    `help:"parent issue ID (multiple allowed)"`
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
@@ -118,6 +119,7 @@ func (c *IssueListCmd) listIssues(ctx context.Context, client backlog.Client) ([
 		}
 		opt.StatusIDs = statusIDs
 	}
+	opt.ParentIssueIDs = c.ParentIssueID
 	// --due-date 解決
 	if c.DueDate != "" {
 		since, until, err := resolveDueDate(c.DueDate)

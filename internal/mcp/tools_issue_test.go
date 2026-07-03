@@ -223,6 +223,26 @@ func TestIssueList_ProjectKeysMultiple(t *testing.T) {
 	}
 }
 
+// --- s4-mcp-filter: parent_issue_ids 指定 -> opt.ParentIssueIDs に伝播 ---
+func TestIssueList_ParentIssueIDs(t *testing.T) {
+	mock := backlog.NewMockClient()
+	var capturedOpt backlog.ListIssuesOptions
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		capturedOpt = opt
+		return []domain.Issue{}, nil
+	}
+
+	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_issue_list", map[string]any{"parent_issue_ids": "100,200"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(capturedOpt.ParentIssueIDs) != 2 || capturedOpt.ParentIssueIDs[0] != 100 || capturedOpt.ParentIssueIDs[1] != 200 {
+		t.Errorf("expected ParentIssueIDs=[100,200], got %v", capturedOpt.ParentIssueIDs)
+	}
+}
+
 // --- T1-9: project_key "PROJ"（旧パラメータ）-> 動作変更なし ---
 func TestIssueList_ProjectKeyLegacy(t *testing.T) {
 	mock := backlog.NewMockClient()

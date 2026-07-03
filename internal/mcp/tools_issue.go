@@ -42,7 +42,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 
 	// logvalet_issue_list
 	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_list",
-		gomcp.WithDescription("List issues with optional filters"),
+		gomcp.WithDescription("List issues with optional filters, including parent issue filtering"),
 		gomcp.WithString("project_key", gomcp.Description("Filter by single project key (legacy; use project_keys for multiple)")),
 		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys (e.g. PROJ1,PROJ2)")),
 		gomcp.WithNumber("count", gomcp.Description("Max number of issues (default 20, max 100)")),
@@ -56,6 +56,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		gomcp.WithString("start_date", gomcp.Description("Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
 		gomcp.WithString("updated_since", gomcp.Description("Updated since (YYYY-MM-DD)")),
 		gomcp.WithString("updated_until", gomcp.Description("Updated until (YYYY-MM-DD)")),
+		gomcp.WithString("parent_issue_ids", gomcp.Description("Comma-separated parent issue IDs to filter child issues (e.g. \"100,200\")")),
 		readOnlyAnnotation("課題一覧取得"),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
@@ -152,6 +153,15 @@ func RegisterIssueTools(r *ToolRegistry) {
 				return nil, fmt.Errorf("invalid updated_until: %w", err)
 			}
 			opt.UpdatedUntil = &t
+		}
+
+		// parent_issue_ids: CSV -> []int
+		if parentIssueIDsStr, ok := stringArg(args, "parent_issue_ids"); ok && parentIssueIDsStr != "" {
+			ids, err := parseCSVIntList(parentIssueIDsStr, "parent_issue_ids")
+			if err != nil {
+				return nil, err
+			}
+			opt.ParentIssueIDs = ids
 		}
 
 		return client.ListIssues(ctx, opt)

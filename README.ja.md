@@ -311,6 +311,9 @@ logvalet issue list --start-date 2026-03-01:2026-03-31
 
 # --start-date と --due-date を同時指定（AND 条件）
 logvalet issue list --start-date this-month --due-date this-month
+
+# 親課題で絞り込み（複数指定可）
+logvalet issue list --parent-issue-id 123 --parent-issue-id 456
 ```
 
 | フラグ | 指定値 | 説明 |
@@ -319,6 +322,7 @@ logvalet issue list --start-date this-month --due-date this-month
 | `--status` | `open`、`not-closed`、ステータス名（カンマ区切り可）、ステータスID | ステータスで絞り込み。`open` は完了以外。`not-closed` も完了以外（プロジェクトキー不要）。名前/`open` は `-k` 必須 |
 | `--due-date` | `today`、`overdue`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 期限日で絞り込み。日付範囲は開端記法に対応（`:YYYY-MM-DD` または `YYYY-MM-DD:`） |
 | `--start-date` | `today`、`this-week`、`this-month`、`YYYY-MM-DD`、`YYYY-MM-DD:YYYY-MM-DD` | 開始日で絞り込み。日付範囲は開端記法に対応。`--due-date` との同時指定可（AND 結合）。 |
+| `--parent-issue-id` | 課題ID | 親課題IDで絞り込み。複数指定可。 |
 | `--sort` | `dueDate`、`created`、`updated`、`priority`、`status`、`assignee` | 結果のソート対象フィールド |
 | `--order` | `asc`、`desc` | ソート順序。デフォルト: `desc` |
 
