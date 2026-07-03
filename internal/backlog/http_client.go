@@ -159,6 +159,43 @@ func (c *HTTPClient) newRequest(ctx context.Context, method, path string, query 
 	return req, nil
 }
 
+// newBodyRequest は書き込み系 API (POST/PATCH) 用のリクエストを生成する。
+// newRequest と異なり、apiKey のみクエリに残し、残りのパラメータは
+// application/x-www-form-urlencoded の body で送信する。
+// GET 系は URL 長の実害がないため対象外（newRequest を使用）。
+func (c *HTTPClient) newBodyRequest(ctx context.Context, method, path string, body url.Values) (*http.Request, error) {
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, fmt.Errorf("backlog: invalid URL %q: %w", c.baseURL+path, err)
+	}
+
+	q := url.Values{}
+	// API key 認証: クエリパラメータ apiKey を付与
+	if c.cred != nil && c.cred.AuthType == credentials.AuthTypeAPIKey && c.cred.APIKey != "" {
+		q.Set("apiKey", c.cred.APIKey)
+	}
+	u.RawQuery = q.Encode()
+
+	if body == nil {
+		body = url.Values{}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), strings.NewReader(body.Encode()))
+	if err != nil {
+		return nil, c.redactAPIKey(fmt.Errorf("backlog: failed to create request: %w", err))
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", c.userAgent)
+
+	// OAuth 認証: Authorization: Bearer ヘッダを設定
+	if c.cred != nil && c.cred.AuthType == credentials.AuthTypeOAuth && c.cred.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cred.AccessToken)
+	}
+
+	return req, nil
+}
+
 // backlogAPIError は Backlog API のエラーレスポンス構造体。
 type backlogAPIError struct {
 	Errors []struct {
@@ -316,6 +353,9 @@ func (c *HTTPClient) ListIssues(ctx context.Context, opt ListIssuesOptions) ([]d
 	for _, id := range opt.AssigneeIDs {
 		q.Add("assigneeId[]", strconv.Itoa(id))
 	}
+	for _, id := range opt.ParentIssueIDs {
+		q.Add("parentIssueId[]", strconv.Itoa(id))
+	}
 	for _, id := range opt.StatusIDs {
 		q.Add("statusId[]", strconv.Itoa(id))
 	}
@@ -403,7 +443,7 @@ func (c *HTTPClient) CreateIssue(ctx context.Context, reqBody CreateIssueRequest
 		q.Add("attachmentId[]", strconv.FormatInt(id, 10))
 	}
 
-	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/issues", q)
+	req, err := c.newBodyRequest(ctx, http.MethodPost, "/api/v2/issues", q)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +510,7 @@ func (c *HTTPClient) UpdateIssue(ctx context.Context, issueKey string, reqBody U
 		q.Add("attachmentId[]", strconv.FormatInt(id, 10))
 	}
 
-	req, err := c.newRequest(ctx, http.MethodPatch, "/api/v2/issues/"+url.PathEscape(issueKey), q)
+	req, err := c.newBodyRequest(ctx, http.MethodPatch, "/api/v2/issues/"+url.PathEscape(issueKey), q)
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +550,7 @@ func (c *HTTPClient) AddIssueComment(ctx context.Context, issueKey string, reqBo
 	for _, id := range reqBody.NotifiedUserIDs {
 		q.Add("notifiedUserId[]", strconv.Itoa(id))
 	}
-	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/issues/"+url.PathEscape(issueKey)+"/comments", q)
+	req, err := c.newBodyRequest(ctx, http.MethodPost, "/api/v2/issues/"+url.PathEscape(issueKey)+"/comments", q)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +567,7 @@ func (c *HTTPClient) UpdateIssueComment(ctx context.Context, issueKey string, co
 	q := url.Values{}
 	q.Set("content", reqBody.Content)
 	path := fmt.Sprintf("/api/v2/issues/%s/comments/%d", url.PathEscape(issueKey), commentID)
-	req, err := c.newRequest(ctx, http.MethodPatch, path, q)
+	req, err := c.newBodyRequest(ctx, http.MethodPatch, path, q)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +733,7 @@ func (c *HTTPClient) CreateDocument(ctx context.Context, reqBody CreateDocumentR
 	if reqBody.AddLast {
 		q.Set("addLast", "true")
 	}
-	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/documents", q)
+	req, err := c.newBodyRequest(ctx, http.MethodPost, "/api/v2/documents", q)
 	if err != nil {
 		return nil, err
 	}
@@ -1199,7 +1239,7 @@ func (c *HTTPClient) AddWatching(ctx context.Context, reqBody AddWatchingRequest
 	if reqBody.Note != "" {
 		q.Set("note", reqBody.Note)
 	}
-	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/watchings", q)
+	req, err := c.newBodyRequest(ctx, http.MethodPost, "/api/v2/watchings", q)
 	if err != nil {
 		return nil, err
 	}
@@ -1216,7 +1256,7 @@ func (c *HTTPClient) UpdateWatching(ctx context.Context, watchingID int64, reqBo
 	q := url.Values{}
 	q.Set("note", reqBody.Note)
 	apiPath := fmt.Sprintf("/api/v2/watchings/%d", watchingID)
-	req, err := c.newRequest(ctx, http.MethodPatch, apiPath, q)
+	req, err := c.newBodyRequest(ctx, http.MethodPatch, apiPath, q)
 	if err != nil {
 		return nil, err
 	}
@@ -1417,7 +1457,7 @@ func (c *HTTPClient) AddStar(ctx context.Context, reqBody AddStarRequest) error 
 	if reqBody.PullRequestCommentID != nil {
 		q.Set("pullRequestCommentId", strconv.Itoa(*reqBody.PullRequestCommentID))
 	}
-	req, err := c.newRequest(ctx, http.MethodPost, "/api/v2/stars", q)
+	req, err := c.newBodyRequest(ctx, http.MethodPost, "/api/v2/stars", q)
 	if err != nil {
 		return err
 	}
