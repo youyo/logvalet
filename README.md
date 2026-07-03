@@ -304,6 +304,9 @@ logvalet issue list --start-date 2026-03-01:2026-03-31
 
 # Combine --start-date and --due-date (AND condition)
 logvalet issue list --start-date this-month --due-date this-month
+
+# Filter by parent issue (multiple allowed)
+logvalet issue list --parent-issue-id 123 --parent-issue-id 456
 ```
 
 | Flag | Values | Description |
@@ -312,6 +315,7 @@ logvalet issue list --start-date this-month --due-date this-month
 | `--status` | `open`, `not-closed`, status name(s), or status ID | Filter by status. `open` excludes completed. `not-closed` excludes completed (no project key required). Names/`open` require `-k` |
 | `--due-date` | `today`, `overdue`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by due date. Date ranges support open-ended queries (`:YYYY-MM-DD` or `YYYY-MM-DD:`) |
 | `--start-date` | `today`, `this-week`, `this-month`, `YYYY-MM-DD`, or `YYYY-MM-DD:YYYY-MM-DD` | Filter by start date. Date ranges support open-ended queries. Can be combined with `--due-date` (AND). |
+| `--parent-issue-id` | issue ID | Filter by parent issue ID. Can be specified multiple times. |
 | `--sort` | `dueDate`, `created`, `updated`, `priority`, `status`, `assignee` | Sort results by field |
 | `--order` | `asc`, `desc` | Sort direction. Default: `desc` |
 

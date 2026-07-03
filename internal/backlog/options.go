@@ -7,6 +7,7 @@ import "time"
 type ListIssuesOptions struct {
 	ProjectIDs     []int
 	AssigneeIDs    []int
+	ParentIssueIDs []int
 	StatusIDs      []int
 	Keyword        string
 	DueDateSince   *time.Time

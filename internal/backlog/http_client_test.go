@@ -260,6 +260,27 @@ func TestHTTPClientListIssues(t *testing.T) {
 		}
 	})
 
+	t.Run("parentIssueId[] multiple values", func(t *testing.T) {
+		var gotQuery url.Values
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer srv.Close()
+
+		client := newOAuthClient(t, srv.URL)
+		_, err := client.ListIssues(context.Background(), backlog.ListIssuesOptions{
+			ParentIssueIDs: []int{100, 200},
+		})
+		if err != nil {
+			t.Fatalf("ListIssues() error = %v", err)
+		}
+		if ids := gotQuery["parentIssueId[]"]; len(ids) != 2 || ids[0] != "100" || ids[1] != "200" {
+			t.Errorf("parentIssueId[] = %v, want [100 200]", ids)
+		}
+	})
+
 	t.Run("statusId[] multiple values", func(t *testing.T) {
 		var gotQuery url.Values
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -505,7 +526,8 @@ func TestHTTPClientListPriorities(t *testing.T) {
 func TestHTTPClientCreateIssue_sendsProjectId(t *testing.T) {
 	var gotProjectID string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotProjectID = r.URL.Query().Get("projectId")
+		_ = r.ParseForm()
+		gotProjectID = r.PostForm.Get("projectId")
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -529,8 +551,13 @@ func TestHTTPClientCreateIssue_sendsProjectId(t *testing.T) {
 
 func TestHTTPClientCreateIssue_allParams(t *testing.T) {
 	var gotQuery url.Values
+	var gotForm url.Values
+	var gotContentType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.Query()
+		gotContentType = r.Header.Get("Content-Type")
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -540,7 +567,7 @@ func TestHTTPClientCreateIssue_allParams(t *testing.T) {
 	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	startDate := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	client := newOAuthClient(t, srv.URL)
+	client := newAPIKeyClient(t, srv.URL)
 	_, err := client.CreateIssue(context.Background(), backlog.CreateIssueRequest{
 		ProjectID:       42,
 		Summary:         "test",
@@ -558,6 +585,14 @@ func TestHTTPClientCreateIssue_allParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateIssue() error = %v", err)
 	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+	}
+	for key := range gotQuery {
+		if key != "apiKey" {
+			t.Errorf("query[%q] should not be present; params must be sent in body", key)
+		}
+	}
 	checks := map[string]string{
 		"projectId":     "42",
 		"issueTypeId":   "1",
@@ -568,22 +603,23 @@ func TestHTTPClientCreateIssue_allParams(t *testing.T) {
 		"startDate":     "2026-03-01",
 	}
 	for key, want := range checks {
-		if gotQuery.Get(key) != want {
-			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		if gotForm.Get(key) != want {
+			t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
 		}
 	}
-	if catIDs := gotQuery["categoryId[]"]; len(catIDs) != 2 {
+	if catIDs := gotForm["categoryId[]"]; len(catIDs) != 2 {
 		t.Errorf("categoryId[] = %v, want 2 items", catIDs)
 	}
-	if notIDs := gotQuery["notifiedUserId[]"]; len(notIDs) != 2 {
+	if notIDs := gotForm["notifiedUserId[]"]; len(notIDs) != 2 {
 		t.Errorf("notifiedUserId[] = %v, want 2 items", notIDs)
 	}
 }
 
 func TestHTTPClientCreateIssue_optionalSkip(t *testing.T) {
-	var gotQuery url.Values
+	var gotForm url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query()
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -601,15 +637,20 @@ func TestHTTPClientCreateIssue_optionalSkip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateIssue() error = %v", err)
 	}
-	if _, ok := gotQuery["assigneeId"]; ok {
+	if _, ok := gotForm["assigneeId"]; ok {
 		t.Error("assigneeId should not be present when AssigneeID=0")
 	}
 }
 
 func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
 	var gotQuery url.Values
+	var gotForm url.Values
+	var gotContentType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.Query()
+		gotContentType = r.Header.Get("Content-Type")
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -623,7 +664,7 @@ func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
 	comment := "更新コメント"
 	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 
-	client := newOAuthClient(t, srv.URL)
+	client := newAPIKeyClient(t, srv.URL)
 	_, err := client.UpdateIssue(context.Background(), "PROJ-1", backlog.UpdateIssueRequest{
 		StatusID:        &statusID,
 		PriorityID:      &priorityID,
@@ -639,6 +680,14 @@ func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateIssue() error = %v", err)
 	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+	}
+	for key := range gotQuery {
+		if key != "apiKey" {
+			t.Errorf("query[%q] should not be present; params must be sent in body", key)
+		}
+	}
 	checks := map[string]string{
 		"statusId":    "2",
 		"priorityId":  "3",
@@ -648,16 +697,17 @@ func TestHTTPClientUpdateIssue_allParams(t *testing.T) {
 		"comment":     "更新コメント",
 	}
 	for key, want := range checks {
-		if gotQuery.Get(key) != want {
-			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		if gotForm.Get(key) != want {
+			t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
 		}
 	}
 }
 
 func TestHTTPClientUpdateIssue_parentIssueID(t *testing.T) {
-	var gotQuery url.Values
+	var gotForm url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query()
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -672,15 +722,16 @@ func TestHTTPClientUpdateIssue_parentIssueID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateIssue() error = %v", err)
 	}
-	if gotQuery.Get("parentIssueId") != "42" {
-		t.Errorf("parentIssueId = %q, want %q", gotQuery.Get("parentIssueId"), "42")
+	if gotForm.Get("parentIssueId") != "42" {
+		t.Errorf("parentIssueId = %q, want %q", gotForm.Get("parentIssueId"), "42")
 	}
 }
 
 func TestHTTPClientUpdateIssue_parentIssueIDUnset(t *testing.T) {
-	var gotQuery url.Values
+	var gotForm url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query()
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -695,18 +746,19 @@ func TestHTTPClientUpdateIssue_parentIssueIDUnset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateIssue() error = %v", err)
 	}
-	if _, ok := gotQuery["parentIssueId"]; !ok {
+	if _, ok := gotForm["parentIssueId"]; !ok {
 		t.Fatal("parentIssueId should be present (empty) when unsetting parent")
 	}
-	if gotQuery.Get("parentIssueId") != "" {
-		t.Errorf("parentIssueId = %q, want empty string", gotQuery.Get("parentIssueId"))
+	if gotForm.Get("parentIssueId") != "" {
+		t.Errorf("parentIssueId = %q, want empty string", gotForm.Get("parentIssueId"))
 	}
 }
 
 func TestHTTPClientUpdateIssue_nilSkip(t *testing.T) {
-	var gotQuery url.Values
+	var gotForm url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query()
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		issue := map[string]interface{}{"id": 1, "issueKey": "PROJ-1", "summary": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(issue)
@@ -719,23 +771,28 @@ func TestHTTPClientUpdateIssue_nilSkip(t *testing.T) {
 		t.Fatalf("UpdateIssue() error = %v", err)
 	}
 	for _, key := range []string{"statusId", "priorityId", "assigneeId", "issueTypeId", "parentIssueId", "comment"} {
-		if _, ok := gotQuery[key]; ok {
-			t.Errorf("query[%q] should not be present for nil fields", key)
+		if _, ok := gotForm[key]; ok {
+			t.Errorf("form[%q] should not be present for nil fields", key)
 		}
 	}
 }
 
 func TestHTTPClientAddIssueComment_withNotify(t *testing.T) {
 	var gotQuery url.Values
+	var gotForm url.Values
+	var gotContentType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.Query()
+		gotContentType = r.Header.Get("Content-Type")
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		comment := map[string]interface{}{"id": 1, "content": "test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(comment)
 	}))
 	defer srv.Close()
 
-	client := newOAuthClient(t, srv.URL)
+	client := newAPIKeyClient(t, srv.URL)
 	_, err := client.AddIssueComment(context.Background(), "PROJ-1", backlog.AddCommentRequest{
 		Content:         "修正完了",
 		NotifiedUserIDs: []int{1, 2},
@@ -743,19 +800,68 @@ func TestHTTPClientAddIssueComment_withNotify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddIssueComment() error = %v", err)
 	}
-	if gotQuery.Get("content") != "修正完了" {
-		t.Errorf("content = %q, want %q", gotQuery.Get("content"), "修正完了")
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
 	}
-	notIDs := gotQuery["notifiedUserId[]"]
+	for key := range gotQuery {
+		if key != "apiKey" {
+			t.Errorf("query[%q] should not be present; params must be sent in body", key)
+		}
+	}
+	if gotForm.Get("content") != "修正完了" {
+		t.Errorf("content = %q, want %q", gotForm.Get("content"), "修正完了")
+	}
+	notIDs := gotForm["notifiedUserId[]"]
 	if len(notIDs) != 2 {
 		t.Errorf("notifiedUserId[] = %v, want 2 items", notIDs)
 	}
 }
 
-func TestHTTPClientCreateDocument_allParams(t *testing.T) {
+// TestHTTPClientUpdateIssueComment は UpdateIssueComment が body 送信であることを検証する。
+func TestHTTPClientUpdateIssueComment(t *testing.T) {
 	var gotQuery url.Values
+	var gotForm url.Values
+	var gotContentType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.Query()
+		gotContentType = r.Header.Get("Content-Type")
+		_ = r.ParseForm()
+		gotForm = r.PostForm
+		comment := map[string]interface{}{"id": 1, "content": "updated"}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(comment)
+	}))
+	defer srv.Close()
+
+	client := newAPIKeyClient(t, srv.URL)
+	_, err := client.UpdateIssueComment(context.Background(), "PROJ-1", 100, backlog.UpdateCommentRequest{
+		Content: "更新後コメント",
+	})
+	if err != nil {
+		t.Fatalf("UpdateIssueComment() error = %v", err)
+	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+	}
+	for key := range gotQuery {
+		if key != "apiKey" {
+			t.Errorf("query[%q] should not be present; params must be sent in body", key)
+		}
+	}
+	if gotForm.Get("content") != "更新後コメント" {
+		t.Errorf("content = %q, want %q", gotForm.Get("content"), "更新後コメント")
+	}
+}
+
+func TestHTTPClientCreateDocument_allParams(t *testing.T) {
+	var gotQuery url.Values
+	var gotForm url.Values
+	var gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		gotContentType = r.Header.Get("Content-Type")
+		_ = r.ParseForm()
+		gotForm = r.PostForm
 		doc := map[string]interface{}{"id": "doc-1", "title": "Test"}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(doc)
@@ -763,7 +869,7 @@ func TestHTTPClientCreateDocument_allParams(t *testing.T) {
 	defer srv.Close()
 
 	parentID := "parent-uuid"
-	client := newOAuthClient(t, srv.URL)
+	client := newAPIKeyClient(t, srv.URL)
 	_, err := client.CreateDocument(context.Background(), backlog.CreateDocumentRequest{
 		ProjectID: 42,
 		Title:     "テストドキュメント",
@@ -775,6 +881,14 @@ func TestHTTPClientCreateDocument_allParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateDocument() error = %v", err)
 	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+	}
+	for key := range gotQuery {
+		if key != "apiKey" {
+			t.Errorf("query[%q] should not be present; params must be sent in body", key)
+		}
+	}
 	checks := map[string]string{
 		"projectId": "42",
 		"title":     "テストドキュメント",
@@ -784,9 +898,42 @@ func TestHTTPClientCreateDocument_allParams(t *testing.T) {
 		"addLast":   "true",
 	}
 	for key, want := range checks {
-		if gotQuery.Get(key) != want {
-			t.Errorf("query[%q] = %q, want %q", key, gotQuery.Get(key), want)
+		if gotForm.Get(key) != want {
+			t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
 		}
+	}
+}
+
+// TestHTTPClientAddIssueComment_largeContent は 10KB 級 content が
+// クエリでなく body に載ることを検証する（414 再発防止の回帰テスト）。
+// handler 側で RawQuery が閾値超過なら 414 を返して body 化崩れを検出する。
+func TestHTTPClientAddIssueComment_largeContent(t *testing.T) {
+	const maxQueryLen = 2048
+	largeContent := strings.Repeat("あ", 10*1024/len("あ"))
+
+	var gotContentLen int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(r.URL.RawQuery) > maxQueryLen {
+			w.WriteHeader(http.StatusRequestURITooLong)
+			return
+		}
+		_ = r.ParseForm()
+		gotContentLen = len(r.PostForm.Get("content"))
+		comment := map[string]interface{}{"id": 1, "content": r.PostForm.Get("content")}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(comment)
+	}))
+	defer srv.Close()
+
+	client := newAPIKeyClient(t, srv.URL)
+	_, err := client.AddIssueComment(context.Background(), "PROJ-1", backlog.AddCommentRequest{
+		Content: largeContent,
+	})
+	if err != nil {
+		t.Fatalf("AddIssueComment() error = %v", err)
+	}
+	if gotContentLen != len(largeContent) {
+		t.Errorf("content length = %d, want %d", gotContentLen, len(largeContent))
 	}
 }
 
@@ -1171,14 +1318,19 @@ func TestHTTPClientAddStar(t *testing.T) {
 	t.Run("posts to /api/v2/stars with issueId", func(t *testing.T) {
 		var gotPath string
 		var gotQuery url.Values
+		var gotForm url.Values
+		var gotContentType string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotPath = r.URL.Path
 			gotQuery = r.URL.Query()
+			gotContentType = r.Header.Get("Content-Type")
+			_ = r.ParseForm()
+			gotForm = r.PostForm
 			w.WriteHeader(http.StatusNoContent)
 		}))
 		defer srv.Close()
 
-		client := newOAuthClient(t, srv.URL)
+		client := newAPIKeyClient(t, srv.URL)
 		issueID := 42
 		err := client.AddStar(context.Background(), backlog.AddStarRequest{IssueID: &issueID})
 		if err != nil {
@@ -1187,15 +1339,24 @@ func TestHTTPClientAddStar(t *testing.T) {
 		if gotPath != "/api/v2/stars" {
 			t.Errorf("path = %q, want %q", gotPath, "/api/v2/stars")
 		}
-		if gotQuery.Get("issueId") != "42" {
-			t.Errorf("issueId = %q, want %q", gotQuery.Get("issueId"), "42")
+		if gotContentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+		}
+		for key := range gotQuery {
+			if key != "apiKey" {
+				t.Errorf("query[%q] should not be present; params must be sent in body", key)
+			}
+		}
+		if gotForm.Get("issueId") != "42" {
+			t.Errorf("issueId = %q, want %q", gotForm.Get("issueId"), "42")
 		}
 	})
 
 	t.Run("posts with commentId", func(t *testing.T) {
-		var gotQuery url.Values
+		var gotForm url.Values
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			gotQuery = r.URL.Query()
+			_ = r.ParseForm()
+			gotForm = r.PostForm
 			w.WriteHeader(http.StatusNoContent)
 		}))
 		defer srv.Close()
@@ -1206,8 +1367,8 @@ func TestHTTPClientAddStar(t *testing.T) {
 		if err != nil {
 			t.Fatalf("AddStar() error = %v", err)
 		}
-		if gotQuery.Get("commentId") != "100" {
-			t.Errorf("commentId = %q, want %q", gotQuery.Get("commentId"), "100")
+		if gotForm.Get("commentId") != "100" {
+			t.Errorf("commentId = %q, want %q", gotForm.Get("commentId"), "100")
 		}
 	})
 }
@@ -1316,18 +1477,23 @@ func TestHTTPClientGetWatching(t *testing.T) {
 func TestHTTPClientAddWatching(t *testing.T) {
 	t.Run("posts issueIdOrKey and returns watching", func(t *testing.T) {
 		var gotQuery url.Values
+		var gotForm url.Values
+		var gotContentType string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost || r.URL.Path != "/api/v2/watchings" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			gotQuery = r.URL.Query()
+			gotContentType = r.Header.Get("Content-Type")
+			_ = r.ParseForm()
+			gotForm = r.PostForm
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"id":100,"resourceAlreadyRead":false,"type":"issue"}`))
 		}))
 		defer srv.Close()
 
-		client := newOAuthClient(t, srv.URL)
+		client := newAPIKeyClient(t, srv.URL)
 		got, err := client.AddWatching(context.Background(), backlog.AddWatchingRequest{IssueIDOrKey: "PROJ-1", Note: "watch this"})
 		if err != nil {
 			t.Fatalf("AddWatching() error = %v", err)
@@ -1335,11 +1501,19 @@ func TestHTTPClientAddWatching(t *testing.T) {
 		if got.ID != 100 {
 			t.Errorf("ID = %d, want 100", got.ID)
 		}
-		if gotQuery.Get("issueIdOrKey") != "PROJ-1" {
-			t.Errorf("issueIdOrKey = %q, want %q", gotQuery.Get("issueIdOrKey"), "PROJ-1")
+		if gotContentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
 		}
-		if gotQuery.Get("note") != "watch this" {
-			t.Errorf("note = %q, want %q", gotQuery.Get("note"), "watch this")
+		for key := range gotQuery {
+			if key != "apiKey" {
+				t.Errorf("query[%q] should not be present; params must be sent in body", key)
+			}
+		}
+		if gotForm.Get("issueIdOrKey") != "PROJ-1" {
+			t.Errorf("issueIdOrKey = %q, want %q", gotForm.Get("issueIdOrKey"), "PROJ-1")
+		}
+		if gotForm.Get("note") != "watch this" {
+			t.Errorf("note = %q, want %q", gotForm.Get("note"), "watch this")
 		}
 	})
 }
@@ -1348,18 +1522,23 @@ func TestHTTPClientAddWatching(t *testing.T) {
 func TestHTTPClientUpdateWatching(t *testing.T) {
 	t.Run("patches note and returns updated watching", func(t *testing.T) {
 		var gotQuery url.Values
+		var gotForm url.Values
+		var gotContentType string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPatch || r.URL.Path != "/api/v2/watchings/42" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			gotQuery = r.URL.Query()
+			gotContentType = r.Header.Get("Content-Type")
+			_ = r.ParseForm()
+			gotForm = r.PostForm
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"id":42,"resourceAlreadyRead":false,"type":"issue","note":"updated note"}`))
 		}))
 		defer srv.Close()
 
-		client := newOAuthClient(t, srv.URL)
+		client := newAPIKeyClient(t, srv.URL)
 		got, err := client.UpdateWatching(context.Background(), 42, backlog.UpdateWatchingRequest{Note: "updated note"})
 		if err != nil {
 			t.Fatalf("UpdateWatching() error = %v", err)
@@ -1367,8 +1546,16 @@ func TestHTTPClientUpdateWatching(t *testing.T) {
 		if got.Note != "updated note" {
 			t.Errorf("Note = %q, want %q", got.Note, "updated note")
 		}
-		if gotQuery.Get("note") != "updated note" {
-			t.Errorf("query note = %q, want %q", gotQuery.Get("note"), "updated note")
+		if gotContentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+		}
+		for key := range gotQuery {
+			if key != "apiKey" {
+				t.Errorf("query[%q] should not be present; params must be sent in body", key)
+			}
+		}
+		if gotForm.Get("note") != "updated note" {
+			t.Errorf("form note = %q, want %q", gotForm.Get("note"), "updated note")
 		}
 	})
 }

@@ -19,22 +19,26 @@ func TestListIssuesOptions(t *testing.T) {
 		since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 		until := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
 		opt := backlog.ListIssuesOptions{
-			ProjectIDs:   []int{1, 2},
-			AssigneeIDs:  []int{10, 11},
-			StatusIDs:    []int{1, 2},
-			Keyword:      "OAuth",
-			DueDateSince: &since,
-			DueDateUntil: &until,
-			Sort:         "dueDate",
-			Order:        "asc",
-			Limit:        20,
-			Offset:       10,
+			ProjectIDs:     []int{1, 2},
+			AssigneeIDs:    []int{10, 11},
+			ParentIssueIDs: []int{20, 21},
+			StatusIDs:      []int{1, 2},
+			Keyword:        "OAuth",
+			DueDateSince:   &since,
+			DueDateUntil:   &until,
+			Sort:           "dueDate",
+			Order:          "asc",
+			Limit:          20,
+			Offset:         10,
 		}
 		if len(opt.ProjectIDs) != 2 || opt.ProjectIDs[0] != 1 {
 			t.Errorf("ProjectIDs = %v, want [1 2]", opt.ProjectIDs)
 		}
 		if len(opt.AssigneeIDs) != 2 || opt.AssigneeIDs[0] != 10 {
 			t.Errorf("AssigneeIDs = %v, want [10 11]", opt.AssigneeIDs)
+		}
+		if len(opt.ParentIssueIDs) != 2 || opt.ParentIssueIDs[0] != 20 {
+			t.Errorf("ParentIssueIDs = %v, want [20 21]", opt.ParentIssueIDs)
 		}
 		if len(opt.StatusIDs) != 2 {
 			t.Errorf("StatusIDs = %v, want [1 2]", opt.StatusIDs)
