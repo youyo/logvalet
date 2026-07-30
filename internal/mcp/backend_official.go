@@ -50,6 +50,10 @@ func (b *officialBackend) RegisterTool(tool ToolDef, handler ToolHandler) {
 				return nil, err
 			}
 		}
+		// S13: params._meta の protocolVersion/clientInfo (SEP-2575) を
+		// RequestMeta として ctx に載せ、ToolFunc/ToolHandler から
+		// RequestMetaFromContext (meta.go) 経由で参照できるようにする。
+		ctx = ContextWithRequestMeta(ctx, RequestMetaFromOfficialSDKMeta(req.Params.GetMeta()))
 		result, err := handler(ctx, args)
 		if err != nil {
 			return NewErrorToolResult(ToolError{Message: err.Error()}).ToOfficialSDKResult(), nil
