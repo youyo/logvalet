@@ -88,7 +88,7 @@ func NewOfficialStreamableHTTPHandler(client backlog.Client, ver string, cfg Ser
 //
 // Stateless=true のため、ツール呼び出しごとに HTTP リクエストの context がハンドラーへ
 // 渡り、factory がそこから user を解決する。セッションに紐づく状態を持たないので、
-// idproxy が注入する userID は常に「そのリクエストの」ユーザーになる。
+// context に注入される userID は常に「そのリクエストの」ユーザーになる。
 func NewOfficialStreamableHTTPHandlerWithFactory(
 	factory func(ctx context.Context) (backlog.Client, error),
 	ver string,

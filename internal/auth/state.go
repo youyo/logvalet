@@ -59,7 +59,7 @@ func generateNonce() (string, error) {
 
 // GenerateState は HMAC-SHA256 で署名された JWT state トークンを生成する。
 //
-// userID は idproxy で確定したユーザー識別子。空の場合 ErrUnauthenticated を返す。
+// userID はリクエスト単位で確定したユーザー識別子。空の場合 ErrUnauthenticated を返す。
 // tenant は Backlog スペース識別子。空の場合 ErrInvalidTenant を返す。
 // secret は HMAC 署名鍵。nil または空の場合 ErrStateInvalid を返す。
 // ttl はトークン有効期間。0 以下の場合 ErrStateInvalid を返す。

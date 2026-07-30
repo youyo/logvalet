@@ -7,192 +7,64 @@ import (
 	"github.com/youyo/logvalet/internal/cli"
 )
 
-func TestMcpCmd_Validate_AuthRequiresFields(t *testing.T) {
-	cmd := &cli.McpCmd{Auth: true}
+// removedFlagCases は削除済み認証フラグの fail-fast を検証するテーブル。
+// いずれも「AgentCore Gateway に委譲された」旨のエラーになる必要がある。
+func TestMcpCmd_Validate_RemovedFlags_FailFast(t *testing.T) {
+	cases := []struct {
+		name     string
+		cmd      *cli.McpCmd
+		wantFlag string
+	}{
+		{"auth", &cli.McpCmd{RemovedAuth: true}, "--auth"},
+		{"external-url", &cli.McpCmd{RemovedExternalURL: "https://example.com"}, "--external-url"},
+		{"oidc-issuer", &cli.McpCmd{RemovedOIDCIssuer: "https://accounts.google.com"}, "--oidc-issuer"},
+		{"oidc-client-id", &cli.McpCmd{RemovedOIDCClientID: "cid"}, "--oidc-client-id"},
+		{"oidc-client-secret", &cli.McpCmd{RemovedOIDCClientSecret: "sec"}, "--oidc-client-secret"},
+		{"cookie-secret", &cli.McpCmd{RemovedCookieSecret: strings.Repeat("ab", 32)}, "--cookie-secret"},
+		{"allowed-domains", &cli.McpCmd{RemovedAllowedDomains: "example.com"}, "--allowed-domains"},
+		{"allowed-emails", &cli.McpCmd{RemovedAllowedEmails: "a@example.com"}, "--allowed-emails"},
+		{"signing-key", &cli.McpCmd{RemovedSigningKey: "pem"}, "--signing-key"},
+		{"refresh-token-ttl", &cli.McpCmd{RemovedRefreshTokenTTL: "720h"}, "--refresh-token-ttl"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.cmd.Validate()
+			if err == nil {
+				t.Fatalf("expected error for removed flag %s", tc.wantFlag)
+			}
+			if !strings.Contains(err.Error(), tc.wantFlag) {
+				t.Errorf("error should mention %s, got: %v", tc.wantFlag, err)
+			}
+			if !strings.Contains(err.Error(), "AgentCore Gateway") {
+				t.Errorf("error should mention AgentCore Gateway delegation, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestMcpCmd_Validate_AuthModeOIDC_FailFast(t *testing.T) {
+	cmd := &cli.McpCmd{AuthMode: "oidc"}
 	err := cmd.Validate()
 	if err == nil {
-		t.Fatal("expected error when Auth=true with empty required fields")
+		t.Fatal("expected error for --auth-mode=oidc")
+	}
+	if !strings.Contains(err.Error(), "AgentCore Gateway") {
+		t.Errorf("error should mention AgentCore Gateway delegation, got: %v", err)
 	}
 }
 
-func TestMcpCmd_Validate_NoAuthSkipsValidation(t *testing.T) {
-	cmd := &cli.McpCmd{Auth: false}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_CookieSecretTooShort(t *testing.T) {
-	cmd := &cli.McpCmd{
-		Auth:         true,
-		ExternalURL:  "https://example.com",
-		OIDCIssuer:   "https://accounts.google.com",
-		OIDCClientID: "client-id",
-		CookieSecret: strings.Repeat("ab", 16), // 32 hex chars = 16 bytes
-	}
-	err := cmd.Validate()
-	if err == nil {
-		t.Fatal("expected error for cookie secret shorter than 32 bytes")
-	}
-}
-
-func TestMcpCmd_Validate_ValidAuth(t *testing.T) {
-	// remote MCP は DynamoDB が必須（C1 対応）
-	t.Setenv("LOGVALET_SPACE_STORE_TYPE", "dynamodb")
-	cmd := &cli.McpCmd{
-		Auth:         true,
-		ExternalURL:  "https://example.com",
-		OIDCIssuer:   "https://accounts.google.com",
-		OIDCClientID: "client-id",
-		CookieSecret: strings.Repeat("ab", 32), // 64 hex chars = 32 bytes
-	}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_InvalidHexCookieSecret(t *testing.T) {
-	cmd := &cli.McpCmd{
-		Auth:         true,
-		ExternalURL:  "https://example.com",
-		OIDCIssuer:   "https://accounts.google.com",
-		OIDCClientID: "client-id",
-		CookieSecret: "ZZZZ",
-	}
-	err := cmd.Validate()
-	if err == nil {
-		t.Fatal("expected error for invalid hex")
-	}
-}
-
-// BacklogClientID フィールドベースのバリデーションテスト（新設計）
-func TestMcpCmd_Validate_BacklogClientIDWithoutAuth_Fails(t *testing.T) {
-	cmd := &cli.McpCmd{
-		Auth:            false,
-		BacklogClientID: "some-client-id",
-	}
-	err := cmd.Validate()
-	if err == nil {
-		t.Fatal("expected error when BacklogClientID is set but --auth is disabled")
-	}
-	if !strings.Contains(err.Error(), "--backlog-client-id") {
-		t.Fatalf("error message should mention --backlog-client-id, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "--auth") {
-		t.Fatalf("error message should mention --auth, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_BacklogClientIDWithAuth_OK(t *testing.T) {
-	// --auth 有効 + BacklogClientID 設定 → Validate 自体は通る（OIDC 必須チェックのみ失敗）
-	cmd := &cli.McpCmd{
-		Auth:            true,
-		BacklogClientID: "some-client-id",
-	}
-	err := cmd.Validate()
-	// OIDC 必須フィールドが無いのでエラーになるが、BacklogClientID の fast-fail ではないこと
-	if err != nil && strings.Contains(err.Error(), "--backlog-client-id") {
-		t.Fatalf("should not get backlog-client-id error when --auth is enabled, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_NoBacklogClientID_NoAuthRequired(t *testing.T) {
-	cmd := &cli.McpCmd{Auth: false}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error when no BacklogClientID and no auth: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreDynamoDB_RequiresTable(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore: "dynamodb",
-		SigningKey:   "dummy-pem",
-	}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "idproxy-store-dynamodb-table") {
-		t.Fatalf("expected table-required error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreDynamoDB_RequiresSigningKey(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore:              "dynamodb",
-		IDProxyStoreDynamoDBTable: "tbl",
-	}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "signing-key") {
-		t.Fatalf("expected signing-key-required error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStore_InvalidValue(t *testing.T) {
-	cmd := &cli.McpCmd{IDProxyStore: "postgres"}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "invalid --idproxy-store") {
-		t.Fatalf("expected invalid-store error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreSQLite_RequiresPath(t *testing.T) {
-	cmd := &cli.McpCmd{IDProxyStore: "sqlite"}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "idproxy-store-sqlite-path") {
-		t.Fatalf("expected sqlite-path-required error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreSQLite_OK(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore:           "sqlite",
-		IDProxyStoreSQLitePath: ":memory:",
-	}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreRedis_RequiresAddr(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore: "redis",
-		SigningKey:   "dummy-pem",
-	}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "idproxy-store-redis-addr") {
-		t.Fatalf("expected redis-addr-required error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreRedis_RequiresSigningKey(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore:          "redis",
-		IDProxyStoreRedisAddr: "localhost:6379",
-	}
-	err := cmd.Validate()
-	if err == nil || !strings.Contains(err.Error(), "signing-key") {
-		t.Fatalf("expected signing-key-required error, got: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreRedis_OK(t *testing.T) {
-	cmd := &cli.McpCmd{
-		IDProxyStore:          "redis",
-		IDProxyStoreRedisAddr: "localhost:6379",
-		SigningKey:            "dummy-pem",
-	}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreMemory_OK(t *testing.T) {
-	cmd := &cli.McpCmd{IDProxyStore: "memory"}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestMcpCmd_Validate_IDProxyStoreEmpty_OK(t *testing.T) {
+func TestMcpCmd_Validate_Default_OK(t *testing.T) {
 	cmd := &cli.McpCmd{}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// Backlog OAuth フラグは OIDC 認証を前提としなくなったため、
+// 単独で設定しても Validate はエラーにならない。
+func TestMcpCmd_Validate_BacklogClientIDAlone_OK(t *testing.T) {
+	cmd := &cli.McpCmd{BacklogClientID: "some-client-id"}
 	if err := cmd.Validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

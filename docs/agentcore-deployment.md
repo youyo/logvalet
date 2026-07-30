@@ -1,5 +1,10 @@
 # AgentCore Runtime デプロイガイド
 
+> **⚠️ 廃止済みの記述を含みます**
+> MCP アクセスの OIDC 認証（外部 IdP 連携）は削除され、認証は AgentCore Gateway に委譲されました。
+> `--auth` / `--external-url` / `--oidc-*` / `--cookie-secret` / `--allowed-*` / `--signing-key` は
+> 指定すると起動時エラーになります。本ドキュメントの認証設定部分は今後の更新で書き換えられます。
+
 logvalet MCP サーバーを Docker コンテナとしてデプロイし、AWS Bedrock AgentCore Runtime から利用する手順。
 
 ## ビルド
