@@ -172,8 +172,8 @@ func TestValidate_OAuthEnabled_MissingClientID(t *testing.T) {
 
 func TestValidate_OAuthEnabled_MissingClientSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_BACKLOG_CLIENT_ID":  "test-id",
-		"LOGVALET_MCP_OAUTH_STATE_SECRET": "0123456789abcdef0123456789abcdef",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":    "test-id",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":   "0123456789abcdef0123456789abcdef", // gitleaks:allow (test fixture)
 		"LOGVALET_MCP_BACKLOG_REDIRECT_URL": "https://example.com/callback",
 	}))
 	if err != nil {

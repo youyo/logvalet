@@ -181,15 +181,15 @@ func (b *backlogMock) handleSpace(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"spaceKey":    "test-space",
-		"name":        "Test Space",
-		"ownerId":     1,
-		"language":    "ja",
-		"timezone":    "Asia/Tokyo",
-		"reportSendTime": "08:00:00",
+		"spaceKey":           "test-space",
+		"name":               "Test Space",
+		"ownerId":            1,
+		"language":           "ja",
+		"timezone":           "Asia/Tokyo",
+		"reportSendTime":     "08:00:00",
 		"textFormattingRule": "markdown",
-		"created":     "2026-01-01T00:00:00Z",
-		"updated":     "2026-01-01T00:00:00Z",
+		"created":            "2026-01-01T00:00:00Z",
+		"updated":            "2026-01-01T00:00:00Z",
 	})
 }
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/auth"
-	httptransport "github.com/youyo/logvalet/internal/transport/http"
 	"github.com/youyo/logvalet/internal/space"
+	httptransport "github.com/youyo/logvalet/internal/transport/http"
 )
 
 // ============================================================================
@@ -45,10 +45,10 @@ var _ space.NonceStore = (*fakeNonceStore)(nil)
 // ============================================================================
 
 type fakeSpaceStore struct {
-	upsertFn       func(ctx context.Context, reg *space.SpaceRegistration) error
-	getFn          func(ctx context.Context, userID, alias string) (*space.SpaceRegistration, error)
-	getPrefFn      func(ctx context.Context, userID string) (*space.UserPreference, error)
-	putPrefFn      func(ctx context.Context, pref *space.UserPreference) error
+	upsertFn  func(ctx context.Context, reg *space.SpaceRegistration) error
+	getFn     func(ctx context.Context, userID, alias string) (*space.SpaceRegistration, error)
+	getPrefFn func(ctx context.Context, userID string) (*space.UserPreference, error)
+	putPrefFn func(ctx context.Context, pref *space.UserPreference) error
 }
 
 func (f *fakeSpaceStore) List(ctx context.Context, userID string) ([]space.SpaceRegistration, error) {
