@@ -312,9 +312,12 @@ Protocol negotiation and the `supportedVersions` decision are documented in
 [legacy-protocol-decision.md](legacy-protocol-decision.md).
 
 HTTP mode requires an explicitly configured space store; `memory` is an error
-in HTTP mode. The token store is CLI/stdio-only and limited to local SQLite or
-`tokens.json`; the DynamoDB token store is retired. Remote HTTP requests
-receive credentials through the Gateway contract instead.
+in HTTP mode, while either SQLite or DynamoDB is allowed. DynamoDB remains
+available for multi-tenant HTTP deployments. The token store is CLI/stdio-only
+and limited to local SQLite or `tokens.json`; the DynamoDB token store is
+retired. Remote HTTP requests receive credentials through the Gateway
+contract instead. TokenStore and SpaceStore are separate concerns: retiring
+the DynamoDB TokenStore does not remove DynamoDB support from SpaceStore.
 
 ### Issue relationship scope
 

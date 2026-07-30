@@ -152,6 +152,8 @@ MS14 の対象ファイルには「各 `tools_*.go`」とのみ記載されて�
 **問題:**
 ValidateSpaceStoreConfig の実装（`internal/space/config.go`）は SpaceStore の実装に依存しない。storeType 文字列と isMCPRemote bool を受け取るだけの純粋な validation 関数であり、MS01 完了後（型定数が揃えば）すぐに実装できる。
 
+注記: `ValidateSpaceStoreConfig` は S06 で未配線デッドコードとして削除済み。稼働中のガードは `space.RequireExplicitStoreType`（memory のみ拒否、sqlite は許容）。
+
 MS07 を MS05/MS06 の後に置くことで、起動時 validation の実装が遅れる。
 
 **推奨対処:** MS07 の依存を `MS01`（または `MS01, MS05, MS06` として、実装は MS01 後に可能・テストは MS05/06 後に完全確認）に変更する。
