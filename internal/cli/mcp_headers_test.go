@@ -40,7 +40,7 @@ type jsonrpcErrorEnvelope struct {
 	} `json:"error"`
 }
 
-func postMCP(t *testing.T, url, body string, headers map[string]string) (int, jsonrpcErrorEnvelope, []byte) {
+func postMCPHeaders(t *testing.T, url, body string, headers map[string]string) (int, jsonrpcErrorEnvelope, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, url+"/mcp", strings.NewReader(body))
 	if err != nil {
@@ -74,7 +74,7 @@ func TestE2E_MCPHeaders_MissingProtocolVersionHeader(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Method": "tools/list",
 	})
 	if status != http.StatusBadRequest {
@@ -94,7 +94,7 @@ func TestE2E_MCPHeaders_ProtocolVersionMismatch(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2025-11-25",
 		"Mcp-Method":           "tools/list",
 	})
@@ -112,7 +112,7 @@ func TestE2E_MCPHeaders_MissingMcpMethodHeader(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 	})
 	if status != http.StatusBadRequest {
@@ -129,7 +129,7 @@ func TestE2E_MCPHeaders_MethodHeaderMismatch(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 		"Mcp-Method":           "tools/call",
 	})
@@ -148,7 +148,7 @@ func TestE2E_MCPHeaders_ToolsCall_MissingMcpNameHeader(t *testing.T) {
 		`"name":"logvalet_meta_tool_categories","arguments":{},"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 		"Mcp-Method":           "tools/call",
 	})
@@ -170,7 +170,7 @@ func TestE2E_MCPHeaders_ResourcesRead_MissingMcpNameHeader(t *testing.T) {
 		`"uri":"file:///dummy","_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 		"Mcp-Method":           "resources/read",
 	})
@@ -190,7 +190,7 @@ func TestE2E_MCPHeaders_PromptsGet_MissingMcpNameHeader(t *testing.T) {
 		`"name":"dummy","_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 		"Mcp-Method":           "prompts/get",
 	})
@@ -211,7 +211,7 @@ func TestE2E_MCPHeaders_UnsupportedProtocolVersion(t *testing.T) {
 		`"name":"logvalet_meta_tool_categories","arguments":{},"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2099-01-01",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2099-01-01",
 		"Mcp-Method":           "tools/call",
 		"Mcp-Name":             "logvalet_meta_tool_categories",
@@ -246,7 +246,7 @@ func TestE2E_MCPHeaders_UnsupportedProtocolVersion(t *testing.T) {
 func TestE2E_MCPHeaders_LegacyRequest_NoHeadersRequired(t *testing.T) {
 	srv := newHeadersTestServer(t)
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`
-	status, env, raw := postMCP(t, srv.URL, body, nil)
+	status, env, raw := postMCPHeaders(t, srv.URL, body, nil)
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", status, raw)
 	}
@@ -263,7 +263,7 @@ func TestE2E_MCPHeaders_ValidNewProtocolHeaders_ToolsList_Succeeds(t *testing.T)
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{` +
 		`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
 		`"io.modelcontextprotocol/clientCapabilities":{}}}}`
-	status, env, raw := postMCP(t, srv.URL, body, map[string]string{
+	status, env, raw := postMCPHeaders(t, srv.URL, body, map[string]string{
 		"Mcp-Protocol-Version": "2026-07-28",
 		"Mcp-Method":           "tools/list",
 	})
