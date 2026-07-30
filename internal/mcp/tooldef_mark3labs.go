@@ -1,15 +1,41 @@
 package mcp
 
 import (
+	"context"
 	"sort"
 
 	gomcp "github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
 // このファイルは internal/mcp パッケージにおける mark3labs/mcp-go SDK アダプタの
 // 集約先。ToolDef/ToolResult (tooldef.go/toolresult.go) と gomcp.Tool/gomcp.CallToolResult
-// との相互変換を一箇所にまとめることで、S07 以降 gomcp import を持つファイルを
-// tooldef_mark3labs.go / tools.go / server.go の3箇所に限定する。
+// との相互変換、および ServerBackend (backend.go) の mark3labs 実装を一箇所にまとめる
+// ことで、S07 以降 gomcp import を持つ非テストファイルを tooldef_mark3labs.go /
+// tools.go(コンストラクタの引数型のみ) / server.go の3箇所に限定する。
+
+// mark3labsBackend は mark3labs/mcp-go の *mcpserver.MCPServer を使う ServerBackend 実装。
+type mark3labsBackend struct {
+	server *mcpserver.MCPServer
+}
+
+// NewMark3labsBackend は既存の *mcpserver.MCPServer を ServerBackend として包む。
+func NewMark3labsBackend(s *mcpserver.MCPServer) ServerBackend {
+	return &mark3labsBackend{server: s}
+}
+
+// RegisterTool は ServerBackend を実装する。tool を gomcp.Tool に変換して
+// AddTool に登録し、呼び出し時は req.GetArguments() を handler に渡した上で
+// ToolResult を gomcp.CallToolResult に変換して返す。
+func (b *mark3labsBackend) RegisterTool(tool ToolDef, handler ToolHandler) {
+	b.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		result, err := handler(ctx, req.GetArguments())
+		if err != nil {
+			return gomcp.NewToolResultError(err.Error()), nil
+		}
+		return result.ToSDKResult(), nil
+	})
+}
 
 // ToSDKTool は ToolDef を mark3labs/mcp-go の gomcp.Tool に変換する。
 // マイグレーション期間中、logvalet 型で組み立てたツール定義を既存の

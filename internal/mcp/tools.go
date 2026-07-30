@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
@@ -55,8 +54,10 @@ func spaceInfoFromContext(ctx context.Context, fbSpace, fbBaseURL string) (strin
 }
 
 // ToolRegistry は MCP サーバーへの tool 登録を管理する。
+// server は ServerBackend インターフェースにのみ依存し、mark3labs/mcp-go 等の
+// 具体的な SDK 型には依存しない (backend.go / tooldef_mark3labs.go 参照)。
 type ToolRegistry struct {
-	server           *mcpserver.MCPServer
+	server           ServerBackend
 	client           backlog.Client
 	factory          func(ctx context.Context) (backlog.Client, error)
 	authorizationURL string
@@ -69,7 +70,7 @@ type ToolRegistry struct {
 // authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
 // 空文字列の場合は従来挙動（Meta なし）。
 func NewToolRegistry(s *mcpserver.MCPServer, client backlog.Client, authorizationURL string) *ToolRegistry {
-	return &ToolRegistry{server: s, client: client, authorizationURL: authorizationURL}
+	return NewToolRegistryWithBackend(NewMark3labsBackend(s), client, authorizationURL)
 }
 
 // NewToolRegistryWithMultiSpace は resolver と spaceFactory を持つ multi-space 対応の
@@ -83,7 +84,7 @@ func NewToolRegistryWithMultiSpace(
 	spaceFactory space.ClientFactory,
 ) *ToolRegistry {
 	return &ToolRegistry{
-		server:           s,
+		server:           NewMark3labsBackend(s),
 		factory:          factory,
 		authorizationURL: authorizationURL,
 		resolver:         resolver,
@@ -98,7 +99,7 @@ func NewToolRegistryWithMultiSpace(
 // authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
 // 空文字列の場合は従来挙動（Meta なし）。
 func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context.Context) (backlog.Client, error), authorizationURL string) *ToolRegistry {
-	return &ToolRegistry{server: s, factory: factory, authorizationURL: authorizationURL}
+	return &ToolRegistry{server: NewMark3labsBackend(s), factory: factory, authorizationURL: authorizationURL}
 }
 
 // Register は tool を MCPServer に登録する。
@@ -107,8 +108,8 @@ func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context
 // factory が ErrProviderNotConnected / ErrTokenRefreshFailed / ErrTokenExpired を返し、
 // authorizationURL が設定されている場合は _meta.authorization_url を付与する。
 func (r *ToolRegistry) Register(tool ToolDef, fn ToolFunc) {
-	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
-		return r.callWithDefaultClient(ctx, fn, req.GetArguments())
+	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
+		return r.callWithDefaultClient(ctx, fn, args)
 	})
 }
 
@@ -183,9 +184,7 @@ func WithBooleanParam(name string, required bool, desc string) func(*ToolDef) {
 // spaces/all_spaces 未指定時は DynamoDB UserPreference → 単一スペース fallback → default client の順で解決する。
 func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 	injectSpaceParams(&tool)
-	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
-		args := req.GetArguments()
-
+	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		spaces := stringSliceArg(args, "spaces")
 		allSpaces, _ := boolArg(args, "all_spaces")
 
@@ -194,7 +193,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 		}
 
 		if len(spaces) > 0 && allSpaces {
-			return gomcp.NewToolResultError("spaces and all_spaces cannot be specified together"), nil
+			return NewErrorToolResult(ToolError{Message: "spaces and all_spaces cannot be specified together"}), nil
 		}
 
 		userID, ok := auth.UserIDFromContext(ctx)
@@ -209,7 +208,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 			if len(spaces) == 0 && !allSpaces {
 				return r.callWithDefaultClient(ctx, fn, args)
 			}
-			return gomcp.NewToolResultError(fmt.Sprintf("resolve spaces: %s", err.Error())), nil
+			return NewErrorToolResult(ToolError{Message: fmt.Sprintf("resolve spaces: %s", err.Error())}), nil
 		}
 
 		// spaces/all_spaces 未指定 → 単一スペースの通常レスポンス形式（配列ではない）
@@ -218,7 +217,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 		}
 
 		if r.spaceFactory == nil {
-			return gomcp.NewToolResultError("spaceFactory が設定されていません"), nil
+			return NewErrorToolResult(ToolError{Message: "spaceFactory が設定されていません"}), nil
 		}
 		executor := &space.Executor{Factory: r.spaceFactory}
 		results := space.ExecuteAcrossSpaces[any](ctx, executor, targets,
@@ -230,9 +229,9 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 
 		jsonBytes, err := json.Marshal(results)
 		if err != nil {
-			return gomcp.NewToolResultError("failed to marshal results: " + err.Error()), nil
+			return NewErrorToolResult(ToolError{Message: "failed to marshal results: " + err.Error()}), nil
 		}
-		return gomcp.NewToolResultText(string(jsonBytes)), nil
+		return NewTextToolResult(string(jsonBytes)), nil
 	})
 }
 
@@ -243,17 +242,15 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 // all_spaces=true → エラー。
 func (r *ToolRegistry) RegisterWithSpacesWrite(tool ToolDef, fn ToolFunc) {
 	injectSpaceParamWrite(&tool)
-	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
-		args := req.GetArguments()
-
+	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		spaces := stringSliceArg(args, "spaces")
 		allSpaces, _ := boolArg(args, "all_spaces")
 
 		if allSpaces {
-			return gomcp.NewToolResultError("all_spaces is not supported for write operations"), nil
+			return NewErrorToolResult(ToolError{Message: "all_spaces is not supported for write operations"}), nil
 		}
 		if len(spaces) > 1 {
-			return gomcp.NewToolResultError("multi-space write operations require exactly one space"), nil
+			return NewErrorToolResult(ToolError{Message: "multi-space write operations require exactly one space"}), nil
 		}
 
 		userID, ok := auth.UserIDFromContext(ctx)
@@ -275,16 +272,16 @@ func (r *ToolRegistry) RegisterWithSpacesWrite(tool ToolDef, fn ToolFunc) {
 
 		// spaces=["foo"]（1件）→ resolver で解決して spaceFactory でクライアント生成
 		if r.resolver == nil {
-			return gomcp.NewToolResultError("resolver not configured for multi-space operations"), nil
+			return NewErrorToolResult(ToolError{Message: "resolver not configured for multi-space operations"}), nil
 		}
 
 		scope := space.Scope{Aliases: spaces}
 		targets, err := r.resolver.Resolve(ctx, userID, scope)
 		if err != nil {
-			return gomcp.NewToolResultError(fmt.Sprintf("resolve space: %s", err.Error())), nil
+			return NewErrorToolResult(ToolError{Message: fmt.Sprintf("resolve space: %s", err.Error())}), nil
 		}
 		if len(targets) == 0 {
-			return gomcp.NewToolResultError(fmt.Sprintf("space not found: %s", spaces[0])), nil
+			return NewErrorToolResult(ToolError{Message: fmt.Sprintf("space not found: %s", spaces[0])}), nil
 		}
 
 		return r.callWithSpaceClient(ctx, fn, args, targets[0])
@@ -293,7 +290,7 @@ func (r *ToolRegistry) RegisterWithSpacesWrite(tool ToolDef, fn ToolFunc) {
 
 // callWithDefaultClient は factory または固定クライアントを使って fn を呼び出す。
 // Register と共通の処理を切り出したヘルパー。
-func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, args map[string]any) (*gomcp.CallToolResult, error) {
+func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, args map[string]any) (ToolResult, error) {
 	var c backlog.Client
 	if r.factory != nil {
 		var err error
@@ -302,45 +299,45 @@ func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, a
 			if needsAuthorization(err) && r.authorizationURL != "" {
 				return toolResultAuthRequired(err, r.authorizationURL), nil
 			}
-			return gomcp.NewToolResultError(err.Error()), nil
+			return NewErrorToolResult(ToolError{Message: err.Error()}), nil
 		}
 	} else {
 		c = r.client
 	}
 	result, err := fn(ctx, c, args)
 	if err != nil {
-		return gomcp.NewToolResultError(err.Error()), nil
+		return NewErrorToolResult(ToolError{Message: err.Error()}), nil
 	}
 	jsonBytes, err := json.Marshal(result)
 	if err != nil {
-		return gomcp.NewToolResultError("failed to marshal result: " + err.Error()), nil
+		return NewErrorToolResult(ToolError{Message: "failed to marshal result: " + err.Error()}), nil
 	}
-	return gomcp.NewToolResultText(string(jsonBytes)), nil
+	return NewTextToolResult(string(jsonBytes)), nil
 }
 
 // callWithSpaceClient は指定 SpaceRegistration の spaceFactory でクライアントを生成し fn を呼び出す。
 // needsAuthorization エラーの場合は authorizationURL を付与したレスポンスを返す。
-func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, args map[string]any, reg space.SpaceRegistration) (*gomcp.CallToolResult, error) {
+func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, args map[string]any, reg space.SpaceRegistration) (ToolResult, error) {
 	if r.spaceFactory == nil {
-		return nil, fmt.Errorf("spaceFactory が設定されていません")
+		return ToolResult{}, fmt.Errorf("spaceFactory が設定されていません")
 	}
 	client, err := r.spaceFactory(ctx, reg)
 	if err != nil {
 		if needsAuthorization(err) && r.authorizationURL != "" {
 			return toolResultAuthRequired(err, r.authorizationURL), nil
 		}
-		return gomcp.NewToolResultError(fmt.Sprintf("create client for space %s: %s", reg.Alias, err.Error())), nil
+		return NewErrorToolResult(ToolError{Message: fmt.Sprintf("create client for space %s: %s", reg.Alias, err.Error())}), nil
 	}
 	ctx = contextWithSpace(ctx, reg)
 	result, err := fn(ctx, client, args)
 	if err != nil {
-		return gomcp.NewToolResultError(err.Error()), nil
+		return NewErrorToolResult(ToolError{Message: err.Error()}), nil
 	}
 	jsonBytes, err := json.Marshal(result)
 	if err != nil {
-		return gomcp.NewToolResultError("failed to marshal result: " + err.Error()), nil
+		return NewErrorToolResult(ToolError{Message: "failed to marshal result: " + err.Error()}), nil
 	}
-	return gomcp.NewToolResultText(string(jsonBytes)), nil
+	return NewTextToolResult(string(jsonBytes)), nil
 }
 
 // needsAuthorization は GetValidToken / factory のエラーが OAuth 認可を要求するかを判定する。
@@ -353,17 +350,15 @@ func needsAuthorization(err error) bool {
 
 // toolResultAuthRequired は認可 URL 付きのツールエラー結果を返す。
 // _meta.authorization_required と _meta.authorization_url を含む。
-func toolResultAuthRequired(err error, url string) *gomcp.CallToolResult {
+func toolResultAuthRequired(err error, url string) ToolResult {
 	text := fmt.Sprintf(
 		"Backlog authorization required. Open the following URL in your browser to connect:\n%s",
 		url,
 	)
-	result := gomcp.NewToolResultError(text)
-	result.Meta = &gomcp.Meta{
-		AdditionalFields: map[string]any{
-			"authorization_required": true,
-			"authorization_url":      url,
-		},
+	result := NewErrorToolResult(ToolError{Message: text})
+	result.Meta = &ResultMeta{
+		AuthorizationRequired: true,
+		AuthorizationURL:      url,
 	}
 	return result
 }
