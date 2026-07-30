@@ -287,6 +287,41 @@ auth_ref = "example-dev"
 - `internal/credentials/oauth.go` contains the OAuth flow implementation (currently unused by CLI)
 - When implemented, OAuth will provide browser-based authorization-code flow
 
+### Remote authentication contract (S27)
+
+Remote HTTP MCP authentication is limited to `none` or `apikey`. With
+`apikey`, AgentCore Gateway authenticates the caller and delegates the request
+using `X-Logvalet-Api-Key`. It may also provide end-user identity through
+`X-Logvalet-Identity-Issuer` and `X-Logvalet-Identity-Subject`; logvalet treats
+those headers as identity metadata only after the shared-key check. Backlog
+credentials are passed through as a Bearer credential. See
+[gateway-request-contract.md](gateway-request-contract.md) for the complete
+header and trust-boundary contract.
+
+Entra ID JWT passthrough validation is not performed by logvalet. It has not
+been confirmed in a real environment that Gateway forwards the original JWT
+to the backend; that verification belongs to a separate repository. The final
+defence is the shared API key plus network restriction (private ingress),
+which is the responsibility of the Gateway deployment.
+
+### MCP protocol and storage modes (2026-07-28)
+
+The official Go SDK is used with `StreamableHTTPOptions{Stateless: true}`.
+The HTTP endpoint supports `server/discover`, per-request `_meta`, and MRTR.
+Protocol negotiation and the `supportedVersions` decision are documented in
+[legacy-protocol-decision.md](legacy-protocol-decision.md).
+
+HTTP mode requires an explicitly configured space store; `memory` is an error
+in HTTP mode. The token store is CLI/stdio-only and limited to local SQLite or
+`tokens.json`; the DynamoDB token store is retired. Remote HTTP requests
+receive credentials through the Gateway contract instead.
+
+### Issue relationship scope
+
+Backlog's public API does not expose related-issue relationships, so logvalet
+does not support a `related_issues` relationship. Parent/child issues remain
+supported through the public `parentIssueId` field only.
+
 ### Auth commands
 
 #### `lv auth login`
@@ -811,8 +846,7 @@ Recommended shape:
         "issue_updated": 21,
         "issue_commented": 18
       },
-      "related_issue_keys": ["PROJ-123", "PROJ-140"],
-      "related_project_keys": ["PROJ", "OPS"]
+    "related_project_keys": ["PROJ", "OPS"]
     },
     "llm_hints": {
       "primary_entities": ["PROJ-123", "PROJ-140", "PROJ", "OPS"],

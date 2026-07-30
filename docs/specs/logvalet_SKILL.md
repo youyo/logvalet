@@ -112,9 +112,20 @@ Primary auth mode:
 
 - API key (via `config init --init-api-key` or `auth login`)
 
-Secondary auth mode:
+Remote MCP auth mode:
 
-- OAuth (access token via `--access-token` flag or env var)
+- `none` or `apikey` (`X-Logvalet-Api-Key`) behind AgentCore Gateway
+- Gateway identity uses `X-Logvalet-Identity-Issuer` and
+  `X-Logvalet-Identity-Subject`; Backlog credentials use Bearer passthrough
+- See [gateway-request-contract.md](gateway-request-contract.md)
+
+MCP protocol and storage:
+
+- HTTP uses the official Go SDK in `Stateless=true` mode, including
+  `server/discover`, per-request `_meta`, and MRTR
+- HTTP requires an explicit space store; `memory` is invalid
+- Token storage is CLI/stdio-only and local (`sqlite` or `tokens.json`)
+- DynamoDB token storage is retired
 
 Useful environment variables:
 
