@@ -30,7 +30,21 @@ docker run -p 8080:8080 \
 docker run -p 8080:8080 \
   -e LOGVALET_MCP_AUTH_MODE=apikey \
   -e LOGVALET_MCP_API_KEY=shared-gateway-key \
-  -e LOGVALET_MCP_SPACE_STORE=sqlite \
+  -e LOGVALET_SPACE_STORE_TYPE=sqlite \
+  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
+  logvalet
+```
+
+Lambda/AgentCore の multi-tenant 運用では、再起動後もスペース登録を保持できる
+DynamoDB store を使用します。
+
+```bash
+docker run -p 8080:8080 \
+  -e LOGVALET_MCP_AUTH_MODE=apikey \
+  -e LOGVALET_MCP_API_KEY=shared-gateway-key \
+  -e LOGVALET_SPACE_STORE_TYPE=dynamodb \
+  -e LOGVALET_SPACE_STORE_DYNAMODB_TABLE=logvalet-spaces \
+  -e LOGVALET_SPACE_STORE_DYNAMODB_REGION=ap-northeast-1 \
   -e LOGVALET_BASE_URL=https://your-space.backlog.com \
   logvalet
 ```
@@ -44,7 +58,10 @@ docker run -p 8080:8080 \
 | `LOGVALET_BASE_URL` | Yes | Backlog スペース URL | `https://your-space.backlog.com` |
 | `LOGVALET_MCP_AUTH_MODE` | No | `none` または `apikey` | `none` |
 | `LOGVALET_MCP_API_KEY` | apikey時必須 | Gateway と共有するキー | `shared-gateway-key` |
-| `LOGVALET_MCP_SPACE_STORE` | HTTP時必須 | 明示的な space store | `sqlite` |
+| `LOGVALET_SPACE_STORE_TYPE` | No | space store の種類（`sqlite` または `dynamodb`） | `sqlite` |
+| `LOGVALET_SPACE_STORE_PATH` | SQLite時 | SQLite DB パス | `~/.logvalet/spaces.db` |
+| `LOGVALET_SPACE_STORE_DYNAMODB_TABLE` | DynamoDB時 | space store の DynamoDB テーブル名 | `logvalet-spaces` |
+| `LOGVALET_SPACE_STORE_DYNAMODB_REGION` | DynamoDB時 | space store の DynamoDB リージョン | `ap-northeast-1` |
 | `Authorization` | HTTP Gateway経由 | Gateway が渡す Backlog Bearer passthrough | `Bearer <credential>` |
 
 HTTP remote では `LOGVALET_API_KEY` / `LOGVALET_ACCESS_TOKEN` を設定せず、

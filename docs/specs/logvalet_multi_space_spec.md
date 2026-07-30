@@ -441,7 +441,7 @@ SK: PREF           -> UserPreference
 環境変数で独立して設定できるようにする。
 
 ```text
-LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-spaces   # SpaceStore 専用
+LOGVALET_SPACE_STORE_DYNAMODB_TABLE=logvalet-spaces   # SpaceStore 専用
 ```
 
 **【GPT-5.4 指摘】DynamoDB の tenant 重複防止**:
@@ -534,6 +534,8 @@ local
         return nil
     }
 ```
+
+注記: `ValidateSpaceStoreConfig` は S06 で未配線デッドコードとして削除済み。稼働中のガードは `space.RequireExplicitStoreType`（memory のみ拒否、sqlite は許容）。
 
 ---
 
@@ -1955,9 +1957,10 @@ CLI の exit code は以下を推奨する。
 
 ```text
 LOGVALET_SPACE_STORE_TYPE=memory|sqlite|dynamodb
-LOGVALET_SPACE_SQLITE_PATH=/path/to/logvalet-spaces.db
-LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-spaces
-LOGVALET_SPACE_FANOUT_CONCURRENCY=4
+LOGVALET_SPACE_STORE_PATH=/path/to/logvalet-spaces.db
+LOGVALET_SPACE_STORE_DYNAMODB_TABLE=logvalet-spaces
+LOGVALET_SPACE_STORE_DYNAMODB_REGION=ap-northeast-1
+LOGVALET_SPACE_FANOUT_CONCURRENCY=4  # 設計時の追加候補
 ```
 
 `LOGVALET_AUTH_DYNAMODB_TABLE` のような TokenStore 用設定は廃止済みであり、

@@ -24,6 +24,7 @@ AgentCore Gateway が `X-Logvalet-Api-Key` を送り、任意の利用者識別�
 Backlog credential は Bearer passthrough とする。HTTP mode は space store の
 明示指定が必要で `memory` は使えない。tokenstore は CLI/stdio 専用で、
 ローカルの SQLite または `tokens.json` のみを使い、DynamoDB は使わない。
+stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート HTTP (`mcp`) は `--auth-mode` で認証方式を指定して使い分ける。
 
 ## スキル一覧
 
@@ -81,7 +82,7 @@ Backlog credential は Bearer passthrough とする。HTTP mode は space store 
 
 ## MCP での spaces/all_spaces 使い方
 
-logvalet MCP サーバーの 70 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+logvalet MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
 
 ### Read-only: 登録済み全スペースを横断取得
 

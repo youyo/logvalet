@@ -263,7 +263,7 @@ deploy 手順を spec または ops runbook として別途作成し、§30.2 �
 ### L2: SQLite テーブル名が既存 TokenStore と衝突しない根拠の明示が不十分
 
 **問題:**  
-§24.9 で「SpaceStore の SQLite テーブル名は `spaces`, `user_preferences` として衝突しない」と記載されているが、SQLite の場合 TokenStore と SpaceStore が同一ファイル（同一パス）を使う可能性がある。§15.1 で `LOGVALET_SPACE_SQLITE_PATH` が独立しているため衝突はしないが、既存 TokenStore の SQLite ファイルパスが明示されていない。
+§24.9 で「SpaceStore の SQLite テーブル名は `spaces`, `user_preferences` として衝突しない」と記載されているが、SQLite の場合 TokenStore と SpaceStore が同一ファイル（同一パス）を使う可能性がある。§15.1 で `LOGVALET_SPACE_STORE_PATH` が独立しているため衝突はしないが、既存 TokenStore の SQLite ファイルパスが明示されていない。
 
 **推奨対処:**  
 既存 SQLite TokenStore のデフォルトパスを §24.9 または §4.5 に明記し、SpaceStore との分離を保証する。
