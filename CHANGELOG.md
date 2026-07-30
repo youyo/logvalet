@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.36.1 (2026-07-31)
+
+v0.36.0 の docs/CLI サーフェス追随漏れを修正（issue #62）。破壊的変更なし。
+
+### Fixed
+- docs(readme): README en/ja の MCP 節を v0.36.0 の実装と全面同期（2コマンド構成、認証2軸、
+  space store env リファレンス、ツール数72への更新）
+- fix(mise): `mise` タスクを新仕様に追随（`mcp:start` を stdio 起動に修正）
+- docs(specs): `agentcore-deployment` / specs 内の環境変数名を実装に合わせて修正
+- refactor: 未配線のデッドコード `ValidateSpaceStoreConfig` を削除（挙動変更なし）
+
 ## v0.36.0 (2026-07-30)
 
 MCP 2026-07-28 (stateless) 対応と認証モデルの再設計（AgentCore Gateway/Identity への委譲）。
