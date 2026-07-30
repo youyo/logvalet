@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
@@ -17,7 +16,7 @@ import (
 // TestRegisterWithSpaces_InjectsSpacesAndAllSpaces は RegisterWithSpaces が
 // tool.InputSchema.Properties に "spaces" と "all_spaces" を注入することを検証する。
 func TestRegisterWithSpaces_InjectsSpacesAndAllSpaces(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
 	tool := mcpinternal.NewToolDef("inject_test",
@@ -31,7 +30,7 @@ func TestRegisterWithSpaces_InjectsSpacesAndAllSpaces(t *testing.T) {
 	if st == nil {
 		t.Fatal("tool not registered")
 	}
-	props := st.Tool.InputSchema.Properties
+	props := toolProperties(t, st)
 	if _, ok := props["spaces"]; !ok {
 		t.Error("expected 'spaces' in InputSchema.Properties")
 	}
@@ -42,7 +41,7 @@ func TestRegisterWithSpaces_InjectsSpacesAndAllSpaces(t *testing.T) {
 
 // TestRegisterWithSpaces_PreservesExistingProperties は注入が既存 Properties を上書きしないことを検証する。
 func TestRegisterWithSpaces_PreservesExistingProperties(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
 	tool := mcpinternal.NewToolDef("preserve_test",
@@ -57,7 +56,7 @@ func TestRegisterWithSpaces_PreservesExistingProperties(t *testing.T) {
 	if st == nil {
 		t.Fatal("tool not registered")
 	}
-	props := st.Tool.InputSchema.Properties
+	props := toolProperties(t, st)
 	if _, ok := props["mode"]; !ok {
 		t.Error("expected existing 'mode' property to be preserved")
 	}
@@ -72,7 +71,7 @@ func TestRegisterWithSpaces_PreservesExistingProperties(t *testing.T) {
 // TestRegisterWithSpacesWrite_InjectsSpaces は RegisterWithSpacesWrite が
 // tool.InputSchema.Properties に "spaces" を注入することを検証する。
 func TestRegisterWithSpacesWrite_InjectsSpaces(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
 	tool := mcpinternal.NewToolDef("write_inject_test",
@@ -86,7 +85,7 @@ func TestRegisterWithSpacesWrite_InjectsSpaces(t *testing.T) {
 	if st == nil {
 		t.Fatal("tool not registered")
 	}
-	props := st.Tool.InputSchema.Properties
+	props := toolProperties(t, st)
 	if _, ok := props["spaces"]; !ok {
 		t.Error("expected 'spaces' in InputSchema.Properties for write tool")
 	}
@@ -94,7 +93,7 @@ func TestRegisterWithSpacesWrite_InjectsSpaces(t *testing.T) {
 
 // TestRegisterWithSpaces_SpacesPropertySchema は注入した "spaces" が配列型スキーマを持つことを検証する。
 func TestRegisterWithSpaces_SpacesPropertySchema(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
 	tool := mcpinternal.NewToolDef("schema_test",
@@ -105,7 +104,7 @@ func TestRegisterWithSpaces_SpacesPropertySchema(t *testing.T) {
 	})
 
 	st := s.GetTool("schema_test")
-	props := st.Tool.InputSchema.Properties
+	props := toolProperties(t, st)
 
 	spacesProp, ok := props["spaces"].(map[string]any)
 	if !ok {

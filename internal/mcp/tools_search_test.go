@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
 	"github.com/youyo/logvalet/internal/domain"
@@ -29,7 +28,7 @@ func TestSearch_Normal(t *testing.T) {
 		return []domain.WikiPage{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_search", map[string]any{
 		"keyword": "OAuth",
 		"count":   float64(5),
@@ -44,10 +43,7 @@ func TestSearch_Normal(t *testing.T) {
 		t.Errorf("issue Limit = %d, want 5", capturedIssueOpt.Limit)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var envelope domain.DigestEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
 		t.Fatalf("unmarshal envelope: %v", err)
@@ -67,7 +63,7 @@ func TestSearch_Normal(t *testing.T) {
 
 func TestSearch_MissingKeyword(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_search", map[string]any{})
 	if !result.IsError {
 		t.Fatal("expected tool error but got none")

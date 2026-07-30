@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/analysis"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -64,20 +62,22 @@ func helperMCPStatuses() []domain.Status {
 	}
 }
 
-// newTestServer は ServerConfig 付きの MCP サーバーを返すテストヘルパー。
-func newTestServer(mock *backlog.MockClient) *mcpserver.MCPServer {
+// newAnalysisTestServer は analysis 系ツール用の ServerConfig を設定した
+// テスト用 MCP サーバー (fake backend) を返す。
+func newAnalysisTestServer(t *testing.T, mock *backlog.MockClient) *fakeBackend {
+	t.Helper()
 	cfg := mcpinternal.ServerConfig{
 		Profile: "default",
 		Space:   "heptagon",
 		BaseURL: "https://heptagon.backlog.com",
 	}
-	return mcpinternal.NewServer(mock, "test", cfg)
+	return newTestServer(t, mock, cfg)
 }
 
 // T1: RegisterAnalysisTools で logvalet_issue_context が登録されること
 func TestRegisterAnalysisTools_ToolRegistered(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	tool := s.GetTool("logvalet_issue_context")
 	if tool == nil {
@@ -98,17 +98,14 @@ func TestIssueContextHandler_Success(t *testing.T) {
 		return helperMCPStatuses(), nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_issue_context", map[string]any{"issue_key": "PROJ-123"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -128,7 +125,7 @@ func TestIssueContextHandler_Success(t *testing.T) {
 // T3: issue_key が空の場合にエラーを返すこと
 func TestIssueContextHandler_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_issue_context", map[string]any{})
 
@@ -150,7 +147,7 @@ func TestIssueContextHandler_WithComments(t *testing.T) {
 		return helperMCPStatuses(), nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_issue_context", map[string]any{
 		"issue_key": "PROJ-123",
 		"comments":  float64(3),
@@ -160,7 +157,7 @@ func TestIssueContextHandler_WithComments(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent := result.Content[0].(gomcp.TextContent)
+	textContent := resultTextContent(t, result)
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
@@ -194,7 +191,7 @@ func TestIssueContextHandler_WithCompact(t *testing.T) {
 		return helperMCPStatuses(), nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_issue_context", map[string]any{
 		"issue_key": "PROJ-123",
 		"compact":   true,
@@ -204,7 +201,7 @@ func TestIssueContextHandler_WithCompact(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent := result.Content[0].(gomcp.TextContent)
+	textContent := resultTextContent(t, result)
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
@@ -229,7 +226,7 @@ func TestIssueContextHandler_GetIssueError(t *testing.T) {
 		return nil, errors.New("API error")
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_issue_context", map[string]any{"issue_key": "PROJ-999"})
 
 	if !result.IsError {
@@ -240,7 +237,7 @@ func TestIssueContextHandler_GetIssueError(t *testing.T) {
 // M1: logvalet_digest_weekly が登録されていること
 func TestDigestWeekly_MCPTool_Registered(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	tool := s.GetTool("logvalet_digest_weekly")
 	if tool == nil {
@@ -258,17 +255,14 @@ func TestDigestWeekly_MCPTool_Success(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{"project_key": "HEP"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -282,7 +276,7 @@ func TestDigestWeekly_MCPTool_Success(t *testing.T) {
 // M3: project_key 省略で IsError になること
 func TestDigestWeekly_MCPTool_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{})
 	if !result.IsError {
@@ -293,7 +287,7 @@ func TestDigestWeekly_MCPTool_MissingProjectKey(t *testing.T) {
 // M4: since に不正日付でエラーになること
 func TestDigestWeekly_MCPTool_InvalidDate(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{
 		"project_key": "HEP",
@@ -314,17 +308,14 @@ func TestDigestWeekly_MCPTool_ListIssuesFailed(t *testing.T) {
 		return nil, errors.New("fetch error")
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_weekly", map[string]any{"project_key": "HEP"})
 
 	if result.IsError {
 		t.Errorf("expected IsError=false for partial result with warnings, got IsError=true: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -345,17 +336,14 @@ func TestDigestDaily_MCPTool_Success(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_daily", map[string]any{"project_key": "HEP"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -369,7 +357,7 @@ func TestDigestDaily_MCPTool_Success(t *testing.T) {
 // M6b: logvalet_digest_daily の project_key 省略でエラー
 func TestDigestDaily_MCPTool_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_digest_daily", map[string]any{})
 	if !result.IsError {
@@ -380,7 +368,7 @@ func TestDigestDaily_MCPTool_MissingProjectKey(t *testing.T) {
 // A1: logvalet_activity_stats が登録されていること
 func TestActivityStats_MCPTool_Registered(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	tool := s.GetTool("logvalet_activity_stats")
 	if tool == nil {
@@ -395,17 +383,14 @@ func TestActivityStats_MCPTool_SpaceScope(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_activity_stats", map[string]any{})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -423,7 +408,7 @@ func TestActivityStats_MCPTool_ProjectScope(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
 		"scope":       "project",
 		"project_key": "PROJ",
@@ -433,10 +418,7 @@ func TestActivityStats_MCPTool_ProjectScope(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -450,7 +432,7 @@ func TestActivityStats_MCPTool_ProjectScope(t *testing.T) {
 // A4: 不正な since 日付でエラーになること
 func TestActivityStats_MCPTool_InvalidSince(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
 		"since": "not-a-date",
@@ -467,7 +449,7 @@ func TestActivityStats_MCPTool_WithTopN(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_activity_stats", map[string]any{
 		"top_n": float64(3),
 	})
@@ -476,10 +458,7 @@ func TestActivityStats_MCPTool_WithTopN(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -493,7 +472,7 @@ func TestActivityStats_MCPTool_WithTopN(t *testing.T) {
 // T_timeline_1: logvalet_issue_timeline が ToolRegistry に登録されていること
 func TestRegisterAnalysisTools_IssueTimelineRegistered(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	tool := s.GetTool("logvalet_issue_timeline")
 	if tool == nil {
@@ -514,17 +493,14 @@ func TestIssueTimelineHandler_Success(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_issue_timeline", map[string]any{"issue_key": "PROJ-123"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -541,7 +517,7 @@ func TestIssueTimelineHandler_Success(t *testing.T) {
 // T_timeline_3: issue_key が空の場合にエラーを返すこと
 func TestIssueTimelineHandler_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	result := callTool(t, s, "logvalet_issue_timeline", map[string]any{})
 
@@ -555,7 +531,7 @@ func TestIssueTimelineHandler_MissingIssueKey(t *testing.T) {
 // T2-9: MCPTool_Registered - logvalet_my_tasks ツールが登録されること
 func TestMyTasksHandler_ToolRegistered(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 
 	tool := s.GetTool("logvalet_my_tasks")
 	if tool == nil {
@@ -576,17 +552,14 @@ func TestMyTasksHandler_DefaultMode(t *testing.T) {
 		return []domain.Watching{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_my_tasks", map[string]any{})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var envelope analysis.AnalysisEnvelope
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
@@ -613,7 +586,7 @@ func TestMyTasksHandler_GetMyselfError(t *testing.T) {
 		return nil, errors.New("authentication failed")
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_my_tasks", map[string]any{})
 
 	if !result.IsError {
@@ -633,7 +606,7 @@ func TestDigestUnified_Normal(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_unified", map[string]any{
 		"since": "2026-04-01",
 	})
@@ -656,7 +629,7 @@ func TestDigestUnified_WithProjectKeys(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_unified", map[string]any{
 		"since":        "2026-04-01",
 		"project_keys": "PROJ",
@@ -671,7 +644,7 @@ func TestDigestUnified_WithProjectKeys(t *testing.T) {
 func TestDigestUnified_MissingSince(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := newTestServer(mock)
+	s := newAnalysisTestServer(t, mock)
 	result := callTool(t, s, "logvalet_digest_unified", map[string]any{})
 
 	if !result.IsError {

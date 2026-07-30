@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -32,7 +31,7 @@ func TestActivityListWithUserId(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{"user_id": "12345"})
 
 	if result.IsError {
@@ -42,10 +41,7 @@ func TestActivityListWithUserId(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var activities []domain.Activity
 	if err := json.Unmarshal([]byte(textContent.Text), &activities); err != nil {
@@ -83,7 +79,7 @@ func TestActivityListWithUserIdMe(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{"user_id": "me"})
 
 	if result.IsError {
@@ -118,7 +114,7 @@ func TestActivityListWithProjectKey(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -128,10 +124,7 @@ func TestActivityListWithProjectKey(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	var activities []domain.Activity
 	if err := json.Unmarshal([]byte(textContent.Text), &activities); err != nil {
@@ -163,7 +156,7 @@ func TestActivityListDefault(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{})
 
 	if result.IsError {
@@ -179,7 +172,7 @@ func TestActivityListDefault(t *testing.T) {
 func TestActivityListBothParamsError(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{
 		"user_id":     "12345",
 		"project_key": "PROJ",
@@ -208,7 +201,7 @@ func TestActivityListUserIdMeGetMyselfError(t *testing.T) {
 		return nil, backlog.ErrNotFound
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{"user_id": "me"})
 
 	if !result.IsError {
@@ -227,7 +220,7 @@ func TestActivityListUserIdMeGetMyselfError(t *testing.T) {
 func TestActivityListInvalidUserId(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{"user_id": "abc"})
 
 	if !result.IsError {
@@ -253,7 +246,7 @@ func TestActivityList_WithActivityTypeIDs(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{
 		"activity_type_ids": "1,2,3",
 	})
@@ -275,7 +268,7 @@ func TestActivityList_WithOrder(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{
 		"order": "asc",
 	})
@@ -297,7 +290,7 @@ func TestActivityList_WithActivityTypeIDs_UserActivities(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{
 		"user_id":           "12345",
 		"activity_type_ids": "1,2",
@@ -315,7 +308,7 @@ func TestActivityList_WithActivityTypeIDs_UserActivities(t *testing.T) {
 func TestActivityList_InvalidActivityTypeIDs(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_list", map[string]any{
 		"activity_type_ids": "1,abc",
 	})
@@ -334,7 +327,7 @@ func TestActivityDigest_Normal(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_digest", map[string]any{})
 
 	if result.IsError {
@@ -356,7 +349,7 @@ func TestActivityDigest_WithProject(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_activity_digest", map[string]any{
 		"project": "PROJ",
 		"limit":   float64(50),

@@ -9,21 +9,18 @@ import (
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
-// backend_official.go は S09 (issue #52) の実装。ServerBackend (backend.go) の
-// 公式 Go SDK (github.com/modelcontextprotocol/go-sdk) 実装を提供する。
+// backend_official.go は ServerBackend (backend.go) の公式 Go SDK
+// (github.com/modelcontextprotocol/go-sdk) 実装を提供する。
 //
 // S03 スパイク (docs/specs/spike-go-sdk-2026-07-28.md) の実測により、
 // StreamableHTTPOptions.Stateless=true にすると同一の *officialmcp.Server /
 // officialmcp.NewStreamableHTTPHandler が旧initialize/sessionベースのフローと
 // 新sessionless(SEP-2575)プロトコルを並行してサポートすることが確認されている。
 // そのため officialBackend は「新旧で別のサーバー型を用意する」必要が無く、
-// mark3labsBackend (tooldef_mark3labs.go) と同じ RegisterTool ベースの
-// 単一実装で足りる。
+// RegisterTool ベースの単一実装で足りる。
 //
-// この時点 (S09) では mark3labsBackend と officialBackend は併存し、呼び出し側が
-// どちらを ServerBackend として ToolRegistry に注入するかで切替できる
-// (NewMark3labsBackend / NewOfficialBackend のどちらを NewToolRegistryWithBackend
-// に渡すか)。
+// S11 で旧 SDK backend は削除され、officialBackend が logvalet で唯一の
+// 本番用 ServerBackend 実装となった (テストは backend_test.go の fake backend を使う)。
 
 // officialBackend は公式 Go SDK の *officialmcp.Server を使う ServerBackend 実装。
 type officialBackend struct {
@@ -62,22 +59,40 @@ func (b *officialBackend) RegisterTool(tool ToolDef, handler ToolHandler) {
 }
 
 // NewOfficialServer は公式 Go SDK の *officialmcp.Server を生成し、logvalet の全ツールを
-// StreamableHTTPOptions.Stateless=true 前提で登録する。mark3labsBackend 版の NewServer
-// (server.go) と同じ構成 (registerAllTools) を officialBackend 経由で行う。
+// 登録して返す。実体は NewServer (server.go) と同一で、stdio トランスポート
+// (internal/cli/mcp_stdio.go) からの呼び出し名として維持している。
 func NewOfficialServer(client backlog.Client, ver string, cfg ServerConfig) *officialmcp.Server {
-	s := officialmcp.NewServer(&officialmcp.Implementation{Name: "logvalet", Version: ver}, nil)
-	backend := NewOfficialBackend(s)
-	reg := NewToolRegistryWithBackend(backend, client, cfg.AuthorizationURL)
-	reg.disableFilePaths = cfg.DisableFilePaths
-	registerAllTools(reg, cfg)
-	return s
+	return NewServer(client, ver, cfg)
 }
 
-// NewOfficialStreamableHTTPHandler は NewOfficialServer が返す *officialmcp.Server を
-// StreamableHTTPOptions.Stateless=true で StreamableHTTPHandler にラップして返す。
-func NewOfficialStreamableHTTPHandler(client backlog.Client, ver string, cfg ServerConfig) *officialmcp.StreamableHTTPHandler {
-	s := NewOfficialServer(client, ver, cfg)
+// newStreamableHTTPHandler は *officialmcp.Server を StreamableHTTPOptions.Stateless=true
+// (+ JSONResponse=true) で StreamableHTTPHandler にラップする。
+//
+// Stateless=true により initialize / Mcp-Session-Id を要求せずに tools/list・tools/call を
+// 受け付けられる (S03 スパイクの実測結果)。これは Lambda 等の複数インスタンス構成で
+// セッション状態を共有できない環境で必須の設定。
+func newStreamableHTTPHandler(s *officialmcp.Server) *officialmcp.StreamableHTTPHandler {
 	return officialmcp.NewStreamableHTTPHandler(func(*http.Request) *officialmcp.Server {
 		return s
 	}, &officialmcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
+}
+
+// NewOfficialStreamableHTTPHandler は単一 client 構成 (CLI profile / API key 認証) の
+// MCP サーバーを Stateless な StreamableHTTPHandler として返す。
+func NewOfficialStreamableHTTPHandler(client backlog.Client, ver string, cfg ServerConfig) *officialmcp.StreamableHTTPHandler {
+	return newStreamableHTTPHandler(NewServer(client, ver, cfg))
+}
+
+// NewOfficialStreamableHTTPHandlerWithFactory は per-user ClientFactory 構成
+// (OAuth モード) の MCP サーバーを Stateless な StreamableHTTPHandler として返す。
+//
+// Stateless=true のため、ツール呼び出しごとに HTTP リクエストの context がハンドラーへ
+// 渡り、factory がそこから user を解決する。セッションに紐づく状態を持たないので、
+// idproxy が注入する userID は常に「そのリクエストの」ユーザーになる。
+func NewOfficialStreamableHTTPHandlerWithFactory(
+	factory func(ctx context.Context) (backlog.Client, error),
+	ver string,
+	cfg ServerConfig,
+) *officialmcp.StreamableHTTPHandler {
+	return newStreamableHTTPHandler(NewServerWithFactory(factory, ver, cfg))
 }

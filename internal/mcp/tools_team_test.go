@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -22,7 +21,7 @@ func TestTeamList_Default(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_list", map[string]any{})
 
 	if result.IsError {
@@ -42,7 +41,7 @@ func TestTeamList_WithCount(t *testing.T) {
 		return []domain.TeamWithMembers{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_list", map[string]any{"count": 50})
 
 	if result.IsError {
@@ -62,7 +61,7 @@ func TestTeamList_WithOffset(t *testing.T) {
 		return []domain.TeamWithMembers{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_list", map[string]any{"offset": 10})
 
 	if result.IsError {
@@ -83,7 +82,7 @@ func TestTeamList_WithNoMembers_True(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_list", map[string]any{"no_members": true})
 
 	if result.IsError {
@@ -92,10 +91,7 @@ func TestTeamList_WithNoMembers_True(t *testing.T) {
 	if len(result.Content) == 0 {
 		t.Fatal("expected non-empty result")
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	// no_members=true の場合、JSON に "members" キーが含まれないこと
 	if strings.Contains(textContent.Text, `"members"`) {
 		t.Errorf("expected no 'members' key in output when no_members=true, got: %s", textContent.Text)
@@ -111,7 +107,7 @@ func TestTeamList_WithNoMembers_False(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_list", map[string]any{"no_members": false})
 
 	if result.IsError {
@@ -133,7 +129,7 @@ func TestTeamProject_Normal(t *testing.T) {
 		return []domain.Team{{ID: 1, Name: "チームA"}, {ID: 2, Name: "チームB"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_project", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -151,7 +147,7 @@ func TestTeamProject_Normal(t *testing.T) {
 func TestTeamProject_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_team_project", map[string]any{})
 
 	if !result.IsError {

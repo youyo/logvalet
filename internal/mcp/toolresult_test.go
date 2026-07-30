@@ -3,8 +3,21 @@ package mcp
 import (
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
+	officialmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// sdkTextContent は公式 SDK の CallToolResult から先頭の text content を取り出す。
+func sdkTextContent(t *testing.T, r *officialmcp.CallToolResult) *officialmcp.TextContent {
+	t.Helper()
+	if len(r.Content) == 0 {
+		t.Fatal("expected non-empty SDK content")
+	}
+	tc, ok := r.Content[0].(*officialmcp.TextContent)
+	if !ok {
+		t.Fatalf("Content[0] is not *officialmcp.TextContent: %T", r.Content[0])
+	}
+	return tc
+}
 
 // TestNewTextToolResult は成功結果が isError=false・text content 1件で構築されることを確認する。
 func TestNewTextToolResult(t *testing.T) {
@@ -28,29 +41,26 @@ func TestNewErrorToolResult(t *testing.T) {
 	}
 }
 
-// TestToolResult_ToSDKResult_Success は成功結果を gomcp.CallToolResult に変換した際、
-// isError が省略され (false) content が反映されることを確認する。
-func TestToolResult_ToSDKResult_Success(t *testing.T) {
+// TestToolResult_ToOfficialSDKResult_Success は成功結果を公式 SDK の CallToolResult に
+// 変換した際、isError が false のまま content が反映されることを確認する。
+func TestToolResult_ToOfficialSDKResult_Success(t *testing.T) {
 	r := NewTextToolResult("hello")
-	sdk := r.ToSDKResult()
+	sdk := r.ToOfficialSDKResult()
 	if sdk.IsError {
 		t.Error("sdk.IsError should be false")
 	}
 	if len(sdk.Content) != 1 {
 		t.Fatalf("len(sdk.Content) = %d, want 1", len(sdk.Content))
 	}
-	tc, ok := sdk.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("sdk.Content[0] is not TextContent: %#v", sdk.Content[0])
-	}
+	tc := sdkTextContent(t, sdk)
 	if tc.Text != "hello" {
 		t.Errorf("tc.Text = %q, want %q", tc.Text, "hello")
 	}
 }
 
-// TestToolResult_ToSDKResult_AuthRequired は認可 URL 付きエラーが _meta に反映されることを確認する。
+// TestToolResult_ToOfficialSDKResult_AuthRequired は認可 URL 付きエラーが _meta に反映されることを確認する。
 // toolResultAuthRequired (tools.go) と等価な出力を ToolResult 経由で再現できることを検証する。
-func TestToolResult_ToSDKResult_AuthRequired(t *testing.T) {
+func TestToolResult_ToOfficialSDKResult_AuthRequired(t *testing.T) {
 	r := ToolResult{
 		Content: []ToolContent{{Type: ToolContentTypeText, Text: "authorization required"}},
 		IsError: true,
@@ -59,24 +69,24 @@ func TestToolResult_ToSDKResult_AuthRequired(t *testing.T) {
 			AuthorizationURL:      "https://example.com/authorize",
 		},
 	}
-	sdk := r.ToSDKResult()
+	sdk := r.ToOfficialSDKResult()
 	if !sdk.IsError {
 		t.Error("sdk.IsError should be true")
 	}
-	if sdk.Meta == nil {
-		t.Fatal("sdk.Meta should not be nil")
+	if len(sdk.Meta) == 0 {
+		t.Fatal("sdk.Meta should not be empty")
 	}
-	if sdk.Meta.AdditionalFields["authorization_required"] != true {
-		t.Errorf("authorization_required = %v, want true", sdk.Meta.AdditionalFields["authorization_required"])
+	if sdk.Meta["authorization_required"] != true {
+		t.Errorf("authorization_required = %v, want true", sdk.Meta["authorization_required"])
 	}
-	if sdk.Meta.AdditionalFields["authorization_url"] != "https://example.com/authorize" {
-		t.Errorf("authorization_url = %v, want https://example.com/authorize", sdk.Meta.AdditionalFields["authorization_url"])
+	if sdk.Meta["authorization_url"] != "https://example.com/authorize" {
+		t.Errorf("authorization_url = %v, want https://example.com/authorize", sdk.Meta["authorization_url"])
 	}
 }
 
-// TestToolResultFromSDKResult_RoundTrip は ToSDKResult -> ToolResultFromSDKResult の
+// TestToolResultFromOfficialSDKResult_RoundTrip は ToOfficialSDKResult -> ToolResultFromOfficialSDKResult の
 // 相互変換で情報が失われないことを確認する。
-func TestToolResultFromSDKResult_RoundTrip(t *testing.T) {
+func TestToolResultFromOfficialSDKResult_RoundTrip(t *testing.T) {
 	original := ToolResult{
 		Content:           []ToolContent{{Type: ToolContentTypeText, Text: `{"count":3}`}},
 		StructuredContent: map[string]any{"count": float64(3)},
@@ -87,8 +97,8 @@ func TestToolResultFromSDKResult_RoundTrip(t *testing.T) {
 		},
 	}
 
-	sdk := original.ToSDKResult()
-	roundTripped := ToolResultFromSDKResult(sdk)
+	sdk := original.ToOfficialSDKResult()
+	roundTripped := ToolResultFromOfficialSDKResult(sdk)
 
 	if roundTripped.IsError != original.IsError {
 		t.Errorf("IsError = %v, want %v", roundTripped.IsError, original.IsError)
@@ -107,12 +117,12 @@ func TestToolResultFromSDKResult_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestToolResultFromSDKResult_Nil は nil 入力に対して空の ToolResult を返すことを確認する
+// TestToolResultFromOfficialSDKResult_Nil は nil 入力に対して空の ToolResult を返すことを確認する
 // (呼び出し側で nil チェックを省略できるようにするためのガード)。
-func TestToolResultFromSDKResult_Nil(t *testing.T) {
-	r := ToolResultFromSDKResult(nil)
+func TestToolResultFromOfficialSDKResult_Nil(t *testing.T) {
+	r := ToolResultFromOfficialSDKResult(nil)
 	if r.IsError || len(r.Content) != 0 || r.Meta != nil {
-		t.Errorf("ToolResultFromSDKResult(nil) = %#v, want zero value", r)
+		t.Errorf("ToolResultFromOfficialSDKResult(nil) = %#v, want zero value", r)
 	}
 }
 

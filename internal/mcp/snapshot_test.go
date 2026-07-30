@@ -10,16 +10,19 @@ import (
 
 // snapshot_test.go は S06 done_criteria(2) の実装。
 //
-// testdata/tools_list_baseline.json は移行前 (mark3labs/mcp-go backend) の
+// testdata/tools_list_baseline.json は移行前 (旧 MCP SDK backend) の
 // "tools/list" JSON-RPC レスポンス全体を、下記の正規化規則を適用した正規形で固定した
-// golden ファイル。S07/S09 で ToolDef ベースの新実装に切り替えた後の tools/list
-// レスポンスも同じ normalizeToolsListResponse を通した上でこの baseline と比較することで、
-// 移行前後で観測可能なプロトコル応答が変わっていないことを検証する唯一の基準とする。
+// golden ファイル。S07/S09 で ToolDef ベースの新実装に切り替え、S11 で公式 Go SDK に
+// 完全移行した後の tools/list レスポンスも同じ normalizeToolsListResponse を通した上で
+// この baseline と比較することで、移行前後で観測可能なプロトコル応答が変わっていない
+// ことを検証する唯一の基準とする。
 //
-// 取得プロトコル版: MCP tools/list (JSON-RPC 2.0, method "tools/list")。
-// mark3labs/mcp-go v0.57.0 を使い、internal/mcp.NewServer が組み立てる本番同等の
-// ToolRegistry (backlog.NewMockClient) に対して HandleMessage で直接リクエストを
-// 送って取得した (ネットワーク/トランスポート層を経由しない、プロトコルハンドラ直叩き)。
+// 現在の取得手順 (公式 Go SDK 基準): internal/mcp.NewOfficialStreamableHTTPHandler が
+// 返す StreamableHTTPHandler (Stateless=true / JSONResponse=true) を httptest で起動し、
+// 本番同等の ToolRegistry (backlog.NewMockClient) に対して
+// {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}} を POST して取得する。
+// 実際の比較は backend_official_test.go の TestOfficialServer_ToolsList_MatchesBaseline
+// が行う (SDK 間の表現差は同ファイルの stripOfficialSDKOnlyResultFields を参照)。
 //
 // 正規化規則:
 //  1. キー順ソート: JSON オブジェクトの全キーをコード順にソートする
@@ -27,7 +30,7 @@ import (
 //     一度 map[string]any へ decode してから re-encode するだけで達成できる)。
 //  2. ツール配列の名前順ソート: result.tools 配列を tool.name の昇順で並べ替える。
 //  3. optional field 省略と null の同一視: JSON 値が null のキーは出力から取り除く。
-//     mark3labs/mcp-go 側の実装差異で "省略" と "null" が揺れても同一の正規形になる。
+//     SDK 側の実装差異で "省略" と "null" が揺れても同一の正規形になる。
 //  4. required 配列のソート: 各ツールの inputSchema.required 配列を文字列昇順で
 //     ソートする。
 //  5. annotation のポインタ値の値化: ToolAnnotation の *bool ヒントは JSON 上では

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -21,7 +20,7 @@ import (
 
 // newMultiSpaceServerForDigests は digest 系ツールを登録した MCP サーバーを返す。
 // cfg.Space / cfg.BaseURL は「heptagon 固定の起動時値」を模擬する（fallback 確認用）。
-func newMultiSpaceServerForDigests(t *testing.T, spaceFactory func(context.Context, space.SpaceRegistration) (backlog.Client, error)) (*mcpserver.MCPServer, *space.MemoryStore) {
+func newMultiSpaceServerForDigests(t *testing.T, spaceFactory func(context.Context, space.SpaceRegistration) (backlog.Client, error)) (*fakeBackend, *space.MemoryStore) {
 	t.Helper()
 	store := space.NewMemoryStore()
 	ctx := context.Background()
@@ -34,7 +33,7 @@ func newMultiSpaceServerForDigests(t *testing.T, spaceFactory func(context.Conte
 		Status: space.SpaceStatusOK,
 	})
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 

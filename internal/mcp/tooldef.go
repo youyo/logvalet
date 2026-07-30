@@ -23,7 +23,7 @@ const (
 )
 
 // ParamSpec は ToolDef が持つ1パラメータ (JSON Schema property) の logvalet 独自表現。
-// mark3labs/mcp-go は property を map[string]any として扱うが、ParamSpec は構造化された
+// MCP SDK は property を map[string]any として扱うが、ParamSpec は構造化された
 // 型として保持することで、JSON Schema への変換ロジックを一箇所に集約する。
 type ParamSpec struct {
 	Name        string
@@ -108,7 +108,7 @@ func ParamSpecFromJSONSchema(name string, schema map[string]any) ParamSpec {
 }
 
 // ToolAnnotation は MCP tool の behavior hint (tools/list の annotations フィールド) を表す
-// logvalet 独自型。mark3labs/mcp-go の gomcp.ToolAnnotation と等価な情報を保持するが、
+// logvalet 独自型。MCP SDK の ToolAnnotations と等価な情報を保持するが、
 // SDK 型そのものへの依存はしない。
 //
 // ReadOnlyHint 等を *bool で保持するのは、SDK 同様「未設定 (omitempty で省略)」と

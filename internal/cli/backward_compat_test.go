@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/youyo/logvalet/internal/backlog"
@@ -73,21 +77,58 @@ func TestBC5_MCPTool_NoSpacesArg_LegacyBehavior(t *testing.T) {
 
 	mock := backlog.NewMockClient()
 
-	// NewServer(client, space, config) は従来シグネチャで動作する（BC確認）
+	// NewServer(client, ver, config) は従来シグネチャで動作する（BC確認）
 	s := mcpinternal.NewServer(mock, "test-space", mcpinternal.ServerConfig{})
 	if s == nil {
 		t.Fatal("BC5: NewServer returned nil")
 	}
 
-	// tools が登録されていることを確認
-	tools := s.ListTools()
-	if len(tools) == 0 {
+	// 登録済みツールは公式 SDK の StreamableHTTP ハンドラー経由で tools/list を叩いて確認する
+	// (S11 で SDK 移行後、サーバー型は登録ツールを列挙する公開 API を持たないため)。
+	handler := mcpinternal.NewOfficialStreamableHTTPHandler(mock, "test-space", mcpinternal.ServerConfig{})
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL,
+		strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	if err != nil {
+		t.Fatalf("BC5: NewRequest: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("BC5: tools/list request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("BC5: read body: %v", err)
+	}
+
+	var parsed struct {
+		Result struct {
+			Tools []struct {
+				Name string `json:"name"`
+			} `json:"tools"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("BC5: unmarshal tools/list response: %v; body=%s", err, body)
+	}
+	if len(parsed.Result.Tools) == 0 {
 		t.Fatal("BC5: expected tools to be registered")
 	}
 
 	// spaces / all_spaces 引数なしで定義されたツールが存在すること
-	tool := s.GetTool("logvalet_space_disk_usage")
-	if tool == nil {
+	found := false
+	for _, tool := range parsed.Result.Tools {
+		if tool.Name == "logvalet_space_disk_usage" {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatal("BC5: tool logvalet_space_disk_usage not found")
 	}
 }

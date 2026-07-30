@@ -21,7 +21,7 @@ func TestSpaceDigest_Normal(t *testing.T) {
 		return []domain.Activity{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_space_digest", map[string]any{})
 
 	if result.IsError {
@@ -41,7 +41,7 @@ func TestSpaceDiskUsage_Normal(t *testing.T) {
 		return &domain.DiskUsage{Capacity: 1024 * 1024 * 1024, Issue: 512 * 1024}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_space_disk_usage", map[string]any{})
 
 	if result.IsError {
@@ -59,7 +59,7 @@ func TestSpaceDiskUsage_Error(t *testing.T) {
 		return nil, backlog.ErrAPI
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_space_disk_usage", map[string]any{})
 
 	if !result.IsError {

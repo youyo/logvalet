@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -15,7 +14,7 @@ import (
 // TestNewServer_ReturnsServer は NewServer が nil でないサーバーを返すことを確認する。
 func TestNewServer_ReturnsServer(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "1.0.0", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	if s == nil {
 		t.Fatal("expected non-nil MCPServer")
 	}
@@ -26,12 +25,12 @@ func TestNewServer_ReturnsServer(t *testing.T) {
 func TestNewServer_VersionPassedThrough(t *testing.T) {
 	mock := backlog.NewMockClient()
 	// dev バージョン
-	s1 := mcpinternal.NewServer(mock, "dev", mcpinternal.ServerConfig{})
+	s1 := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	if s1 == nil {
 		t.Fatal("expected non-nil MCPServer for dev version")
 	}
 	// リリースバージョン
-	s2 := mcpinternal.NewServer(mock, "1.2.3", mcpinternal.ServerConfig{})
+	s2 := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	if s2 == nil {
 		t.Fatal("expected non-nil MCPServer for release version")
 	}
@@ -42,7 +41,7 @@ func TestNewServerWithFactory_ReturnsServer(t *testing.T) {
 	factory := func(ctx context.Context) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
 	}
-	s := mcpinternal.NewServerWithFactory(factory, "1.0.0", mcpinternal.ServerConfig{})
+	s := newTestServerWithFactory(t, factory, mcpinternal.ServerConfig{})
 	if s == nil {
 		t.Fatal("expected non-nil MCPServer")
 	}
@@ -53,9 +52,9 @@ func TestNewServerWithFactory_RegistersAllTools(t *testing.T) {
 	factory := func(ctx context.Context) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
 	}
-	s := mcpinternal.NewServerWithFactory(factory, "test", mcpinternal.ServerConfig{})
+	s := newTestServerWithFactory(t, factory, mcpinternal.ServerConfig{})
 
-	tools := s.ListTools()
+	tools := s.toolNames()
 	expectedCount := 72
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
@@ -87,7 +86,7 @@ func TestNewServerWithFactory_FactoryCalledOnToolInvocation(t *testing.T) {
 		return mock, nil
 	}
 
-	s := mcpinternal.NewServerWithFactory(factory, "test", mcpinternal.ServerConfig{})
+	s := newTestServerWithFactory(t, factory, mcpinternal.ServerConfig{})
 
 	// sentinel 値付きの ctx をツール呼び出しに渡す
 	ctx := context.WithValue(context.Background(), m12TestCtxKey{}, "sentinel-value")
@@ -103,10 +102,7 @@ func TestNewServerWithFactory_FactoryCalledOnToolInvocation(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var issue domain.Issue
 	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -123,7 +119,7 @@ func TestNewServerWithFactory_FactoryError(t *testing.T) {
 		return nil, factoryErr
 	}
 
-	s := mcpinternal.NewServerWithFactory(factory, "test", mcpinternal.ServerConfig{})
+	s := newTestServerWithFactory(t, factory, mcpinternal.ServerConfig{})
 	result := callToolWithCtx(t, s, context.Background(), "logvalet_issue_get", map[string]any{"issue_key": "TEST-1"})
 
 	if !result.IsError {
