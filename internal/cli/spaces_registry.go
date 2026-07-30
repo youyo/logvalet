@@ -57,14 +57,11 @@ func buildSpaceStore() (space.Store, error) {
 		}
 		return space.NewSQLiteStore(dbPath)
 	case space.StoreTypeDynamoDB:
+		// 注記: LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE/_REGION へのフォールバックは
+		// tokenstore の dynamodb バックエンド廃止（決定F）に伴い削除。
+		// space store の dynamodb 設定は LOGVALET_SPACE_STORE_DYNAMODB_* 専用とする。
 		table := os.Getenv("LOGVALET_SPACE_STORE_DYNAMODB_TABLE")
-		if table == "" {
-			table = os.Getenv("LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE")
-		}
 		region := os.Getenv("LOGVALET_SPACE_STORE_DYNAMODB_REGION")
-		if region == "" {
-			region = os.Getenv("LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION")
-		}
 		return space.NewDynamoDBStore(table, region)
 	default:
 		return nil, fmt.Errorf("spaces: unknown store type %q", storeType)
