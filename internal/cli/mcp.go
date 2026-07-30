@@ -214,12 +214,15 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		// /healthz は apikey 検証の対象外（契約 §1.5）。
 		topMux := http.NewServeMux()
 		topMux.HandleFunc("/healthz", healthHandler)
-		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(mux))
+		// identity は apikey の内側に配線する。apikey 検証を通過しないリクエストでは
+		// identity ヘッダーを一切参照しない（契約 §2.3）。
+		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(identityMiddleware()(mux)))
 		handler = topMux
 		fmt.Fprintf(os.Stderr, "logvalet MCP server (apikey auth) listening on %s/mcp\n", addr)
 	} else {
 		mux.HandleFunc("/healthz", healthHandler)
-		handler = mux
+		// auth-mode=none では identity を注入せず、クライアント由来のヘッダーを落とすだけ。
+		handler = stripIdentityMiddleware()(mux)
 		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 	}
 
