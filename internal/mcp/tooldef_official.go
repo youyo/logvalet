@@ -87,6 +87,20 @@ func (r ToolResult) ToOfficialSDKResult() *officialmcp.CallToolResult {
 			result.Meta = meta
 		}
 	}
+	if ir := r.URLInputRequest; ir != nil {
+		id := ir.ID
+		if id == "" {
+			id = "backlog-authorization"
+		}
+		result.InputRequests = officialmcp.InputRequestMap{
+			id: &officialmcp.ElicitParams{
+				Mode:          "url",
+				Message:       ir.Message,
+				URL:           ir.URL,
+				ElicitationID: id,
+			},
+		}
+	}
 	return result
 }
 

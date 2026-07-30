@@ -288,7 +288,7 @@ func (r *ToolRegistry) callWithDefaultClient(ctx context.Context, fn ToolFunc, a
 		c, err = r.factory(ctx)
 		if err != nil {
 			if needsAuthorization(err) && r.authorizationURL != "" {
-				return toolResultAuthRequired(err, r.authorizationURL), nil
+				return toolResultAuthRequiredFor(ctx, err, r.authorizationURL), nil
 			}
 			return NewErrorToolResult(ToolError{Message: err.Error()}), nil
 		}
@@ -315,7 +315,7 @@ func (r *ToolRegistry) callWithSpaceClient(ctx context.Context, fn ToolFunc, arg
 	client, err := r.spaceFactory(ctx, reg)
 	if err != nil {
 		if needsAuthorization(err) && r.authorizationURL != "" {
-			return toolResultAuthRequired(err, r.authorizationURL), nil
+			return toolResultAuthRequiredFor(ctx, err, r.authorizationURL), nil
 		}
 		return NewErrorToolResult(ToolError{Message: fmt.Sprintf("create client for space %s: %s", reg.Alias, err.Error())}), nil
 	}
@@ -341,6 +341,7 @@ func needsAuthorization(err error) bool {
 
 // toolResultAuthRequired は認可 URL 付きのツールエラー結果を返す。
 // _meta.authorization_required と _meta.authorization_url を含む。
+// MRTR (SEP-2322) 非対応クライアント向けの旧形式表現。
 func toolResultAuthRequired(err error, url string) ToolResult {
 	text := fmt.Sprintf(
 		"Backlog authorization required. Open the following URL in your browser to connect:\n%s",
@@ -352,6 +353,59 @@ func toolResultAuthRequired(err error, url string) ToolResult {
 		AuthorizationURL:      url,
 	}
 	return result
+}
+
+// mrtrProtocolVersion は公式 SDK が MRTR (SEP-2322, multi round-trip request) を
+// サポートする最初のプロトコルバージョン (mcp.latestProtocolVersion 相当、非公開の
+// ため文字列で複製)。YYYY-MM-DD 形式のため文字列比較で新旧判定できる。
+const mrtrProtocolVersion = "2026-07-28"
+
+// authRequiredMRTRRequestID は Backlog 再認可の InputRequests map に使う固定 ID。
+// 1 tool 呼び出しあたり同時に複数の認可待ちが発生する想定が無いため固定値でよい。
+const authRequiredMRTRRequestID = "backlog-authorization"
+
+// supportsMRTR は ctx に埋め込まれた RequestMeta (S13, meta.go) の protocolVersion が
+// MRTR 対応かどうかを判定する。RequestMeta が無い経路 (stdio の初期化ベースの
+// セッション等、params._meta で protocolVersion を送らないクライアント) では
+// false を返し、S04 契約 §5.4 のとおり stdio は旧 _meta.authorization_url 形式を
+// 変更なく維持する。
+func supportsMRTR(ctx context.Context) bool {
+	meta, ok := RequestMetaFromContext(ctx)
+	if !ok {
+		return false
+	}
+	return meta.ProtocolVersion >= mrtrProtocolVersion
+}
+
+// toolResultAuthRequiredMRTR は Backlog 未接続を MRTR (SEP-2322, InputRequiredResult)
+// の URL 型 elicitation として表現する。公式 SDK は Content と InputRequests の同時
+// 設定を禁じる (mrtr.go) ため Content は空のままとし、旧形式との後方互換は
+// _meta.authorization_required / _meta.authorization_url の併記で保つ
+// (Meta は Content/InputRequests と独立したフィールドのため同時設定できる)。
+func toolResultAuthRequiredMRTR(err error, url string) ToolResult {
+	return ToolResult{
+		Meta: &ResultMeta{
+			AuthorizationRequired: true,
+			AuthorizationURL:      url,
+		},
+		URLInputRequest: &MRTRURLInputRequest{
+			ID:  authRequiredMRTRRequestID,
+			URL: url,
+			Message: fmt.Sprintf(
+				"Backlog authorization required. Open the following URL to connect, then retry this tool call:\n%s",
+				url,
+			),
+		},
+	}
+}
+
+// toolResultAuthRequiredFor は ctx のクライアントが MRTR に対応していれば
+// toolResultAuthRequiredMRTR を、そうでなければ従来の toolResultAuthRequired を返す。
+func toolResultAuthRequiredFor(ctx context.Context, err error, url string) ToolResult {
+	if supportsMRTR(ctx) {
+		return toolResultAuthRequiredMRTR(err, url)
+	}
+	return toolResultAuthRequired(err, url)
 }
 
 // stringArg は args map から文字列引数を取り出すヘルパー。
