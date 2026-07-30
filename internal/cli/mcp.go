@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
@@ -140,6 +141,48 @@ func (c *McpCmd) Validate() error {
 	}
 }
 
+// buildHTTPHandler は Gateway (HTTP) モードのハンドラートポロジーを構築する。
+//
+// verifier F1 の指摘どおり、S28 までに実装済みの PassthroughAuthMiddleware /
+// NewPassthroughClientFactory / NewOfficialStreamableHTTPHandlerWithFactory を
+// ここで初めて本番経路に配線する。Backlog credential は per-request の
+// `Authorization: Bearer <token>` (Gateway が注入する per-user access token) のみを
+// 使う passthrough 専用構成になり、rc.Client (サーバー側 credential) はこの経路では
+// 使われない。
+//
+// ミドルウェアチェーンは契約 (docs/specs/gateway-request-contract.md §4, S04) どおり
+// apikey → identity → passthrough の順。apikey 検証を通過しないリクエストは
+// identity・passthrough のどちらにも到達しない。auth-mode=none では apikey 層が無い
+// ため stripIdentityMiddleware → passthrough の順になる。
+//
+// stdio モード (McpStdioCmd) はこの経路を通らず、従来どおり単一 client
+// (server 側 credential) を使う。
+func (c *McpCmd) buildHTTPHandler(ver string, cfg mcpinternal.ServerConfig) http.Handler {
+	factory := auth.NewPassthroughClientFactory(cfg.BaseURL)
+	// 公式 Go SDK の StreamableHTTPHandler を Stateless=true で使う。エンドポイントパスは
+	// 下の mcpMux.Handle("/mcp", h) が決めるため、ハンドラー側にパス設定は不要。
+	h := mcpinternal.NewOfficialStreamableHTTPHandlerWithFactory(factory, ver, cfg)
+
+	mcpMux := http.NewServeMux()
+	mcpMux.Handle("/mcp", h)
+	passthrough := mcpinternal.PassthroughAuthMiddleware(mcpMux)
+
+	// /healthz はいずれの認証層の対象外（契約 §1.5）。
+	topMux := http.NewServeMux()
+	topMux.HandleFunc("/healthz", healthHandler)
+
+	if c.resolvedAuthMode() == authModeAPIKey {
+		// identity は apikey の内側、passthrough はさらにその内側に配線する。
+		// apikey 検証を通過しないリクエストでは identity ヘッダー・Backlog credential の
+		// どちらも一切参照しない（契約 §2.3, §4.3）。
+		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(identityMiddleware()(passthrough)))
+	} else {
+		// auth-mode=none では identity を注入せず、クライアント由来のヘッダーを落とすだけ。
+		topMux.Handle("/", stripIdentityMiddleware()(passthrough))
+	}
+	return topMux
+}
+
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -186,29 +229,12 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		}
 	}
 
-	// 公式 Go SDK の StreamableHTTPHandler を Stateless=true で使う。エンドポイントパスは
-	// 下の mux.Handle("/mcp", h) が決めるため、ハンドラー側にパス設定は不要。
-	h := mcpinternal.NewOfficialStreamableHTTPHandler(rc.Client, ver, cfg)
+	handler := c.buildHTTPHandler(ver, cfg)
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
-
-	mux := http.NewServeMux()
-	mux.Handle("/mcp", h)
-
-	var handler http.Handler
 	if c.resolvedAuthMode() == authModeAPIKey {
-		// /healthz は apikey 検証の対象外（契約 §1.5）。
-		topMux := http.NewServeMux()
-		topMux.HandleFunc("/healthz", healthHandler)
-		// identity は apikey の内側に配線する。apikey 検証を通過しないリクエストでは
-		// identity ヘッダーを一切参照しない（契約 §2.3）。
-		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(identityMiddleware()(mux)))
-		handler = topMux
 		fmt.Fprintf(os.Stderr, "logvalet MCP server (apikey auth) listening on %s/mcp\n", addr)
 	} else {
-		mux.HandleFunc("/healthz", healthHandler)
-		// auth-mode=none では identity を注入せず、クライアント由来のヘッダーを落とすだけ。
-		handler = stripIdentityMiddleware()(mux)
 		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 	}
 
