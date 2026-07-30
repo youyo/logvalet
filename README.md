@@ -499,17 +499,23 @@ logvalet watching mark-as-read 2997876
 
 ## MCP Server
 
-logvalet can run as a Model Context Protocol (MCP) server, exposing all its operations as tools for Claude Desktop and Claude Code:
+logvalet can run as a Model Context Protocol (MCP) server. Choose one of these two commands first:
+
+- Local clients: `logvalet mcp-stdio` uses no MCP authentication and uses the selected CLI Backlog credentials directly. It supports the common `--profile`, `--api-key`, and `--space` flags.
+- Remote HTTP: `logvalet mcp` serves Streamable HTTP and uses `--auth-mode=none|apikey`; configure an explicit space store as described in [Authentication](#authentication).
 
 ```bash
-# Start MCP server (default: 127.0.0.1:8080)
-logvalet mcp
+# Local MCP over stdio (no MCP auth; uses CLI credentials)
+logvalet mcp-stdio --profile default
+
+# Remote MCP over HTTP
+logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
 
 # Specify custom host and port
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server exposes **56 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+The MCP server exposes **72 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
 
 Representative tools by area:
 
@@ -535,7 +541,7 @@ The binary download tools `logvalet_issue_attachment_download` and `logvalet_sha
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 56 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 72 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
@@ -551,7 +557,7 @@ Claude Desktop / Claude Code はこのヒントを参照してツールの自動
 
 ### stdio トランスポート（Claude Desktop 向け）
 
-`logvalet mcp-stdio` は stdio トランスポートで MCP サーバーを起動します。HTTP サーバーを立てずにローカル MCP クライアントと通信できるため、Claude Desktop との統合に適しています。
+`logvalet mcp-stdio` は stdio トランスポートで MCP サーバーを起動します。MCP 認証はなく、選択した CLI の Backlog 資格情報をそのまま使います。共通フラグの `--profile`、`--api-key`、`--space` は stdio でも有効です。HTTP サーバーを立てずにローカル MCP クライアントと通信できるため、Claude Desktop との統合に適しています。
 
 **方法 1: `configure` でプロファイルを事前設定する（推奨）**
 
@@ -709,7 +715,7 @@ passthrough contract described in Mode 4 below.
 ```bash
 export LOGVALET_SPACE=example-space
 export LOGVALET_MCP_AUTH_MODE=none
-export LOGVALET_MCP_SPACE_STORE=sqlite
+export LOGVALET_SPACE_STORE_TYPE=sqlite
 
 logvalet mcp
 ```
@@ -719,8 +725,7 @@ logvalet mcp
 ```bash
 logvalet mcp \
   --space=example-space \
-  --auth-mode=none \
-  --space-store=sqlite
+  --auth-mode=none
 ```
 
 Modes 3 and 4 are HTTP modes and use an explicit SpaceStore; they do not use
@@ -736,7 +741,7 @@ export LOGVALET_SPACE=example-space
 
 export LOGVALET_MCP_AUTH_MODE=apikey
 export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_MCP_SPACE_STORE=sqlite
+export LOGVALET_SPACE_STORE_TYPE=sqlite
 
 logvalet mcp
 ```
@@ -747,8 +752,7 @@ logvalet mcp
 logvalet mcp \
   --space=example-space \
   --auth-mode=apikey \
-  --gateway-api-key=shared-gateway-key \
-  --space-store=sqlite
+  --auth-api-key=shared-gateway-key
 ```
 
 Remote HTTP receives the Backlog `Authorization: Bearer` credential through
@@ -768,7 +772,10 @@ and rejects `memory`; local token storage is CLI/stdio-only (`sqlite` or
 Remote HTTP MCP uses `none` or `apikey` behind AgentCore Gateway. The Gateway
 shared key is `X-Logvalet-Api-Key`; identity metadata uses
 `X-Logvalet-Identity-Issuer` and `X-Logvalet-Identity-Subject`. Backlog
-credentials are passed through as Bearer credentials.
+credentials are passed through as Bearer credentials. These are two orthogonal
+axes: `auth-mode` controls MCP gateway authentication, while Backlog Bearer
+passthrough is always enabled for HTTP and is not an `auth-mode` option. See
+[MCP Server](#mcp-server) for the command split.
 
 ### Backlog credentials
 
@@ -782,6 +789,17 @@ For remote HTTP, configure `none` or `apikey` and an explicit space store;
 (`sqlite` or `tokens.json`). See [AgentCore deployment](docs/agentcore-deployment.md)
 for deployment details.
 
+### Space store environment variables
+
+HTTP mode cannot use `memory`; it requires an explicit `LOGVALET_SPACE_STORE_TYPE`. Both `sqlite` and `dynamodb` are supported. The default is `sqlite` for local use.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LOGVALET_SPACE_STORE_TYPE` | `sqlite` | Store type: `sqlite` or `dynamodb`; HTTP requires explicit selection and rejects `memory` |
+| `LOGVALET_SPACE_STORE_PATH` | platform default | SQLite database path |
+| `LOGVALET_SPACE_STORE_DYNAMODB_TABLE` | — | DynamoDB table name when using `dynamodb` |
+| `LOGVALET_SPACE_STORE_DYNAMODB_REGION` | — | AWS region when using `dynamodb` |
+
 ```bash
 # Local CLI / stdio
 logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
@@ -790,7 +808,7 @@ logvalet mcp-stdio --profile default
 # Remote HTTP behind AgentCore Gateway
 export LOGVALET_MCP_AUTH_MODE=apikey
 export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_MCP_SPACE_STORE=sqlite
+export LOGVALET_SPACE_STORE_TYPE=sqlite
 logvalet mcp
 ```
 
@@ -890,7 +908,7 @@ lv project list --spaces foo,bar
 
 ### MCP での spaces/all_spaces
 
-MCP サーバーの 70 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
 
 **Read-only fan-out（登録済み全スペースを横断取得）:**
 
