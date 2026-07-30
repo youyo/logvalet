@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -18,11 +16,11 @@ import (
 // ============================================================================
 
 // decodeTextJSONArray は TextContent の JSON 配列を []map[string]any に変換するヘルパー。
-func decodeTextJSONArray(t *testing.T, result *gomcp.CallToolResult) []map[string]any {
+func decodeTextJSONArray(t *testing.T, result mcpinternal.ToolResult) []map[string]any {
 	t.Helper()
 	var text string
 	for _, c := range result.Content {
-		if tc, ok := c.(gomcp.TextContent); ok {
+		if tc := c; tc.Type == mcpinternal.ToolContentTypeText {
 			text = tc.Text
 			break
 		}
@@ -69,12 +67,14 @@ func TestRegisterWithSpaces_SingleSpace_BuilderSeesRegistrationMetadata(t *testi
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
 	var seenAlias, seenBaseURL string
-	tool := gomcp.NewTool("m22_single", gomcp.WithDescription("m22 single"))
+	tool := mcpinternal.NewToolDef("m22_single",
+		mcpinternal.WithDesc("m22 single"),
+	)
 	reg.RegisterWithSpaces(tool, func(ctx context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		seenAlias, seenBaseURL = mcpinternal.SpaceInfoFromContextForTest(ctx, "fallback", "https://fallback.example")
 		return map[string]any{"ok": true}, nil
@@ -109,11 +109,13 @@ func TestRegisterWithSpaces_FanOut_EachClosureSeesItsOwnRegistration(t *testing.
 	spaceFactory := func(ctx context.Context, reg space.SpaceRegistration) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
 	}
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("m22_fanout", gomcp.WithDescription("m22 fanout"))
+	tool := mcpinternal.NewToolDef("m22_fanout",
+		mcpinternal.WithDesc("m22 fanout"),
+	)
 	reg.RegisterWithSpaces(tool, func(ctx context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		alias, baseURL := mcpinternal.SpaceInfoFromContextForTest(ctx, "fallback", "https://fallback")
 		return map[string]any{"alias": alias, "base_url": baseURL}, nil
@@ -176,11 +178,13 @@ func TestRegisterWithSpaces_AllSpaces_EachClosureSeesItsOwnRegistration(t *testi
 	spaceFactory := func(ctx context.Context, reg space.SpaceRegistration) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
 	}
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("m22_allspaces", gomcp.WithDescription("m22 allspaces"))
+	tool := mcpinternal.NewToolDef("m22_allspaces",
+		mcpinternal.WithDesc("m22 allspaces"),
+	)
 	reg.RegisterWithSpaces(tool, func(ctx context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		alias, baseURL := mcpinternal.SpaceInfoFromContextForTest(ctx, "fb", "https://fb")
 		return map[string]any{"alias": alias, "base_url": baseURL}, nil
@@ -229,11 +233,13 @@ func TestRegisterWithSpaces_AllSpaces_EachClosureSeesItsOwnRegistration(t *testi
 // ----------------------------------------------------------------------------
 
 func TestRegister_NoMultiSpace_FallsBackToCfgSpace(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistry(s, backlog.NewMockClient(), "")
+	s := newFakeBackend()
+	reg := mcpinternal.NewToolRegistryWithBackend(s, backlog.NewMockClient(), "")
 
 	var seenAlias, seenBaseURL string
-	tool := gomcp.NewTool("m22_legacy", gomcp.WithDescription("legacy"))
+	tool := mcpinternal.NewToolDef("m22_legacy",
+		mcpinternal.WithDesc("legacy"),
+	)
 	reg.RegisterWithSpaces(tool, func(ctx context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		seenAlias, seenBaseURL = mcpinternal.SpaceInfoFromContextForTest(ctx, "cfg-space", "https://cfg.example")
 		return map[string]any{"ok": true}, nil

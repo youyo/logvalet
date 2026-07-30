@@ -414,20 +414,14 @@ type Store interface {
 
 ### 4.4 DynamoDB キー設計
 
-**【§24 実装整合性メモ参照】既存 DynamoDB TokenStore と同一テーブルへの混在は技術的に不可能。**
+S27 決定Fにより、DynamoDB TokenStore は廃止済みであり、remote HTTP の
+現行設計・実装・環境変数としては非適用である。HTTP の Backlog credential は
+AgentCore Gateway から Bearer passthrough で受け取る。CLI/stdio の tokenstore
+だけがローカル SQLite または `tokens.json` を使う。
 
-既存 `DynamoDBStore`（`internal/auth/tokenstore/dynamodb.go`）は
-`pk = "USER#<userID>#<provider>#<tenant>"` の**単一 PK（SK なし）**テーブルに保存している。
-DynamoDB はテーブル定義が PK 単一か複合かで固定されるため、
-「SK あり」と「SK なし」の混在は同一テーブルで不可能。
-
-**決定: 別テーブルを使う（TokenStore は既存のまま）**
+この節で設計する DynamoDB は SpaceStore 専用であり、TokenStore と混同しない。
 
 ```text
-既存テーブル (logvalet-auth または任意名):
-  PK = "USER#<userID>#<provider>#<tenant>"  (SK なし)
-  用途: OAuth token 保存
-
 新規テーブル (logvalet-spaces または任意名):
   PK = "USER#<userID>"
   SK = "SPACE#<alias>" または "PREF"
@@ -447,8 +441,7 @@ SK: PREF           -> UserPreference
 環境変数で独立して設定できるようにする。
 
 ```text
-LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-spaces   # SpaceStore 用（新規）
-LOGVALET_AUTH_DYNAMODB_TABLE=logvalet-auth      # TokenStore 用（既存変更なし）
+LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-spaces   # SpaceStore 専用
 ```
 
 **【GPT-5.4 指摘】DynamoDB の tenant 重複防止**:
@@ -475,7 +468,8 @@ MVP 採用: Option A（実装がシンプル）
 ```
 
 将来的な統合テーブルへの移行（SK ありに統一）は本仕様の範囲外。
-既存 TokenStore への breaking change は禁止。
+この DynamoDB 設計は SpaceStore 専用であり、廃止済みの TokenStore との
+互換性や同一テーブル利用は設計しない。
 
 ### 4.5 SQLite キー設計
 
@@ -517,7 +511,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 local
 ```
 
-ただし remote MCP では idproxy/OIDC 由来の user_id を必ず使う。
+ただし remote MCP では Gateway（AgentCore）が確定した user_id を必ず使う。
 
 **【C1: devils-advocate 指摘】SQLite Store を remote MCP で使用した場合のデータ漏洩リスク:**
 
@@ -530,12 +524,12 @@ local
 対策（必須）:
   サーバー起動時に以下の組み合わせを validation error として拒否する:
     LOGVALET_SPACE_STORE_TYPE=sqlite かつ remote MCP モード
-    （remote MCP モードの判定: LOGVALET_MCP_MODE=remote または idproxy 設定が存在する場合）
+    （remote MCP モードの判定: LOGVALET_MCP_MODE=remote の場合）
 
   実装:
     func ValidateSpaceStoreConfig(storeType string, isMCPRemote bool) error {
-        if storeType == "sqlite" && isMCPRemote {
-            return errors.New("SQLite SpaceStore cannot be used with remote MCP mode. Use dynamodb.")
+        if storeType == "memory" && isMCPRemote {
+            return errors.New("memory SpaceStore cannot be used with remote MCP mode. Configure an explicit SpaceStore.")
         }
         return nil
     }
@@ -1366,7 +1360,7 @@ remote MCP では MCP tool の中でブラウザ OAuth を完結しづらい。
 
 ### 9.4 MCP ユーザー分離
 
-MCP request は idproxy/OIDC 等により userID を確定している前提。
+MCP request は Gateway（AgentCore）等により userID を確定している前提。
 
 全ての MCP tool は以下の流れにする。
 
@@ -1437,7 +1431,7 @@ authorization_url を返す
   ↓
 /oauth/backlog/callback
   ↓
-idproxy/OIDC userID と state userID を検証
+Gateway 由来の userID と state userID を検証
   ↓
 token 保存
   ↓
@@ -1535,29 +1529,30 @@ callback では以下を検証する。
 8. Backlog API で current user / space 確認成功
 ```
 
-成功後、TokenStore と SpaceRegistry を更新する。
+成功後、CLI/stdio のローカル credential store と SpaceRegistry を更新する。
+remote HTTP では Gateway が credential を管理し、logvalet は tokenstore に保存しない。
 
-**【C2: devils-advocate 指摘】TokenStore と SpaceRegistry の書き込み順序と障害対策:**
+**【C2: devils-advocate 指摘】ローカル credential store と SpaceRegistry の書き込み順序と障害対策:**
 
 ```text
-問題: TokenStore.Put と SpaceRegistry.Upsert は別テーブルのため atomic でない。
-      一方が失敗すると不整合状態（Token あり Space なし、またはその逆）が永続化する。
+問題: ローカル credential store への保存と SpaceRegistry.Upsert は atomic でない。
+      一方が失敗すると不整合状態が永続化する。
 
 対策（採用）:
-  書き込み順序を「TokenStore 先」に固定する:
+  CLI/stdio の書き込み順序を credential 先に固定する:
 
   1. nonce 消費（DynamoDB: 条件付き Delete） → 失敗なら replay エラー返却
-  2. TokenStore.Put（token 保存） → 失敗なら 500 エラー返却
+  2. ローカル credential store へ保存 → 失敗ならエラー返却
   3. SpaceRegistry.Upsert（space 登録） → 失敗しても idempotent なので再試行可能
   4. UserPreference 条件付き更新（default space 未設定なら設定）
 
-  根拠: Token が先に保存されていれば、Space Upsert が失敗しても
+  根拠: credential が先に保存されていれば、Space Upsert が失敗しても
         ユーザーが lv spaces connect を再実行することで回復できる。
-        逆（Space あり Token なし）は lv spaces verify が機能しないため回復困難。
+        逆（Space あり credential なし）は lv spaces verify が機能しないため回復困難。
 
   不整合検知（lv spaces verify の強化）:
-    verify は接続確認の前に TokenStore の token 存在チェックも行う。
-    token が存在しない場合は error_code="not_connected" ではなく
+    verify は接続確認の前にローカル credential の存在チェックも行う。
+    credential が存在しない場合は error_code="not_connected" ではなく
     error_code="token_missing" として返し、「lv spaces connect を再実行してください」と案内する。
 ```
 
@@ -1679,7 +1674,8 @@ Foo -> foo
 
 ### 12.3 Tenant
 
-Tenant は `TokenStore` の lookup key であるため安定性が最重要。
+Tenant は CLI/stdio の local credential store と SpaceStore の lookup key であるため安定性が最重要。
+remote HTTP では Backlog credential の lookup と passthrough は AgentCore Gateway が担う。
 
 **tenant 導出アルゴリズム（厳密版）**:
 
@@ -1734,7 +1730,7 @@ func DeriveInitialTenant(baseURL string) (string, error) {
 1. BaseURL 正規化
 2. DeriveInitialTenant(baseURL) で暫定 tenant を取得
 3. 暫定 tenant が空の場合（カスタムドメイン）:
-   3-1. API key または仮 Bearer token で GET /api/v2/space を呼ぶ
+   3-1. CLI/stdio の API key または Gateway が渡す Bearer credential で GET /api/v2/space を呼ぶ
    3-2. レスポンスの spaceKey を tenant に使う
 4. alias rename しても tenant は変えない（SpaceRegistration.Tenant は immutable）
 ```
@@ -1955,28 +1951,23 @@ CLI の exit code は以下を推奨する。
 
 ### 15.1 環境変数
 
-追加候補:
+追加候補（SpaceStore のみ。TokenStore 用の DynamoDB 設定は追加しない）:
 
 ```text
 LOGVALET_SPACE_STORE_TYPE=memory|sqlite|dynamodb
 LOGVALET_SPACE_SQLITE_PATH=/path/to/logvalet-spaces.db
-LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-auth
+LOGVALET_SPACE_DYNAMODB_TABLE=logvalet-spaces
 LOGVALET_SPACE_FANOUT_CONCURRENCY=4
 ```
 
-TokenStore と同じ DynamoDB table を使う場合は、命名を統合してもよい。
-
-例:
-
-```text
-LOGVALET_AUTH_DYNAMODB_TABLE
-```
-
-既存の OAuth token store 設定がある場合は、それに合わせる。
+`LOGVALET_AUTH_DYNAMODB_TABLE` のような TokenStore 用設定は廃止済みであり、
+この multi-space 設計では使用しない。
 
 ### 15.2 config file
 
-既存方針として remote MCP は zero config file を重視しているため、remote MCP では環境変数 + DynamoDB を使う。
+既存方針として remote MCP は zero config file を重視する。ただし remote MCP の
+credential は AgentCore Gateway の Bearer passthrough を使い、DynamoDB は
+SpaceStore を明示した場合に限って使う。
 
 ローカル CLI では既存 config.toml との互換のため、SpaceRegistry を sqlite または既存 config に保存できるようにする。
 
@@ -1987,7 +1978,8 @@ local CLI:
   sqlite
 
 remote MCP:
-  dynamodb
+  AgentCore Gateway Bearer passthrough
+  explicit SpaceStore (sqlite or dynamodb, according to deployment)
 
 test:
   memory
@@ -2198,11 +2190,11 @@ lv issue list --spaces foo --all-spaces -> error
 httptest Backlog servers を複数立てる。
 
 ```text
-server foo:
+server foo (CLI/stdio local credential integration):
   expects Authorization: Bearer token-foo
   returns foo data
 
-server bar:
+server bar (CLI/stdio local credential integration):
   expects Authorization: Bearer token-bar
   returns bar data
 ```
@@ -2210,7 +2202,7 @@ server bar:
 テストケース:
 
 ```text
-- OAuth token for foo and bar
+- local credential for foo and bar
 - issue list --all-spaces returns both foo and bar
 - one server returns 401 -> partial failure
 - user A all_spaces does not include user B spaces
@@ -2304,7 +2296,7 @@ SK = SPACE#<alias>
 SK = PREF
 ```
 
-既存 TokenStore と同一テーブルを使うかは既存設計に合わせる。
+TokenStore 用 DynamoDB は廃止済み。ここで扱う DynamoDB は SpaceStore 専用とする。
 
 ### M05: Space Resolver
 
@@ -2705,18 +2697,12 @@ Space string `short:"s" help:"specify Backlog space name directly (env: LOGVALET
 
 これらは Backlog `/api/v2/space` への操作。SpaceRegistry 管理コマンドは `lv spaces`（複数形）に配置する（§8.2 参照）。
 
-### 24.3 DynamoDB TokenStore は単一 PK（SK なし）
+### 24.3 DynamoDB TokenStore は廃止済み
 
-`internal/auth/tokenstore/dynamodb.go:67`:
-
-```go
-func dynamoDBPK(userID, provider, tenant string) string {
-    return "USER#" + userID + "#" + provider + "#" + tenant
-}
-```
-
-DynamoDB テーブルは PK のみのフラットなスキーマ。`SK` は存在しない。
-SpaceStore は別テーブルで実装する（§4.4 参照）。
+旧 TokenStore の単一 PK スキーマや `internal/auth/tokenstore/dynamodb.go` を
+現行設計として参照してはならない。S27 決定Fにより remote HTTP は Gateway
+Bearer passthrough、CLI/stdio は local SQLite または `tokens.json` を使う。
+DynamoDB の PK/SK 設計は §4.4 の SpaceStore 専用テーブルだけに適用する。
 
 ### 24.4 OAuth StateClaims は UserID/Tenant/Nonce/Continue のみ
 
@@ -2812,11 +2798,12 @@ func parseSpacesFlag(s string) ([]string, error) {
 `--spaces foo --spaces bar` パターンは Kong が単一 `string` フィールドに対して
 後者で上書きするため、ユーザーに `--spaces foo,bar` を使うよう help に明記する。
 
-### 24.9 SQLite TokenStore テーブル名は oauth_tokens
+### 24.9 CLI/stdio local SQLite TokenStore テーブル名は oauth_tokens
 
 `internal/auth/tokenstore/sqlite.go:17`:
 `CREATE TABLE IF NOT EXISTS oauth_tokens`
 
+この SQLite TokenStore は CLI/stdio 専用であり、remote HTTP の tokenstore ではない。
 SpaceStore の SQLite テーブル名は `spaces`, `user_preferences` として衝突しない（§4.5 参照）。
 
 ### 24.10 MCP ToolRegistry は context から userID を取得済み
@@ -2940,8 +2927,8 @@ tokenstore_get_latency_ms
 2. `lv spaces use <alias>` で default を設定
 
 **症状: MCP で `all_spaces` が 0件返る**
-1. idproxy userID の確認（`auth.UserIDFromContext` の返り値）
-2. SpaceStore の user_id キーが idproxy userID と一致しているか確認
+1. userID の確認（`auth.UserIDFromContext` の返り値）
+2. SpaceStore の user_id キーがリクエストの userID と一致しているか確認
 3. DynamoDB console で `PK=USER#<userID>` で Query
 
 ---
@@ -2957,11 +2944,11 @@ tokenstore_get_latency_ms
 func TestUserIsolation_SameAlias(t *testing.T) {
     store := NewMemorySpaceStore()
     
-    // user A: foo -> token-A
+    // CLI/stdio local tokenstore: user A: foo -> token-A
     store.Upsert(ctx, &SpaceRegistration{UserID: "userA", Alias: "foo", Tenant: "foo"})
     tokenStoreA.Put(ctx, &TokenRecord{UserID: "userA", Tenant: "foo", AccessToken: "token-A"})
     
-    // user B: foo -> token-B
+    // CLI/stdio local tokenstore: user B: foo -> token-B
     store.Upsert(ctx, &SpaceRegistration{UserID: "userB", Alias: "foo", Tenant: "foo"})
     tokenStoreB.Put(ctx, &TokenRecord{UserID: "userB", Tenant: "foo", AccessToken: "token-B"})
     

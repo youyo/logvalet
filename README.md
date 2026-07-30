@@ -651,16 +651,16 @@ v0.16.0 unifies MCP tool parameter naming and typing with the CLI. MCP clients t
 
 ### Supported Modes
 
-logvalet supports four operating modes combining CLI / MCP, the Backlog authentication method (API key vs OAuth), and MCP client authentication (OIDC via `idproxy`). Two combinations are **not** available — see notes below.
+logvalet uses API-key credentials for local CLI/stdio operation. Remote HTTP
+MCP authentication is delegated to AgentCore Gateway and is either `none` or
+`apikey`.
 
-| # | Client | Backlog auth | Client auth (OIDC) | Status |
+| # | Client | Backlog auth | Gateway auth | Status |
 |---|--------|--------------|--------------------|--------|
 | 1 | CLI | API key | — | ✅ supported |
-| 2 | CLI | OAuth | — | ❌ not implemented (CLI OAuth login command is not wired; only manual `tokens.json` editing works today) |
-| 3 | MCP | API key | none | ✅ supported |
-| 4 | MCP | API key | OIDC | ✅ supported |
-| 5 | MCP | OAuth | none | ❌ not supported by design — OAuth is per-user and userID can only be resolved from the OIDC subject. Running `logvalet mcp` with `--backlog-client-id` but without `--auth` fails fast |
-| 6 | MCP | OAuth | OIDC | ✅ supported |
+| 2 | MCP stdio | API key | — | ✅ supported |
+| 3 | MCP HTTP | Gateway passthrough | none | ✅ supported |
+| 4 | MCP HTTP | Gateway passthrough | apikey | ✅ supported |
 
 Examples below show each supported mode twice: (A) environment variables only, (B) CLI flags only (with the minimum env vars when flags are not available).
 
@@ -681,7 +681,7 @@ logvalet issue get EXAMPLE-1
 logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 ```
 
-#### Mode 3: MCP + API key (no client authentication)
+#### Mode 2: MCP stdio + API key
 
 (A) Environment variables:
 
@@ -689,31 +689,27 @@ logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
 
-logvalet mcp
+logvalet mcp-stdio
 ```
 
 (B) CLI flags:
 
 ```bash
-logvalet mcp --api-key=your-api-key-here --space=example-space
+logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
 ```
 
-#### Mode 4: MCP + API key + OIDC (idproxy)
+These are local CLI/stdio credentials. Remote HTTP uses the AgentCore Gateway
+passthrough contract described in Mode 4 below.
+`LOGVALET_API_KEY` and `--api-key` are only for these local CLI/stdio modes.
+
+#### Mode 3: MCP HTTP + AgentCore Gateway (none)
 
 (A) Environment variables:
 
 ```bash
-export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
-
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (default: 30d)
+export LOGVALET_MCP_AUTH_MODE=none
+export LOGVALET_MCP_SPACE_STORE=sqlite
 
 logvalet mcp
 ```
@@ -722,248 +718,81 @@ logvalet mcp
 
 ```bash
 logvalet mcp \
-  --api-key=your-api-key-here \
   --space=example-space \
-  --auth \
-  --external-url=https://mcp.example.com \
-  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
-  --oidc-client-id=your-oidc-client-id-here \
-  --oidc-client-secret=your-oidc-client-secret-here \
-  --cookie-secret=$(openssl rand -hex 32) \
-  --allowed-domains=example.com
+  --auth-mode=none \
+  --space-store=sqlite
 ```
 
-#### Mode 6: MCP + Backlog OAuth + OIDC
+Modes 3 and 4 are HTTP modes and use an explicit SpaceStore; they do not use
+CLI/stdio-local Backlog credentials. Mode 3 permits the trusted `none` Gateway
+mode, while Mode 4 additionally checks the shared Gateway API key.
 
-Backlog OAuth settings can be configured via CLI flags or the corresponding `LOGVALET_MCP_*` environment variables.
+#### Mode 4: MCP HTTP + AgentCore Gateway
 
 (A) Environment variables:
 
 ```bash
-# Backlog space
 export LOGVALET_SPACE=example-space
 
-# OIDC (idproxy)
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-
-# Backlog OAuth
-export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
-
-# Token store (DynamoDB recommended for Lambda)
-export LOGVALET_MCP_TOKEN_STORE=dynamodb
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
-
-# OAuth refresh token TTL
-export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (default: 30d)
+export LOGVALET_MCP_AUTH_MODE=apikey
+export LOGVALET_MCP_API_KEY=shared-gateway-key
+export LOGVALET_MCP_SPACE_STORE=sqlite
 
 logvalet mcp
 ```
 
-(B) CLI flags (all settings via flags):
+(B) CLI flags:
 
 ```bash
 logvalet mcp \
   --space=example-space \
-  --auth \
-  --external-url=https://mcp.example.com \
-  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
-  --oidc-client-id=your-oidc-client-id-here \
-  --oidc-client-secret=your-oidc-client-secret-here \
-  --cookie-secret=$(openssl rand -hex 32) \
-  --allowed-domains=example.com \
-  --backlog-client-id=your-backlog-oauth-client-id-here \
-  --backlog-client-secret=your-backlog-oauth-client-secret-here \
-  --backlog-redirect-url=https://mcp.example.com/oauth/backlog/callback \
-  --oauth-state-secret=$(openssl rand -hex 32) \
-  --token-store=dynamodb \
-  --token-store-dynamodb-table=logvalet-oauth-tokens \
-  --token-store-dynamodb-region=ap-northeast-1
+  --auth-mode=apikey \
+  --gateway-api-key=shared-gateway-key \
+  --space-store=sqlite
 ```
 
-See the **Backlog OAuth (Per-User)** subsection below for token store details and the first-time connection flow.
+Remote HTTP receives the Backlog `Authorization: Bearer` credential through
+AgentCore Gateway passthrough.
 
-### Authentication (Optional)
+#### Remote HTTP MCP contract
 
-Enable OIDC/OAuth 2.1 authentication for remote deployments:
+The Gateway owns end-user authentication. Configure the HTTP server with
+`none` or `apikey`; in the latter mode it sends `X-Logvalet-Api-Key` and may
+send `X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject`. Backlog
+credentials are Bearer passthrough. HTTP mode requires an explicit space store
+and rejects `memory`; local token storage is CLI/stdio-only (`sqlite` or
+`tokens.json`). See [gateway-request-contract.md](docs/specs/gateway-request-contract.md).
+
+### Authentication
+
+Remote HTTP MCP uses `none` or `apikey` behind AgentCore Gateway. The Gateway
+shared key is `X-Logvalet-Api-Key`; identity metadata uses
+`X-Logvalet-Identity-Issuer` and `X-Logvalet-Identity-Subject`. Backlog
+credentials are passed through as Bearer credentials.
+
+### Backlog credentials
+
+The legacy remote browser callback and per-user OAuth procedure is retired.
+Remote HTTP receives Backlog Bearer passthrough from AgentCore Gateway and
+uses the request contract documented in
+[docs/specs/gateway-request-contract.md](docs/specs/gateway-request-contract.md).
+
+For remote HTTP, configure `none` or `apikey` and an explicit space store;
+`memory` is invalid. CLI and `mcp-stdio` use local credentials only
+(`sqlite` or `tokens.json`). See [AgentCore deployment](docs/agentcore-deployment.md)
+for deployment details.
 
 ```bash
-logvalet mcp --auth \
-  --external-url https://logvalet.example.com \
-  --oidc-issuer https://accounts.google.com \
-  --oidc-client-id YOUR_CLIENT_ID \
-  --cookie-secret $(openssl rand -hex 32)
+# Local CLI / stdio
+logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
+logvalet mcp-stdio --profile default
+
+# Remote HTTP behind AgentCore Gateway
+export LOGVALET_MCP_AUTH_MODE=apikey
+export LOGVALET_MCP_API_KEY=shared-gateway-key
+export LOGVALET_MCP_SPACE_STORE=sqlite
+logvalet mcp
 ```
-
-All auth flags can also be set via environment variables (e.g. `LOGVALET_MCP_AUTH=true`). See [AgentCore Deployment Guide](docs/agentcore-deployment.md) for details.
-
-When auth is enabled:
-- `/mcp` requires a Bearer token (OAuth 2.1 with PKCE)
-- `/healthz` is always accessible without authentication
-- OAuth endpoints (`/register`, `/authorize`, `/token`, `/.well-known/*`) are handled automatically
-
-### Backlog OAuth (Per-User)
-
-For remote MCP deployments, logvalet can additionally use **Backlog OAuth 2.0** so that every Backlog API call runs with the **calling user's Backlog permissions**. This is layered on top of the optional OIDC authentication described above.
-
-- **Authentication (AuthN)**: `idproxy` verifies the user via OIDC (Entra ID, Google, etc.)
-- **Authorization (AuthZ)**: a per-user Backlog OAuth access token is used for Backlog API calls
-
-Both layers are independent: the OIDC token is never used for Backlog API calls, and the Backlog token is never used for MCP authentication.
-
-Backlog OAuth mode activates only when **both** of the following are set:
-1. `--auth` (or `LOGVALET_MCP_AUTH=true`) is enabled
-2. `--backlog-client-id` (or `LOGVALET_MCP_BACKLOG_CLIENT_ID`) is set
-
-#### Token Store
-
-Backlog tokens are persisted via a pluggable token store. Pick one based on your deployment:
-
-| Store | Recommended for | Notes |
-|-------|----------------|-------|
-| `memory` | local dev / single-instance Lambda | default; tokens are lost on restart |
-| `sqlite` | self-hosted server / local CLI | pure-Go (`modernc.org/sqlite`), no CGO required |
-| `dynamodb` | Lambda / multi-instance remote MCP | no VPC required, AWS-managed durability |
-
-#### First-Time Connection Flow (Claude Desktop / Claude Code)
-
-When connecting via Claude Desktop or Claude Code, logvalet chains the OIDC login and Backlog OAuth consent into a single seamless browser flow:
-
-1. Claude Desktop / Claude Code opens `/authorize?...` (MCP Authorization spec)
-2. No session: idproxy redirects to OIDC login (Entra ID, etc.)
-3. OIDC login completes; browser returns to `/authorize?...` with session cookie
-4. **BacklogAuthorizeGate** detects: session OK but Backlog not connected
-   - 302 to `/oauth/backlog/authorize?continue=%2Fauthorize%3F...`
-5. logvalet redirects to Backlog consent screen
-6. User approves on Backlog; Backlog redirects to `/oauth/backlog/callback`
-7. logvalet exchanges code, saves token, reads `state.continue`
-   - 302 to `/authorize?...` (back to original MCP authorize URL)
-8. BacklogAuthorizeGate: session OK + Backlog connected → pass-through
-9. idproxy issues authorization code; Claude Desktop / Claude Code receives it via localhost redirect
-10. Claude Desktop / Claude Code exchanges code for JWT; all subsequent `POST /mcp` calls succeed
-
-From the user's perspective: **OIDC login → Backlog consent → Claude Desktop connected** — no manual URL copying required.
-
-#### First-Time Connection Flow (browser / manual)
-
-1. User invokes a Backlog tool in Claude — logvalet returns `provider_not_connected` with a link to the connection URL.
-2. User opens `GET /oauth/backlog/authorize` in the browser — logvalet redirects to the Backlog consent screen.
-3. User approves on Backlog — Backlog redirects back to `/oauth/backlog/callback`.
-4. logvalet exchanges the code, stores the token keyed by the user's OIDC subject, and returns `{"status":"connected"}`.
-5. Subsequent tool calls automatically use the stored token for that user.
-6. The user can check state with `GET /oauth/backlog/status` or revoke with `DELETE /oauth/backlog/disconnect`.
-
-#### `continue` Parameter and Security
-
-`GET /oauth/backlog/authorize` accepts an optional `?continue=<path>` query parameter.
-When present, `/oauth/backlog/callback` redirects to that path after storing the token instead of returning the JSON success response.
-
-Security constraints (enforced in both authorize and callback — double defence):
-
-- `continue` must be a **relative path starting with `/authorize`** (e.g. `/authorize?client_id=...`)
-- Absolute URLs (`https://...`), protocol-relative URLs (`//...`), and backslashes are rejected with `400 invalid_request`
-- Any other path prefix (e.g. `/`, `/mcp`) is also rejected
-- If a tampered `continue` value is found in the callback state, logvalet falls back to the JSON success response instead of redirecting
-
-#### Flags and Environment Variables
-
-All Backlog OAuth settings can be configured via CLI flags or environment variables (no config file required):
-
-| Flag | Environment Variable | Required | Default | Description |
-|------|---------------------|----------|---------|-------------|
-| `--backlog-client-id` | `LOGVALET_MCP_BACKLOG_CLIENT_ID` | yes | — | Backlog OAuth client ID |
-| `--backlog-client-secret` | `LOGVALET_MCP_BACKLOG_CLIENT_SECRET` | yes | — | Backlog OAuth client secret |
-| `--backlog-redirect-url` | `LOGVALET_MCP_BACKLOG_REDIRECT_URL` | yes | — | OAuth callback URL (`https://<your-host>/oauth/backlog/callback`) |
-| `--oauth-state-secret` | `LOGVALET_MCP_OAUTH_STATE_SECRET` | yes | — | HMAC-SHA256 signing key for state JWT (hex, 64+ chars) |
-| `--token-store` | `LOGVALET_MCP_TOKEN_STORE` | no | `memory` | `memory` / `sqlite` / `dynamodb` |
-| `--token-store-sqlite-path` | `LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH` | sqlite only | `./logvalet.db` | SQLite DB file path |
-| `--token-store-dynamodb-table` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb only | — | DynamoDB table name |
-| `--token-store-dynamodb-region` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION` | dynamodb only | — | AWS region for the DynamoDB table |
-
-#### Example
-
-```bash
-# Base idproxy (OIDC) config — see "Authentication (Optional)" above
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-
-# Token store (DynamoDB recommended for Lambda)
-export LOGVALET_MCP_TOKEN_STORE=dynamodb
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
-
-# Backlog OAuth client (created in your Backlog space)
-export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
-
-logvalet mcp --auth
-```
-
-On startup you will see something like:
-
-```
-logvalet MCP server (auth + OAuth) listening on 127.0.0.1:8080/mcp
-  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}
-```
-
-### Docker / AgentCore Deployment
-
-```bash
-# Build
-docker build -t logvalet .
-
-# Run (no auth)
-docker run -p 8080:8080 \
-  -e LOGVALET_API_KEY=your-api-key \
-  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
-  logvalet
-
-# Run (with auth)
-docker run -p 8080:8080 \
-  -e LOGVALET_MCP_AUTH=true \
-  -e LOGVALET_MCP_EXTERNAL_URL=https://logvalet.example.com \
-  -e LOGVALET_MCP_OIDC_ISSUER=https://accounts.google.com \
-  -e LOGVALET_MCP_OIDC_CLIENT_ID=your-client-id \
-  -e LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32) \
-  -e LOGVALET_API_KEY=your-api-key \
-  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
-  logvalet
-```
-
-For AWS Bedrock AgentCore Runtime deployment, see [docs/agentcore-deployment.md](docs/agentcore-deployment.md).
-
-### Lambda Function URL (lambroll)
-
-Deploy logvalet as a Lambda Function URL using [lambroll](https://github.com/fujiwara/lambroll) and [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter).
-See [examples/lambroll/](examples/lambroll/) for setup instructions.
-
-### Backlog OAuth 自動誘導
-
-認証 (`--auth`) と Backlog OAuth (`--backlog-client-id` 等) を有効にしてデプロイすると、
-ブラウザで `$LOGVALET_MCP_EXTERNAL_URL` を開いた際に以下のフローが自動実行されます:
-
-1. EntraID 等の OIDC プロバイダでログイン
-2. Backlog トークン未保存の場合 `/oauth/backlog/authorize` へ自動リダイレクト
-3. Backlog 同意画面 → コールバック → 完了画面
-
-MCP クライアントが未接続状態でツールを呼ぶと、レスポンスの `_meta.authorization_url` に
-Backlog 認可 URL が含まれるため、クライアント側でユーザーに提示できます。
 
 ### Task Runner (mise)
 

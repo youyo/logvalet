@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -26,7 +25,7 @@ func TestIssueList_AssigneeMe(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"assignee_id": "me"})
 
 	if result.IsError {
@@ -46,7 +45,7 @@ func TestIssueList_AssigneeNumericID(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"assignee_id": "12345"})
 
 	if result.IsError {
@@ -66,7 +65,7 @@ func TestIssueList_StatusNotClosed(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"status_id": "not-closed"})
 
 	if result.IsError {
@@ -92,7 +91,7 @@ func TestIssueList_StatusCommaSeparated(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"status_id": "1,2"})
 
 	if result.IsError {
@@ -112,7 +111,7 @@ func TestIssueList_DueDateOverdue(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"due_date": "overdue"})
 
 	if result.IsError {
@@ -140,7 +139,7 @@ func TestIssueList_DueDateThisWeek(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"due_date": "this-week"})
 
 	if result.IsError {
@@ -169,7 +168,7 @@ func TestIssueList_DueDateRange(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"due_date": "2026-04-01:2026-04-10"})
 
 	if result.IsError {
@@ -209,7 +208,7 @@ func TestIssueList_ProjectKeysMultiple(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"project_keys": "PROJ1,PROJ2"})
 
 	if result.IsError {
@@ -232,7 +231,7 @@ func TestIssueList_ParentIssueIDs(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"parent_issue_ids": "100,200"})
 
 	if result.IsError {
@@ -255,7 +254,7 @@ func TestIssueList_ProjectKeyLegacy(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -273,7 +272,7 @@ func TestIssueList_AssigneeMe_GetMyselfFails(t *testing.T) {
 		return nil, fmt.Errorf("authentication failed")
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"assignee_id": "me"})
 
 	if result.IsError == false {
@@ -285,7 +284,7 @@ func TestIssueList_AssigneeMe_GetMyselfFails(t *testing.T) {
 func TestIssueList_AssigneeInvalidString(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"assignee_id": "abc"})
 
 	if result.IsError == false {
@@ -297,7 +296,7 @@ func TestIssueList_AssigneeInvalidString(t *testing.T) {
 func TestIssueList_DueDateInvalidFormat(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"due_date": "invalid-format"})
 
 	if result.IsError == false {
@@ -309,7 +308,7 @@ func TestIssueList_DueDateInvalidFormat(t *testing.T) {
 func TestIssueList_StatusInvalidString(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"status_id": "abc"})
 
 	if result.IsError == false {
@@ -335,7 +334,7 @@ func TestIssueList_BothProjectKeyAndProjectKeys(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{
 		"project_key":  "SINGLE",
 		"project_keys": "PROJ1",
@@ -358,16 +357,13 @@ func TestIssueList_ReturnsJSON(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if ok == false {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var issues []domain.Issue
 	if err := json.Unmarshal([]byte(textContent.Text), &issues); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -391,7 +387,7 @@ func TestIssueCreate_WithParentIssueID(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":     "TEST",
 		"summary":         "Test issue",
@@ -419,7 +415,7 @@ func TestIssueCreate_WithCategoryIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -447,7 +443,7 @@ func TestIssueCreate_WithVersionIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -475,7 +471,7 @@ func TestIssueCreate_WithMilestoneIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -503,12 +499,12 @@ func TestIssueCreate_WithNotifiedUserIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
-		"project_key":        "TEST",
-		"summary":            "Test issue",
-		"issue_type_id":      1,
-		"notified_user_ids":  "100,101,102",
+		"project_key":       "TEST",
+		"summary":           "Test issue",
+		"issue_type_id":     1,
+		"notified_user_ids": "100,101,102",
 	})
 
 	if result.IsError {
@@ -531,7 +527,7 @@ func TestIssueCreate_WithDueDate(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -563,7 +559,7 @@ func TestIssueCreate_WithStartDate(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -587,7 +583,7 @@ func TestIssueCreate_WithStartDate(t *testing.T) {
 func TestIssueCreate_InvalidDueDate(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -604,7 +600,7 @@ func TestIssueCreate_InvalidDueDate(t *testing.T) {
 func TestIssueCreate_InvalidCategoryIDs(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -629,7 +625,7 @@ func TestIssueCreate_EmptyCategoryIDs(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -657,7 +653,7 @@ func TestIssueCreate_SingleCategoryID(t *testing.T) {
 		return &domain.Issue{ID: 1, IssueKey: "TEST-1"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_create", map[string]any{
 		"project_key":   "TEST",
 		"summary":       "Test issue",
@@ -684,7 +680,7 @@ func TestIssueUpdate_WithIssueTypeID(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":     "PROJ-1",
 		"issue_type_id": 5,
@@ -707,7 +703,7 @@ func TestIssueUpdate_WithParentIssueID(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":       "PROJ-1",
 		"parent_issue_id": 100,
@@ -730,7 +726,7 @@ func TestIssueUpdate_WithParentIssueIDZero(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":       "PROJ-1",
 		"parent_issue_id": 0,
@@ -753,7 +749,7 @@ func TestIssueUpdate_WithCategoryIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":    "PROJ-1",
 		"category_ids": "10,20",
@@ -776,7 +772,7 @@ func TestIssueUpdate_WithVersionIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":   "PROJ-1",
 		"version_ids": "5,6",
@@ -799,7 +795,7 @@ func TestIssueUpdate_WithMilestoneIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":     "PROJ-1",
 		"milestone_ids": "7,8,9",
@@ -822,7 +818,7 @@ func TestIssueUpdate_WithNotifiedUserIDs_CSV(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":         "PROJ-1",
 		"notified_user_ids": "11,22",
@@ -845,7 +841,7 @@ func TestIssueUpdate_WithDueDate(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key": "PROJ-1",
 		"due_date":  "2026-05-01",
@@ -869,7 +865,7 @@ func TestIssueUpdate_WithStartDate(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":  "PROJ-1",
 		"start_date": "2026-04-15",
@@ -888,7 +884,7 @@ func TestIssueUpdate_WithStartDate(t *testing.T) {
 func TestIssueUpdate_InvalidDueDate(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key": "PROJ-1",
 		"due_date":  "invalid",
@@ -909,7 +905,7 @@ func TestIssueUpdate_NoFieldsSpecified(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key": "PROJ-1",
 	})
@@ -917,10 +913,7 @@ func TestIssueUpdate_NoFieldsSpecified(t *testing.T) {
 	if result.IsError == false {
 		t.Fatal("expected IsError=true when no update fields are specified")
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if ok == false {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	if !strings.Contains(textContent.Text, "at least one field") {
 		t.Errorf("expected error message to mention 'at least one field', got %q", textContent.Text)
 	}
@@ -941,7 +934,7 @@ func TestIssueUpdate_ParentIssueIDZeroOnly(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key":       "PROJ-1",
 		"parent_issue_id": 0,
@@ -970,7 +963,7 @@ func TestIssueUpdate_EmptySummaryOnly(t *testing.T) {
 		return &domain.Issue{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_update", map[string]any{
 		"issue_key": "PROJ-1",
 		"summary":   "",
@@ -998,7 +991,7 @@ func TestIssueList_StartDateThisWeek(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"start_date": "this-week"})
 
 	if result.IsError {
@@ -1027,7 +1020,7 @@ func TestIssueList_StartDateToday(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"start_date": "today"})
 
 	if result.IsError {
@@ -1053,7 +1046,7 @@ func TestIssueList_StartDateSingleDate(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"start_date": "2026-04-01"})
 
 	if result.IsError {
@@ -1077,7 +1070,7 @@ func TestIssueList_UpdatedSince(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"updated_since": "2026-04-01"})
 
 	if result.IsError {
@@ -1101,7 +1094,7 @@ func TestIssueList_UpdatedUntil(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"updated_until": "2026-04-30"})
 
 	if result.IsError {
@@ -1120,7 +1113,7 @@ func TestIssueList_UpdatedUntil(t *testing.T) {
 func TestIssueList_UpdatedSinceInvalid(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"updated_since": "invalid"})
 
 	if result.IsError == false {
@@ -1139,7 +1132,7 @@ func TestIssueList_Count_Normal(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_list", map[string]any{"count": float64(50)})
 
 	if result.IsError {
@@ -1159,7 +1152,7 @@ func TestIssueCommentList_Count_Normal(t *testing.T) {
 		return []domain.Comment{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_comment_list", map[string]any{
 		"issue_key": "PROJ-1",
 		"count":     float64(10),
@@ -1184,7 +1177,7 @@ func TestIssueCommentAdd_WithNotifiedUserIDs_CSV(t *testing.T) {
 		return &domain.Comment{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_comment_add", map[string]any{
 		"issue_key":         "PROJ-1",
 		"content":           "テストコメント",
@@ -1208,7 +1201,7 @@ func TestIssueCommentAdd_EmptyNotifiedUserIDs(t *testing.T) {
 		return &domain.Comment{ID: 1}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_comment_add", map[string]any{
 		"issue_key":         "PROJ-1",
 		"content":           "テストコメント",
@@ -1227,7 +1220,7 @@ func TestIssueCommentAdd_EmptyNotifiedUserIDs(t *testing.T) {
 func TestIssueCommentAdd_InvalidNotifiedUserIDs(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_comment_add", map[string]any{
 		"issue_key":         "PROJ-1",
 		"content":           "テストコメント",
@@ -1252,7 +1245,7 @@ func TestIssueAttachmentDelete_Normal(t *testing.T) {
 		return &domain.IssueAttachment{ID: attachmentID, Name: "deleted.png", Size: 512}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{
 		"issue_key":     "PROJ-1",
 		"attachment_id": float64(99),
@@ -1276,7 +1269,7 @@ func TestIssueAttachmentDelete_Normal(t *testing.T) {
 func TestIssueAttachmentDelete_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{"attachment_id": float64(99)})
 
 	if !result.IsError {
@@ -1288,7 +1281,7 @@ func TestIssueAttachmentDelete_MissingIssueKey(t *testing.T) {
 func TestIssueAttachmentDelete_MissingAttachmentID(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{"issue_key": "PROJ-1"})
 
 	if !result.IsError {
@@ -1303,7 +1296,7 @@ func TestIssueAttachmentDelete_APIError(t *testing.T) {
 		return nil, backlog.ErrNotFound
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_delete", map[string]any{
 		"issue_key":     "PROJ-1",
 		"attachment_id": float64(99),
@@ -1329,7 +1322,7 @@ func TestIssueAttachmentDownload_Normal(t *testing.T) {
 		return []byte("image data"), "screenshot.png", "image/png", nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{
 		"issue_key":     "PROJ-1",
 		"attachment_id": float64(10),
@@ -1341,10 +1334,7 @@ func TestIssueAttachmentDownload_Normal(t *testing.T) {
 	if len(result.Content) == 0 {
 		t.Fatal("expected non-empty result")
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var out map[string]any
 	if err := json.Unmarshal([]byte(textContent.Text), &out); err != nil {
 		t.Fatalf("failed to parse result JSON: %v", err)
@@ -1370,7 +1360,7 @@ func TestIssueAttachmentDownload_TooLarge(t *testing.T) {
 		return nil, "", "", backlog.ErrDownloadTooLarge
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{
 		"issue_key":     "PROJ-1",
 		"attachment_id": float64(10),
@@ -1385,7 +1375,7 @@ func TestIssueAttachmentDownload_TooLarge(t *testing.T) {
 func TestIssueAttachmentDownload_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{"attachment_id": float64(10)})
 
 	if !result.IsError {
@@ -1397,7 +1387,7 @@ func TestIssueAttachmentDownload_MissingIssueKey(t *testing.T) {
 func TestIssueAttachmentDownload_MissingAttachmentID(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_download", map[string]any{"issue_key": "PROJ-1"})
 
 	if !result.IsError {

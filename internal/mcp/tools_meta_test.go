@@ -20,7 +20,7 @@ func TestMetaVersion_Normal(t *testing.T) {
 		return []domain.Version{{ID: 1, Name: "v1.0"}, {ID: 2, Name: "v2.0"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_meta_version", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -38,7 +38,7 @@ func TestMetaVersion_Normal(t *testing.T) {
 func TestMetaVersion_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_meta_version", map[string]any{})
 
 	if !result.IsError {
@@ -57,7 +57,7 @@ func TestMetaCustomField_Normal(t *testing.T) {
 		return []domain.CustomFieldDefinition{{ID: 1, Name: "カスタムフィールド1"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_meta_custom_field", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -75,7 +75,7 @@ func TestMetaCustomField_Normal(t *testing.T) {
 func TestMetaCustomField_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_meta_custom_field", map[string]any{})
 
 	if !result.IsError {

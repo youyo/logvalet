@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,13 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
-	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
 )
+
+// removedAuthNotice は削除済み認証フラグに対する fail-fast エラーの定型文。
+const removedAuthNotice = "MCP アクセスの認証は AgentCore Gateway に委譲されました。" +
+	"logvalet 側の外部 IdP 連携は廃止されています。"
 
 // McpCmd は `logvalet mcp` サブコマンド。
 // Streamable HTTP MCP サーバーを起動する。
@@ -26,174 +27,160 @@ type McpCmd struct {
 	Port int    `help:"listen port" default:"8080"`
 	Host string `help:"listen host" default:"127.0.0.1"`
 
-	// OIDC 認証フラグ（idproxy）
-	Auth             bool   `help:"enable idproxy authentication" group:"auth" env:"LOGVALET_MCP_AUTH"`
-	ExternalURL      string `help:"external URL for OAuth callbacks" group:"auth" env:"LOGVALET_MCP_EXTERNAL_URL"`
-	OIDCIssuer       string `help:"OIDC issuer URL" group:"auth" env:"LOGVALET_MCP_OIDC_ISSUER"`
-	OIDCClientID     string `help:"OIDC client ID" group:"auth" env:"LOGVALET_MCP_OIDC_CLIENT_ID"`
-	OIDCClientSecret string `help:"OIDC client secret" group:"auth" env:"LOGVALET_MCP_OIDC_CLIENT_SECRET"`
-	CookieSecret     string `help:"cookie encryption key (hex-encoded, 64+ chars = 32+ bytes)" group:"auth" env:"LOGVALET_MCP_COOKIE_SECRET"`
-	AllowedDomains   string `help:"comma-separated allowed email domains" group:"auth" env:"LOGVALET_MCP_ALLOWED_DOMAINS"`
-	AllowedEmails    string `help:"comma-separated allowed email addresses" group:"auth" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
+	// 認証フラグ（Gateway → logvalet の service-to-service 共有シークレット）。
+	// apikey は Gateway を認証する共有鍵であってエンドユーザーを認証しない。
+	AuthMode string `name:"auth-mode" help:"auth mode: apikey|none" group:"auth" env:"LOGVALET_MCP_AUTH_MODE"`
+	// フラグ名がグローバルの --api-key（Backlog API キー）と衝突するため --auth-api-key とする。
+	ApiKey string `name:"auth-api-key" help:"static api key for mode=apikey, sent as X-Logvalet-Api-Key (min 32 chars)" group:"auth" env:"LOGVALET_MCP_API_KEY"`
+	// BearerToken は --auth-api-key の後方互換エイリアス。値は同じ apikey として扱われ、
+	// 受理ヘッダーは X-Logvalet-Api-Key（Authorization ではない）。
+	BearerToken string `name:"bearer-token" help:"deprecated alias for --auth-api-key" group:"auth" env:"LOGVALET_MCP_BEARER_TOKEN"`
 
-	// Bearer 認証フラグ（Mode C: Claude Tag 専用）
-	AuthMode    string `name:"auth-mode" help:"auth mode: oidc|bearer|none (overrides --auth when set)" group:"auth" env:"LOGVALET_MCP_AUTH_MODE"`
-	BearerToken string `name:"bearer-token" help:"static bearer token for mode=bearer (min 32 chars)" group:"auth" env:"LOGVALET_MCP_BEARER_TOKEN"`
-
-	// Backlog OAuth フラグ（OIDC と同じ group + env タグ様式）
+	// Backlog OAuth フラグ
 	BacklogClientID     string `name:"backlog-client-id" help:"Backlog OAuth client ID" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_ID"`
 	BacklogClientSecret string `name:"backlog-client-secret" help:"Backlog OAuth client secret" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_SECRET"`
 	BacklogRedirectURL  string `name:"backlog-redirect-url" help:"Backlog OAuth redirect URL" group:"auth" env:"LOGVALET_MCP_BACKLOG_REDIRECT_URL"`
 	OAuthStateSecret    string `name:"oauth-state-secret" help:"HMAC-SHA256 signing key for OAuth state (hex-encoded, 32+ bytes)" group:"auth" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
 
-	// TokenStore フラグ
-	TokenStore               string `name:"token-store" help:"token store type (memory/sqlite/dynamodb)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE"`
-	TokenStoreSQLitePath     string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
-	TokenStoreDynamoDBTable  string `name:"token-store-dynamodb-table" help:"DynamoDB table name (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"`
-	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
+	// 注記: --token-store 系フラグは HTTP/Gateway モードから完全に削除した
+	// （決定E: tokenstore は使用しない。Backlog credential は S30 の Bearer
+	// passthrough 経路。決定F: dynamodb バックエンド自体も廃止）。
+	// tokenstore は CLI/stdio の直接 OAuth 利用専用として存続する。
+	// これらのフラグはフィールドごと削除しているため、指定すると Kong の
+	// unknown flag エラーとして fail-fast する。
 
-	// idproxy Store / JWT 署名鍵フラグ (Lambda マルチインスタンス対応)
-	SigningKey                 string        `name:"signing-key" help:"ECDSA P-256 signing key (PEM)" group:"auth" env:"LOGVALET_MCP_SIGNING_KEY"`
-	RefreshTokenTTL            time.Duration `name:"refresh-token-ttl" help:"MCP OAuth refresh token TTL (e.g. 720h for 30d). 0 = idproxy default (30 days)" group:"auth" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
-	IDProxyStore               string        `name:"idproxy-store" help:"idproxy store type (memory|dynamodb|sqlite|redis)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE"`
-	IDProxyStoreDynamoDBTable  string        `name:"idproxy-store-dynamodb-table" help:"DynamoDB table name for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_TABLE"`
-	IDProxyStoreDynamoDBRegion string        `name:"idproxy-store-dynamodb-region" help:"AWS region for idproxy DynamoDB store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_DYNAMODB_REGION"`
-
-	// idproxy SQLite Store フラグ (単一ノード永続化用)
-	IDProxyStoreSQLitePath string `name:"idproxy-store-sqlite-path" help:"SQLite DB file path for idproxy store (use ':memory:' for ephemeral)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_SQLITE_PATH"`
-
-	// idproxy Redis Store フラグ (分散 KV による複数インスタンス共有用)
-	IDProxyStoreRedisAddr      string `name:"idproxy-store-redis-addr" help:"Redis host:port for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_ADDR"`
-	IDProxyStoreRedisPassword  string `name:"idproxy-store-redis-password" help:"Redis password for idproxy store (optional)" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_PASSWORD"`
-	IDProxyStoreRedisDB        int    `name:"idproxy-store-redis-db" help:"Redis DB number for idproxy store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_DB"`
-	IDProxyStoreRedisTLS       bool   `name:"idproxy-store-redis-tls" help:"enable TLS for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_TLS"`
-	IDProxyStoreRedisKeyPrefix string `name:"idproxy-store-redis-key-prefix" help:"key prefix for idproxy Redis store" group:"store" env:"LOGVALET_MCP_IDPROXY_STORE_REDIS_KEY_PREFIX"`
+	// 削除済みフラグ。値が渡された場合に移行先を案内して fail-fast するためだけに
+	// 定義を残している（ヘルプ非表示・機能なし）。
+	RemovedAuth             bool   `name:"auth" hidden:"" env:"LOGVALET_MCP_AUTH"`
+	RemovedExternalURL      string `name:"external-url" hidden:"" env:"LOGVALET_MCP_EXTERNAL_URL"`
+	RemovedOIDCIssuer       string `name:"oidc-issuer" hidden:"" env:"LOGVALET_MCP_OIDC_ISSUER"`
+	RemovedOIDCClientID     string `name:"oidc-client-id" hidden:"" env:"LOGVALET_MCP_OIDC_CLIENT_ID"`
+	RemovedOIDCClientSecret string `name:"oidc-client-secret" hidden:"" env:"LOGVALET_MCP_OIDC_CLIENT_SECRET"`
+	RemovedCookieSecret     string `name:"cookie-secret" hidden:"" env:"LOGVALET_MCP_COOKIE_SECRET"`
+	RemovedAllowedDomains   string `name:"allowed-domains" hidden:"" env:"LOGVALET_MCP_ALLOWED_DOMAINS"`
+	RemovedAllowedEmails    string `name:"allowed-emails" hidden:"" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
+	RemovedSigningKey       string `name:"signing-key" hidden:"" env:"LOGVALET_MCP_SIGNING_KEY"`
+	RemovedRefreshTokenTTL  string `name:"refresh-token-ttl" hidden:"" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
 }
 
-// resolvedAuthMode は --auth と --auth-mode の組み合わせから実効認証モードを決定する。
-// 真理値表:
-//
-//	Auth=true,  AuthMode=""       → "oidc"（後方互換：既存本番スタック維持）
-//	Auth=false, AuthMode=""       → "none"
-//	any,        AuthMode="oidc"   → "oidc"
-//	Auth=false, AuthMode="bearer" → "bearer"
-//	Auth=true,  AuthMode="bearer" → "bearer"（Validate()で排他エラー）
-//	Auth=true,  AuthMode="none"   → "none"（Validate()で矛盾エラー）
+// 実効認証モード。logvalet 側の認証は none|apikey の 2 値のみで、
+// エンドユーザー認証（OIDC/JWT 検証）は AgentCore Gateway に委譲されている。
+const (
+	authModeNone   = "none"
+	authModeAPIKey = "apikey"
+)
+
+// resolvedAuthMode は実効認証モードを返す。未指定は "none"。
+// "bearer" は "apikey" の後方互換エイリアス。未知の値は Validate で弾かれるが、
+// 万一 Run まで到達した場合に無認証で公開しないよう apikey へ倒す（fail-closed）。
 func (c *McpCmd) resolvedAuthMode() string {
-	mode := strings.ToLower(strings.TrimSpace(c.AuthMode))
-	if mode != "" {
-		return mode
+	switch strings.ToLower(strings.TrimSpace(c.AuthMode)) {
+	case "", authModeNone:
+		return authModeNone
+	default:
+		return authModeAPIKey
 	}
-	if c.Auth {
-		return "oidc"
+}
+
+// apiKeyValue は実効 apikey を返す。--auth-api-key を優先し、未指定なら
+// 後方互換エイリアスの --bearer-token を使う。
+func (c *McpCmd) apiKeyValue() string {
+	if c.ApiKey != "" {
+		return c.ApiKey
 	}
-	return "none"
+	return c.BearerToken
+}
+
+// validateRemovedFlags は削除済みフラグが指定されていないかを検査する。
+func (c *McpCmd) validateRemovedFlags() error {
+	removed := []struct {
+		flag string
+		set  bool
+	}{
+		{"--auth", c.RemovedAuth},
+		{"--external-url", c.RemovedExternalURL != ""},
+		{"--oidc-issuer", c.RemovedOIDCIssuer != ""},
+		{"--oidc-client-id", c.RemovedOIDCClientID != ""},
+		{"--oidc-client-secret", c.RemovedOIDCClientSecret != ""},
+		{"--cookie-secret", c.RemovedCookieSecret != ""},
+		{"--allowed-domains", c.RemovedAllowedDomains != ""},
+		{"--allowed-emails", c.RemovedAllowedEmails != ""},
+		{"--signing-key", c.RemovedSigningKey != ""},
+		{"--refresh-token-ttl", c.RemovedRefreshTokenTTL != ""},
+	}
+	for _, r := range removed {
+		if r.set {
+			return fmt.Errorf("%s は削除されました: %s", r.flag, removedAuthNotice)
+		}
+	}
+	return nil
 }
 
 // Validate は McpCmd のフィールドを検証する。
-//
-// チェック順序:
-//  1. BacklogClientID が設定されているが --auth が無効な場合は fast-fail する。
-//     OAuth は per-user であり OIDC 認証（idproxy）が必須のため。
-//  2. --auth 有効時は OIDC 必須フィールドをチェックする。
 func (c *McpCmd) Validate() error {
-	// idproxy Store 検証 (--auth の有無に関わらず適用)
-	switch strings.ToLower(c.IDProxyStore) {
-	case "", "memory":
-		// OK
-	case "dynamodb":
-		if c.IDProxyStoreDynamoDBTable == "" {
-			return fmt.Errorf("--idproxy-store-dynamodb-table is required when --idproxy-store=dynamodb")
-		}
-		if c.SigningKey == "" {
-			return fmt.Errorf("--signing-key is required when --idproxy-store=dynamodb " +
-				"(random signing key cannot be shared across Lambda containers)")
-		}
-	case "sqlite":
-		if c.IDProxyStoreSQLitePath == "" {
-			return fmt.Errorf("--idproxy-store-sqlite-path is required when --idproxy-store=sqlite")
-		}
-	case "redis":
-		if c.IDProxyStoreRedisAddr == "" {
-			return fmt.Errorf("--idproxy-store-redis-addr is required when --idproxy-store=redis")
-		}
-		if c.SigningKey == "" {
-			return fmt.Errorf("--signing-key is required when --idproxy-store=redis " +
-				"(random signing key cannot be shared across instances)")
-		}
-	default:
-		return fmt.Errorf("invalid --idproxy-store: %q (must be memory, dynamodb, sqlite, or redis)", c.IDProxyStore)
+	if err := c.validateRemovedFlags(); err != nil {
+		return err
 	}
 
-	// Bearer/OIDC 排他検証
-	authMode := c.resolvedAuthMode()
-	switch authMode {
-	case "bearer":
-		if c.Auth {
-			return fmt.Errorf("--auth-mode=bearer and --auth are mutually exclusive; use only --auth-mode=bearer")
-		}
-		if c.BearerToken == "" {
-			return fmt.Errorf("--bearer-token is required when --auth-mode=bearer (fail-closed: missing token would expose unauthenticated MCP)")
-		}
-		if len(c.BearerToken) < 32 {
-			return fmt.Errorf("--bearer-token: must be at least 32 characters, got %d", len(c.BearerToken))
-		}
-		return nil // bearer モードはOIDC検証不要
-	case "none":
-		if c.Auth {
-			return fmt.Errorf("--auth-mode=none and --auth=true are contradictory; disable --auth or use --auth-mode=oidc")
-		}
-	case "oidc", "":
-		// 既存のOIDC検証に続く
-	default:
-		return fmt.Errorf("--auth-mode: invalid value %q; must be oidc, bearer, or none", c.AuthMode)
-	}
-
-	// Backlog OAuth fast-fail: --auth なしに --backlog-client-id を設定しても動かない
-	if c.BacklogClientID != "" && !c.Auth {
-		return fmt.Errorf(
-			"--backlog-client-id is set but --auth is disabled. " +
-				"OAuth requires client authentication (OIDC). " +
-				"Either enable --auth or unset --backlog-client-id. " +
-				"See README \"Supported Modes\".",
-		)
-	}
-
-	if !c.Auth {
+	switch strings.ToLower(strings.TrimSpace(c.AuthMode)) {
+	case "", authModeNone:
 		return nil
+	case authModeAPIKey, "bearer": // bearer は apikey の後方互換エイリアス
+		key := c.apiKeyValue()
+		if key == "" {
+			return fmt.Errorf("--auth-api-key is required when --auth-mode=apikey (fail-closed: missing key would expose unauthenticated MCP)")
+		}
+		if len(key) < 32 {
+			return fmt.Errorf("--auth-api-key: must be at least 32 characters, got %d", len(key))
+		}
+		return nil
+	case "oidc":
+		return fmt.Errorf("--auth-mode=oidc は削除されました: %s", removedAuthNotice)
+	default:
+		return fmt.Errorf("--auth-mode: invalid value %q; must be apikey or none", c.AuthMode)
 	}
+}
 
-	// OIDC 必須フィールドチェック
-	if c.ExternalURL == "" {
-		return fmt.Errorf("--external-url is required when --auth is enabled")
-	}
-	if c.OIDCIssuer == "" {
-		return fmt.Errorf("--oidc-issuer is required when --auth is enabled")
-	}
-	if c.OIDCClientID == "" {
-		return fmt.Errorf("--oidc-client-id is required when --auth is enabled")
-	}
-	if c.CookieSecret == "" {
-		return fmt.Errorf("--cookie-secret is required when --auth is enabled")
-	}
-	secret, err := hex.DecodeString(c.CookieSecret)
-	if err != nil {
-		return fmt.Errorf("--cookie-secret: invalid hex: %w", err)
-	}
-	if len(secret) < 32 {
-		return fmt.Errorf("--cookie-secret: must be at least 32 bytes (64 hex chars), got %d bytes", len(secret))
-	}
+// buildHTTPHandler は Gateway (HTTP) モードのハンドラートポロジーを構築する。
+//
+// verifier F1 の指摘どおり、S28 までに実装済みの PassthroughAuthMiddleware /
+// NewPassthroughClientFactory / NewOfficialStreamableHTTPHandlerWithFactory を
+// ここで初めて本番経路に配線する。Backlog credential は per-request の
+// `Authorization: Bearer <token>` (Gateway が注入する per-user access token) のみを
+// 使う passthrough 専用構成になり、rc.Client (サーバー側 credential) はこの経路では
+// 使われない。
+//
+// ミドルウェアチェーンは契約 (docs/specs/gateway-request-contract.md §4, S04) どおり
+// apikey → identity → passthrough の順。apikey 検証を通過しないリクエストは
+// identity・passthrough のどちらにも到達しない。auth-mode=none では apikey 層が無い
+// ため stripIdentityMiddleware → passthrough の順になる。
+//
+// stdio モード (McpStdioCmd) はこの経路を通らず、従来どおり単一 client
+// (server 側 credential) を使う。
+func (c *McpCmd) buildHTTPHandler(ver string, cfg mcpinternal.ServerConfig) http.Handler {
+	factory := auth.NewPassthroughClientFactory(cfg.BaseURL)
+	// 公式 Go SDK の StreamableHTTPHandler を Stateless=true で使う。エンドポイントパスは
+	// 下の mcpMux.Handle("/mcp", h) が決めるため、ハンドラー側にパス設定は不要。
+	h := mcpinternal.NewOfficialStreamableHTTPHandlerWithFactory(factory, ver, cfg)
 
-	// C1: remote MCP モードでは SpaceStore が dynamodb である必要がある
-	spaceStoreType := os.Getenv("LOGVALET_SPACE_STORE_TYPE")
-	if spaceStoreType == "" {
-		spaceStoreType = "sqlite"
-	}
-	if err := space.ValidateSpaceStoreConfig(spaceStoreType, true); err != nil {
-		return fmt.Errorf("startup validation failed: %w", err)
-	}
+	mcpMux := http.NewServeMux()
+	mcpMux.Handle("/mcp", h)
+	passthrough := mcpinternal.PassthroughAuthMiddleware(mcpMux)
 
-	return nil
+	// /healthz はいずれの認証層の対象外（契約 §1.5）。
+	topMux := http.NewServeMux()
+	topMux.HandleFunc("/healthz", healthHandler)
+
+	if c.resolvedAuthMode() == authModeAPIKey {
+		// identity は apikey の内側、passthrough はさらにその内側に配線する。
+		// apikey 検証を通過しないリクエストでは identity ヘッダー・Backlog credential の
+		// どちらも一切参照しない（契約 §2.3, §4.3）。
+		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(identityMiddleware()(passthrough)))
+	} else {
+		// auth-mode=none では identity を注入せず、クライアント由来のヘッダーを落とすだけ。
+		topMux.Handle("/", stripIdentityMiddleware()(passthrough))
+	}
+	return topMux
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,34 +189,19 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
-// buildOAuthEnvConfig は McpCmd のフィールドから OAuthEnvConfig を組み立てる。
-// Kong が env タグを見て McpCmd フィールドに env 値を自動注入するため、
-// flag/env 両対応は McpCmd フィールドを転記するだけで実現できる。
-func (c *McpCmd) buildOAuthEnvConfig() (*auth.OAuthEnvConfig, error) {
-	storeType, err := auth.ParseStoreType(c.TokenStore)
-	if err != nil {
-		return nil, fmt.Errorf("--token-store: %w", err)
-	}
-
-	sqlitePath := c.TokenStoreSQLitePath
-	if sqlitePath == "" {
-		sqlitePath = auth.DefaultSQLitePath
-	}
-
-	return &auth.OAuthEnvConfig{
-		TokenStoreType:      storeType,
-		SQLitePath:          sqlitePath,
-		DynamoDBTable:       c.TokenStoreDynamoDBTable,
-		DynamoDBRegion:      c.TokenStoreDynamoDBRegion,
-		BacklogClientID:     c.BacklogClientID,
-		BacklogClientSecret: c.BacklogClientSecret,
-		BacklogRedirectURL:  c.BacklogRedirectURL,
-		OAuthStateSecret:    c.OAuthStateSecret,
-	}, nil
+// checkSpaceStoreType は HTTP/Gateway モードで LOGVALET_SPACE_STORE_TYPE の
+// 明示指定を必須とする（決定F）。未設定・memory 選択時は警告ではなく起動エラーに
+// する。stdio モード（McpStdioCmd）はこのチェックを持たず memory 既定を維持する。
+func (c *McpCmd) checkSpaceStoreType() error {
+	return space.RequireExplicitStoreType(os.Getenv("LOGVALET_SPACE_STORE_TYPE"))
 }
 
 // Run は MCP サーバーを起動する。
 func (c *McpCmd) Run(g *GlobalFlags) error {
+	if err := c.checkSpaceStoreType(); err != nil {
+		return err
+	}
+
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
@@ -243,13 +215,13 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	}
 
 	// SpaceStore / Resolver / ClientFactory を設定（space 管理ツール有効化）。
-	// 失敗しても MCP サーバー起動は継続し、space 管理ツールのみ無効になる。
+	// store type 自体は上のチェックで明示指定済みのため、以降の構築失敗
+	// （DB接続不可等）は従来どおり警告に留め、MCP サーバー起動は継続する。
 	if spaceStore, storeErr := buildSpaceStore(); storeErr != nil {
 		slog.Warn("space store init failed, space management tools disabled", "error", storeErr)
 	} else {
 		cfg.SpaceStore = spaceStore
 		cfg.SpaceResolver = space.NewResolver(spaceStore)
-		// ClientFactory は後述の oauthDeps 確定後に設定するため、ここでは buildCLIClientFactory を使用
 		if cliFactory, factoryErr := buildCLIClientFactory(); factoryErr != nil {
 			slog.Warn("space client factory init failed", "error", factoryErr)
 		} else {
@@ -257,151 +229,12 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		}
 	}
 
-	// H2: memory store 使用時の replay detection 制約を警告
-	if c.Auth && os.Getenv("LOGVALET_SPACE_STORE_TYPE") == "memory" {
-		slog.Warn("LOGVALET_SPACE_STORE_TYPE=memory: bootstrap_token replay detection requires single-process deployment; use sqlite or dynamodb for multi-instance")
-	}
-
-	// OAuth モード判定（--auth かつ BacklogClientID 設定時のみ有効）。
-	// 既存 CLI / 既存 MCP パスは一切変更しない。
-	var oauthDeps *OAuthDeps
-	if c.Auth {
-		oauthCfg, err := c.buildOAuthEnvConfig()
-		if err != nil {
-			return fmt.Errorf("load oauth config: %w", err)
-		}
-		if oauthCfg.OAuthEnabled() {
-			if err := oauthCfg.Validate(); err != nil {
-				return fmt.Errorf("validate oauth config: %w", err)
-			}
-			deps, err := BuildOAuthDeps(oauthCfg, rc.Config.Space, rc.Config.BaseURL, c.ExternalURL, slog.Default(), cfg.SpaceStore)
-			if err != nil {
-				return err
-			}
-			oauthDeps = deps
-			defer func() { _ = oauthDeps.Close() }()
-		}
-	}
-
-	// OAuth 有効時は AuthorizationURL と SpaceClientFactory を ServerConfig に設定
-	if oauthDeps != nil {
-		cfg.AuthorizationURL = oauthDeps.AuthorizeURL
-		cfg.MultiSpaceAuthorizeURL = oauthDeps.MultiSpaceAuthorizeURL
-		cfg.BootstrapKey = oauthDeps.BootstrapKey
-		cfg.BootstrapTokenTTL = auth.DefaultBootstrapTokenTTL
-		// SpaceStore が NonceStore を実装している場合に設定
-		if cfg.SpaceStore != nil {
-			if ns, ok := cfg.SpaceStore.(space.NonceStore); ok {
-				cfg.NonceStore = ns
-			}
-		}
-		// OAuth モードでは SpaceAwareClientFactory を使って space ごとの BaseURL/Tenant でクライアントを生成する
-		// oauthDeps.Factory (heptagon 固定) を使わず reg.BaseURL/reg.Tenant を尊重する
-		cfg.SpaceClientFactory = space.ClientFactory(auth.NewSpaceAwareClientFactory(oauthDeps.TokenManager, nil))
-	}
-
-	// MCP サーバー構築（OAuth 有無で分岐）
-	var s *mcpserver.MCPServer
-	if oauthDeps != nil {
-		s = mcpinternal.NewServerWithFactory(oauthDeps.Factory, ver, cfg)
-	} else {
-		s = mcpinternal.NewServer(rc.Client, ver, cfg)
-	}
-	h := mcpserver.NewStreamableHTTPServer(s, mcpserver.WithEndpointPath("/mcp"))
+	handler := c.buildHTTPHandler(ver, cfg)
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
-
-	// innerMux: MCP + OAuth ルートを同居させる（OAuth モード時のみ OAuth ルート登録）
-	innerMux := http.NewServeMux()
-	innerMux.Handle("/mcp", h)
-	if oauthDeps != nil {
-		InstallOAuthRoutes(innerMux, oauthDeps.Handler)
-	}
-
-	var handler http.Handler
-
-	authMode := c.resolvedAuthMode()
-	if authMode == "oidc" {
-		authCfg, err := BuildAuthConfig(c)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if authCfg.Store != nil {
-				_ = authCfg.Store.Close()
-			}
-		}()
-
-		authMW, err := idproxy.New(context.Background(), authCfg)
-		if err != nil {
-			return err
-		}
-
-		topMux := http.NewServeMux()
-		topMux.HandleFunc("/healthz", healthHandler)
-
-		// multi-space authorize は idproxy ラップ外に直登録（bootstrap_token で認証済みのため idproxy 不要）
-		if oauthDeps != nil && oauthDeps.MultiSpaceHandler != nil {
-			topMux.HandleFunc("GET /oauth/backlog/multi/authorize", oauthDeps.MultiSpaceHandler.HandleAuthorize)
-		}
-
-		// idproxy.Wrap の内側に userID bridge を挟む（順序: auth.Wrap → bridge → innerMux）。
-		// bridge を外側に置くと idproxy が context に注入する前に動き、userID が取れない。
-		bridge := newUserIDBridge()
-		var finalInner http.Handler = innerMux
-		if oauthDeps != nil {
-			finalInner = EnsureBacklogConnected(
-				oauthDeps.TokenManager,
-				oauthDeps.Provider.Name(),
-				rc.Config.Space,
-				oauthDeps.AuthorizeURL,
-			)(innerMux)
-		}
-
-		// BacklogAuthorizeGate: idproxy の /authorize に Backlog 接続チェックを挟む。
-		// authMW.Wrap の外側に置く必要がある（idproxy の /authorize は next を呼ばないため
-		// Wrap の内側に置いても発火しない）。
-		var topHandler http.Handler = authMW.Wrap(bridge(finalInner))
-		if oauthDeps != nil {
-			sm, err := idproxy.NewSessionManager(authCfg)
-			if err != nil {
-				return fmt.Errorf("failed to create session manager for BacklogAuthorizeGate: %w", err)
-			}
-			gate := NewBacklogAuthorizeGate(
-				sm,
-				oauthDeps.TokenManager,
-				oauthDeps.Provider.Name(),
-				rc.Config.Space,
-				oauthDeps.AuthorizeURL,
-			)
-			topHandler = gate(topHandler)
-		}
-		topMux.Handle("/", topHandler)
-		handler = topMux
-
-		if oauthDeps != nil {
-			// MemoryStore はシングルプロセス内のみ有効。マルチインスタンスデプロイでは
-			// space 登録情報が共有されないため DynamoDB/SQLite store を推奨する。
-			if spaceStoreType := os.Getenv("LOGVALET_SPACE_STORE_TYPE"); strings.EqualFold(spaceStoreType, "") || strings.EqualFold(spaceStoreType, "memory") {
-				slog.Warn("space store is using MemoryStore: space registrations will be lost on restart. Use DynamoDB or SQLite for production deployments.")
-			}
-			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth + OAuth) listening on %s/mcp\n", addr)
-			fmt.Fprintln(os.Stderr, "  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}")
-			fmt.Fprintln(os.Stderr, "  multi-space OAuth: GET /oauth/backlog/multi/authorize (idproxy-external)")
-			fmt.Fprintln(os.Stderr, "  MCP OAuth flow: /authorize gated via Backlog connection check")
-		} else {
-			fmt.Fprintf(os.Stderr, "logvalet MCP server (auth enabled) listening on %s/mcp\n", addr)
-		}
-	} else if authMode == "bearer" {
-		topMux := http.NewServeMux()
-		topMux.HandleFunc("/healthz", healthHandler)
-		topMux.Handle("/", bearerAuthMiddleware(c.BearerToken)(innerMux))
-		handler = topMux
-		fmt.Fprintf(os.Stderr, "logvalet MCP server (bearer auth) listening on %s/mcp\n", addr)
+	if c.resolvedAuthMode() == authModeAPIKey {
+		fmt.Fprintf(os.Stderr, "logvalet MCP server (apikey auth) listening on %s/mcp\n", addr)
 	} else {
-		innerMux.HandleFunc("/healthz", healthHandler)
-		handler = innerMux
-
 		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 	}
 

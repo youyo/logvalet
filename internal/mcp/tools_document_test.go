@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
-
 
 // ===== C1/C3: logvalet_document_list =====
 
@@ -30,7 +28,7 @@ func TestDocumentList_ProjectKey_Normal(t *testing.T) {
 		return []domain.Document{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_list", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -45,7 +43,7 @@ func TestDocumentList_ProjectKey_Normal(t *testing.T) {
 func TestDocumentList_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_list", map[string]any{})
 
 	if !result.IsError {
@@ -65,7 +63,7 @@ func TestDocumentList_Count_Normal(t *testing.T) {
 		return []domain.Document{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_list", map[string]any{
 		"project_key": "PROJ",
 		"count":       float64(5),
@@ -90,7 +88,7 @@ func TestDocumentTree_Normal(t *testing.T) {
 		return &domain.DocumentTree{ProjectID: 100}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_tree", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -108,7 +106,7 @@ func TestDocumentTree_Normal(t *testing.T) {
 func TestDocumentTree_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_tree", map[string]any{})
 
 	if !result.IsError {
@@ -134,7 +132,7 @@ func TestDocumentDigest_Normal(t *testing.T) {
 		return []domain.Attachment{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_digest", map[string]any{"document_id": "doc-123"})
 
 	if result.IsError {
@@ -149,7 +147,7 @@ func TestDocumentDigest_Normal(t *testing.T) {
 func TestDocumentDigest_MissingDocumentID(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_digest", map[string]any{})
 
 	if !result.IsError {
@@ -170,7 +168,7 @@ func TestDocumentSearch_Normal(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_search", map[string]any{
 		"keyword": "OAuth",
 	})
@@ -190,7 +188,7 @@ func TestDocumentSearch_Normal(t *testing.T) {
 func TestDocumentSearch_MissingKeyword(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_search", map[string]any{})
 
 	if !result.IsError {
@@ -213,7 +211,7 @@ func TestDocumentSearch_WithProjectKeys(t *testing.T) {
 		return []domain.Document{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_search", map[string]any{
 		"keyword":      "auth",
 		"project_keys": "PROJ",
@@ -236,7 +234,7 @@ func TestDocumentSearch_CountClamped(t *testing.T) {
 		return []domain.Document{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_search", map[string]any{
 		"keyword": "test",
 		"count":   float64(200),
@@ -265,7 +263,7 @@ func TestDocumentSearch_PossiblyMore_Count50(t *testing.T) {
 		return []domain.Project{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_document_search", map[string]any{
 		"keyword": "test",
 		"count":   float64(50),
@@ -275,10 +273,7 @@ func TestDocumentSearch_PossiblyMore_Count50(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	// DigestEnvelope としてデコードする
 	var envelope domain.DigestEnvelope

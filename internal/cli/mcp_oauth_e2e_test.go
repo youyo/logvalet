@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	idproxy "github.com/youyo/idproxy"
-	idproxystore "github.com/youyo/idproxy/store"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/auth/provider"
 	tokenstore "github.com/youyo/logvalet/internal/auth/tokenstore"
@@ -183,15 +181,15 @@ func (b *backlogMock) handleSpace(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"spaceKey":    "test-space",
-		"name":        "Test Space",
-		"ownerId":     1,
-		"language":    "ja",
-		"timezone":    "Asia/Tokyo",
-		"reportSendTime": "08:00:00",
+		"spaceKey":           "test-space",
+		"name":               "Test Space",
+		"ownerId":            1,
+		"language":           "ja",
+		"timezone":           "Asia/Tokyo",
+		"reportSendTime":     "08:00:00",
 		"textFormattingRule": "markdown",
-		"created":     "2026-01-01T00:00:00Z",
-		"updated":     "2026-01-01T00:00:00Z",
+		"created":            "2026-01-01T00:00:00Z",
+		"updated":            "2026-01-01T00:00:00Z",
 	})
 }
 
@@ -200,7 +198,7 @@ func (b *backlogMock) handleSpace(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 // testUserIDMiddleware は X-Test-User-ID ヘッダーを auth.ContextWithUserID に注入する。
-// 本番 newUserIDBridge の意味論的等価物（idproxy.User.Subject の代わりに HTTP ヘッダーを使う）。
+// 本番 userID bridge の意味論的等価物（HTTP ヘッダーから userID を取り出す）。
 func testUserIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if uid := r.Header.Get("X-Test-User-ID"); uid != "" {
@@ -259,7 +257,7 @@ func newOAuthE2EHarness(t *testing.T) *oauthE2EHarness {
 
 	authorizeURL := authSrv.URL + "/oauth/backlog/authorize"
 
-	h, err := httptransport.NewOAuthHandler(p, tm, "test-space", redirectURI, authorizeURL, stateSecret, time.Minute, slog.Default())
+	h, err := httptransport.NewOAuthHandler(p, tm, "test-space", redirectURI, authorizeURL, stateSecret, time.Minute, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewOAuthHandler: %v", err)
 	}
@@ -302,7 +300,7 @@ func noRedirectClient() *http.Client {
 }
 
 // doAuthorize は /oauth/backlog/authorize を叩き、state を取り出す。
-// リダイレクト先が Backlog 認可 URL（test-space.backlog.com）であることを確認する。
+// リダイレクト先が provider の baseURL（テストでは Backlog モック）の認可 URL であることを確認する。
 func (h *oauthE2EHarness) doAuthorize(t *testing.T, userID string) string {
 	t.Helper()
 	client := noRedirectClient()
@@ -320,8 +318,12 @@ func (h *oauthE2EHarness) doAuthorize(t *testing.T, userID string) string {
 	if err != nil {
 		t.Fatalf("parse Location: %v", err)
 	}
-	if !strings.Contains(loc.Host, "test-space.backlog.com") {
-		t.Errorf("authorize redirected to %q, want test-space.backlog.com host", loc.Host)
+	wantHost, err := url.Parse(h.backlogMock.srv.URL)
+	if err != nil {
+		t.Fatalf("parse mock URL: %v", err)
+	}
+	if loc.Host != wantHost.Host {
+		t.Errorf("authorize redirected to %q, want %q (provider baseURL host)", loc.Host, wantHost.Host)
 	}
 	state := loc.Query().Get("state")
 	if state == "" {
@@ -700,103 +702,5 @@ func TestOAuthE2E_ClientFactory_UsesPerUserToken(t *testing.T) {
 	unauthCtx := context.Background()
 	if _, err := h.factory(unauthCtx); err == nil {
 		t.Error("factory with no userID should return error")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// TestOAuthE2E_ClaudeDesktopFlow_ChainsBacklogOAuth
-//
-// Claude Desktop の MCP OAuth 2.1 フローを模した E2E シナリオ。
-// idproxy セッションあり + Backlog 未接続状態で /authorize に来ると
-// BacklogAuthorizeGate が /oauth/backlog/authorize?continue=... に 302 する (C1)。
-// トークンを手動注入して再度 /authorize に来ると gate が pass-through する (C2)。
-// ---------------------------------------------------------------------------
-
-func TestOAuthE2E_ClaudeDesktopFlow_ChainsBacklogOAuth(t *testing.T) {
-	// ---- ステップ A: セットアップ ----
-
-	// idproxy メモリストア + セッションマネージャー構築
-	st := idproxystore.NewMemoryStore()
-	t.Cleanup(func() { _ = st.Close() })
-
-	cfg := gateTestConfig(st) // backlog_authorize_gate_test.go で定義済み
-
-	sm, err := idproxy.NewSessionManager(cfg)
-	if err != nil {
-		t.Fatalf("NewSessionManager: %v", err)
-	}
-
-	// Backlog 未接続状態の fakeTM
-	tm := &fakeTM{err: auth.ErrProviderNotConnected}
-
-	// BacklogAuthorizeGate 構築（gateTestBacklogAuthorizeURL = "http://localhost:8080/oauth/backlog/authorize"）
-	gate := cli.NewBacklogAuthorizeGate(sm, tm, "backlog", "test-space", gateTestBacklogAuthorizeURL)
-	handler := gate(okHandler) // okHandler: 常に 200 を返す
-
-	// ---- ステップ B: idproxy セッション Cookie を直接注入 ----
-
-	cookieW := httptest.NewRecorder()
-	cookieVal := issueTestSession(t, sm, cookieW) // backlog_authorize_gate_test.go 定義済み
-
-	// Claude Desktop が送る実際の形式（redirect_uri は URL エンコード済み）
-	claudeQuery := "/authorize?client_id=cd&redirect_uri=http%3A%2F%2F127.0.0.1%3A9999%2Fcb" +
-		"&code_challenge=c&code_challenge_method=S256&state=S1&response_type=code&scope=openid"
-
-	// ---- ステップ C1: Backlog 未接続 → gate が 302 to /oauth/backlog/authorize?continue=... ----
-
-	req1 := httptest.NewRequest(http.MethodGet, claudeQuery, nil)
-	req1 = withCookie(req1, "_idproxy_session", cookieVal)
-	rec1 := httptest.NewRecorder()
-	handler.ServeHTTP(rec1, req1)
-
-	if rec1.Code != http.StatusFound {
-		t.Fatalf("C1: status = %d, want 302 (Backlog 未接続で gate が redirect するはず)", rec1.Code)
-	}
-
-	loc1 := rec1.Header().Get("Location")
-	if !strings.Contains(loc1, "/oauth/backlog/authorize") {
-		t.Errorf("C1: Location = %q, want to contain /oauth/backlog/authorize", loc1)
-	}
-
-	parsed1, err := url.Parse(loc1)
-	if err != nil {
-		t.Fatalf("C1: Location parse: %v", err)
-	}
-
-	// ?continue= パラメータの検証
-	continueEncoded := parsed1.Query().Get("continue")
-	if continueEncoded == "" {
-		t.Fatal("C1: continue param missing in Location")
-	}
-
-	// 1 層デコードして /authorize? で始まることを確認
-	continueDecoded, err := url.QueryUnescape(continueEncoded)
-	if err != nil {
-		t.Fatalf("C1: QueryUnescape(continue): %v", err)
-	}
-	if !strings.HasPrefix(continueDecoded, "/authorize?") {
-		t.Errorf("C1: continue decoded = %q, want prefix /authorize?", continueDecoded)
-	}
-
-	// ValidateContinueURL で受け入れられることを確認（HandleAuthorize と同一判定）
-	if err := auth.ValidateContinueURL(continueDecoded); err != nil {
-		t.Errorf("C1: ValidateContinueURL(%q) = %v, want nil", continueDecoded, err)
-	}
-
-	// ---- ステップ C2: Backlog トークン注入後 → gate が pass-through (200 from okHandler) ----
-
-	tm.err = nil
-	tm.result = &auth.TokenRecord{AccessToken: "tok-alice-001"}
-
-	req2 := httptest.NewRequest(http.MethodGet, claudeQuery, nil)
-	req2 = withCookie(req2, "_idproxy_session", cookieVal)
-	rec2 := httptest.NewRecorder()
-	handler.ServeHTTP(rec2, req2)
-
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("C2: status = %d, want 200 (Backlog 接続済みで gate は pass-through するはず)", rec2.Code)
-	}
-	if loc2 := rec2.Header().Get("Location"); loc2 != "" {
-		t.Errorf("C2: unexpected Location = %q (pass-through なので redirect 無しのはず)", loc2)
 	}
 }

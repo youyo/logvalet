@@ -4,18 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
 // RegisterWikiTools は Wiki 関連の MCP tools を ToolRegistry に登録する。
 func RegisterWikiTools(r *ToolRegistry) {
 	// logvalet_wiki_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_list",
-		gomcp.WithDescription("List wiki pages in a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
-		gomcp.WithString("keyword", gomcp.Description("Keyword to search in wiki pages")),
-		readOnlyAnnotation("Wiki ページ一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_list",
+		WithDesc("List wiki pages in a project"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithStringParam("keyword", false, "Keyword to search in wiki pages"),
+		WithAnnotation(readOnlyAnnotation("Wiki ページ一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -29,10 +28,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_get
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_get",
-		gomcp.WithDescription("Get a wiki page by ID"),
-		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
-		readOnlyAnnotation("Wiki ページ取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_get",
+		WithDesc("Get a wiki page by ID"),
+		WithNumberParam("wiki_id", true, "Wiki page ID"),
+		WithAnnotation(readOnlyAnnotation("Wiki ページ取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		wikiIDInt, ok := intArg(args, "wiki_id")
 		if !ok || wikiIDInt == 0 {
@@ -42,10 +41,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_count
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_count",
-		gomcp.WithDescription("Count wiki pages in a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
-		readOnlyAnnotation("Wiki ページ件数取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_count",
+		WithDesc("Count wiki pages in a project"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithAnnotation(readOnlyAnnotation("Wiki ページ件数取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -59,10 +58,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_tags
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_tags",
-		gomcp.WithDescription("List wiki tags in a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
-		readOnlyAnnotation("Wiki タグ一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_tags",
+		WithDesc("List wiki tags in a project"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithAnnotation(readOnlyAnnotation("Wiki タグ一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -72,14 +71,14 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_history
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_history",
-		gomcp.WithDescription("Get wiki page history"),
-		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
-		gomcp.WithNumber("min_id", gomcp.Description("Minimum history ID")),
-		gomcp.WithNumber("max_id", gomcp.Description("Maximum history ID")),
-		gomcp.WithNumber("count", gomcp.Description("Number of records (1-100, default 20)")),
-		gomcp.WithString("order", gomcp.Description("Sort order: asc or desc (default desc)")),
-		readOnlyAnnotation("Wiki 履歴取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_history",
+		WithDesc("Get wiki page history"),
+		WithNumberParam("wiki_id", true, "Wiki page ID"),
+		WithNumberParam("min_id", false, "Minimum history ID"),
+		WithNumberParam("max_id", false, "Maximum history ID"),
+		WithNumberParam("count", false, "Number of records (1-100, default 20)"),
+		WithStringParam("order", false, "Sort order: asc or desc (default desc)"),
+		WithAnnotation(readOnlyAnnotation("Wiki 履歴取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		wikiIDInt, ok := intArg(args, "wiki_id")
 		if !ok || wikiIDInt == 0 {
@@ -102,10 +101,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_stars
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_stars",
-		gomcp.WithDescription("List stars on a wiki page"),
-		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
-		readOnlyAnnotation("Wiki スター一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_stars",
+		WithDesc("List stars on a wiki page"),
+		WithNumberParam("wiki_id", true, "Wiki page ID"),
+		WithAnnotation(readOnlyAnnotation("Wiki スター一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		wikiIDInt, ok := intArg(args, "wiki_id")
 		if !ok || wikiIDInt == 0 {
@@ -115,10 +114,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_attachment_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_attachment_list",
-		gomcp.WithDescription("List attachments on a wiki page"),
-		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
-		readOnlyAnnotation("Wiki 添付ファイル一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_attachment_list",
+		WithDesc("List attachments on a wiki page"),
+		WithNumberParam("wiki_id", true, "Wiki page ID"),
+		WithAnnotation(readOnlyAnnotation("Wiki 添付ファイル一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		wikiIDInt, ok := intArg(args, "wiki_id")
 		if !ok || wikiIDInt == 0 {
@@ -128,10 +127,10 @@ func RegisterWikiTools(r *ToolRegistry) {
 	})
 
 	// logvalet_wiki_sharedfile_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_wiki_sharedfile_list",
-		gomcp.WithDescription("List shared files on a wiki page"),
-		gomcp.WithNumber("wiki_id", gomcp.Required(), gomcp.Description("Wiki page ID")),
-		readOnlyAnnotation("Wiki 共有ファイル一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_wiki_sharedfile_list",
+		WithDesc("List shared files on a wiki page"),
+		WithNumberParam("wiki_id", true, "Wiki page ID"),
+		WithAnnotation(readOnlyAnnotation("Wiki 共有ファイル一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		wikiIDInt, ok := intArg(args, "wiki_id")
 		if !ok || wikiIDInt == 0 {

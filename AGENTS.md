@@ -16,7 +16,7 @@
 
 - Go 1.26.1
 - CLI: Kong
-- MCP: `github.com/mark3labs/mcp-go`
+- MCP: `github.com/modelcontextprotocol/go-sdk` (公式 Go SDK)
 - OAuth / 認証: `internal/auth`, `internal/credentials`, `internal/transport/http`
 - マルチスペース保存: memory / SQLite / DynamoDB
 - リリース: GoReleaser, GitHub Actions, Homebrew tap

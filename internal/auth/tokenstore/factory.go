@@ -8,10 +8,9 @@ import (
 
 // NewTokenStore は OAuthEnvConfig.TokenStoreType に基づいて適切な TokenStore 実装を返す。
 //
-// サポートする種別:
+// サポートする種別（ローカルのみ。CLI/stdio の直接 OAuth 利用専用）:
 //   - StoreTypeMemory (デフォルト): MemoryStore
-//   - StoreTypeSQLite: 未実装 (M08 で実装予定)
-//   - StoreTypeDynamoDB: 未実装 (M09 で実装予定)
+//   - StoreTypeSQLite: SQLiteStore
 //
 // cfg が nil の場合はデフォルト（memory）として扱う。
 func NewTokenStore(cfg *auth.OAuthEnvConfig) (auth.TokenStore, error) {
@@ -24,8 +23,6 @@ func NewTokenStore(cfg *auth.OAuthEnvConfig) (auth.TokenStore, error) {
 		return NewMemoryStore(), nil
 	case auth.StoreTypeSQLite:
 		return NewSQLiteStore(cfg.SQLitePath)
-	case auth.StoreTypeDynamoDB:
-		return NewDynamoDBStore(cfg.DynamoDBTable, cfg.DynamoDBRegion)
 	default:
 		return nil, fmt.Errorf("token store type %q: %w", cfg.TokenStoreType, auth.ErrInvalidStoreType)
 	}

@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
 // RegisterMetaTools はプロジェクトメタデータ関連の MCP tools を ToolRegistry に登録する。
 func RegisterMetaTools(r *ToolRegistry) {
 	// logvalet_meta_statuses
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_meta_statuses",
-		gomcp.WithDescription("List statuses for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("ステータス一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_meta_statuses",
+		WithDesc("List statuses for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("ステータス一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -24,10 +23,10 @@ func RegisterMetaTools(r *ToolRegistry) {
 	})
 
 	// logvalet_meta_issue_types
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_meta_issue_types",
-		gomcp.WithDescription("List issue types for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("課題種別一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_meta_issue_types",
+		WithDesc("List issue types for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("課題種別一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -37,10 +36,10 @@ func RegisterMetaTools(r *ToolRegistry) {
 	})
 
 	// logvalet_meta_categories
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_meta_categories",
-		gomcp.WithDescription("List categories for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("カテゴリ一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_meta_categories",
+		WithDesc("List categories for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("カテゴリ一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -50,10 +49,10 @@ func RegisterMetaTools(r *ToolRegistry) {
 	})
 
 	// logvalet_meta_version: B9
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_meta_version",
-		gomcp.WithDescription("List versions for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("バージョン一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_meta_version",
+		WithDesc("List versions for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("バージョン一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -63,10 +62,10 @@ func RegisterMetaTools(r *ToolRegistry) {
 	})
 
 	// logvalet_meta_custom_field: B10
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_meta_custom_field",
-		gomcp.WithDescription("List custom field definitions for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("カスタムフィールド一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_meta_custom_field",
+		WithDesc("List custom field definitions for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("カスタムフィールド一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {

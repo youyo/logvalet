@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.36.0 (2026-07-30)
+
+MCP 2026-07-28 (stateless) 対応と認証モデルの再設計（AgentCore Gateway/Identity への委譲）。
+複数の破壊的変更を含む（issue #52、ADR: [0001](docs/adr/0001-mcp-sdk-official-go-sdk.md),
+[0002](docs/adr/0002-auth-none-apikey-gateway-delegation.md)）。
+
+### Breaking Changes
+
+- **MCP プロトコル**: MCP SDK を `github.com/mark3labs/mcp-go` から公式
+  `github.com/modelcontextprotocol/go-sdk` へ一本化。MCP 2026-07-28 (stateless) に対応
+  （`Stateless=true`、`server/discover`、per-request `_meta`、MRTR による Backlog 再認可導線、
+  非冪等ツールの冪等キー対応）。
+- **認証モデル**: 認証を `none` | `apikey`（`X-Logvalet-Api-Key` 等の共有鍵、`Authorization:
+  Bearer` は `apikey` の別名として存続）の2値に縮退。個々のユーザー認証・認可は AgentCore
+  Gateway（Entra ID JWT inbound）に委譲し、logvalet は Gateway が付与する identity ヘッダー
+  （apikey 検証を通過したリクエストでのみ信用）からユーザーを識別する。Backlog API 呼び出しは
+  Gateway（AgentCore Identity）が注入する `Authorization: Bearer <backlog-token>` をそのまま
+  転送する passthrough 方式に変更（Backlog OAuth のトークン管理は logvalet から AgentCore
+  Identity へ完全移管）。
+- **削除されたフラグ・環境変数**（計14個。起動時に「Gateway に委譲されました」と案内する
+  fail-fast エラーになる）:
+  `--auth`, `--external-url`, `--oidc-issuer`, `--oidc-client-id`, `--oidc-client-secret`,
+  `--cookie-secret`, `--allowed-domains`, `--allowed-emails`, `--signing-key`,
+  `--idproxy-store*`（5個）。`--auth-mode=oidc` はエラーになる。
+- **tokenstore の DynamoDB バックエンド削除**: `--token-store=dynamodb`,
+  `--token-store-dynamodb-table`, `--token-store-dynamodb-region`（環境変数
+  `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE` / `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION`）を
+  削除。`--token-store` は memory/sqlite のみ受け付ける。tokenstore は CLI/stdio（ローカル
+  利用）専用となり、HTTP モードでは使用しない（Backlog credential は Bearer passthrough 経由）。
+- **HTTP モードのストア要件変更**: `LOGVALET_SPACE_STORE_TYPE` 未設定（space store の
+  memory 既定）は警告からエラーへ格上げ。stdio モードは memory 既定を維持。
+- **依存関係**: `go.mod` から `github.com/mark3labs/mcp-go`, `github.com/youyo/idproxy`
+  および派生依存（`coreos/go-oidc`, `gorilla/securecookie`, `redis/go-redis`）を削除し、
+  `github.com/modelcontextprotocol/go-sdk` を追加。
+
+### 移行手順
+
+AgentCore Gateway の構築（Terraform・実機検証）は本リポジトリのスコープ外。構築者は
+`docs/specs/agentcore-gateway-builder-guide.md` を参照し、別リポジトリで Gateway/Identity の
+構築を行うこと。
+
 ## [0.30.0] - 2026-06-11
 
 Backlog ドキュメントのキーワード横断検索を CLI / MCP / Skill の全層に追加。

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 )
@@ -12,12 +11,12 @@ import (
 // RegisterTeamTools はチーム関連の MCP tools を ToolRegistry に登録する。
 func RegisterTeamTools(r *ToolRegistry) {
 	// logvalet_team_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_team_list",
-		gomcp.WithDescription("List all teams in the space"),
-		gomcp.WithNumber("count", gomcp.Description("Max number of teams (max 100)")),
-		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
-		gomcp.WithBoolean("no_members", gomcp.Description("If true, exclude member information from response")),
-		readOnlyAnnotation("チーム一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_team_list",
+		WithDesc("List all teams in the space"),
+		WithNumberParam("count", false, "Max number of teams (max 100)"),
+		WithNumberParam("offset", false, "Offset for pagination"),
+		WithBooleanParam("no_members", false, "If true, exclude member information from response"),
+		WithAnnotation(readOnlyAnnotation("チーム一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListTeamsOptions{}
 		if count, ok := intArg(args, "count"); ok && count > 0 {
@@ -45,10 +44,10 @@ func RegisterTeamTools(r *ToolRegistry) {
 	})
 
 	// logvalet_team_get
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_team_get",
-		gomcp.WithDescription("Get team details by team ID"),
-		gomcp.WithNumber("team_id", gomcp.Required(), gomcp.Description("Team ID (numeric)")),
-		readOnlyAnnotation("チーム詳細取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_team_get",
+		WithDesc("Get team details by team ID"),
+		WithNumberParam("team_id", true, "Team ID (numeric)"),
+		WithAnnotation(readOnlyAnnotation("チーム詳細取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		teamID, ok := intArg(args, "team_id")
 		if !ok || teamID == 0 {
@@ -58,10 +57,10 @@ func RegisterTeamTools(r *ToolRegistry) {
 	})
 
 	// logvalet_team_project: B11
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_team_project",
-		gomcp.WithDescription("List teams for a specific project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("プロジェクトチーム一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_team_project",
+		WithDesc("List teams for a specific project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("プロジェクトチーム一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {

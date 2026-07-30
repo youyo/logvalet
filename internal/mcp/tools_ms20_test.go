@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -35,11 +33,13 @@ func TestRegisterWithSpaces_DefaultSpaceFromPreference(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("pref_tool", gomcp.WithDescription("pref test"))
+	tool := mcpinternal.NewToolDef("pref_tool",
+		mcpinternal.WithDesc("pref test"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"ok": true}, nil
 	})
@@ -78,11 +78,13 @@ func TestRegisterWithSpacesWrite_DefaultSpaceFromPreference(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("write_pref_tool", gomcp.WithDescription("write pref test"))
+	tool := mcpinternal.NewToolDef("write_pref_tool",
+		mcpinternal.WithDesc("write pref test"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"written": true}, nil
 	})
@@ -111,7 +113,9 @@ func TestRegisterWithSpaces_NoUserIDFallback(t *testing.T) {
 
 	s, reg := newMultiSpaceRegistry(store)
 	fnCalled := false
-	tool := gomcp.NewTool("nouserid_tool", gomcp.WithDescription("no user id"))
+	tool := mcpinternal.NewToolDef("nouserid_tool",
+		mcpinternal.WithDesc("no user id"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		fnCalled = true
 		return map[string]any{"ok": true}, nil

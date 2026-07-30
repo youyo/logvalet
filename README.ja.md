@@ -652,18 +652,16 @@ v0.16.0 では MCP ツールのパラメータ命名・型を CLI と揃える�
 
 ### サポートされる動作モード
 
-logvalet は CLI / MCP × Backlog 認証方式（API key / OAuth）× MCP クライアント認証（OIDC via `idproxy`）の組み合わせで 4 パターンをサポートします。2 つの組み合わせは **未対応** です（下表参照）。
+logvalet は CLI/stdio ではローカルの API key 認証を使用します。リモート HTTP MCP の認証は AgentCore Gateway に委譲され、`none` または `apikey` のいずれかです。
 
-| # | クライアント | Backlog 認証 | クライアント認証 (OIDC) | 状態 |
-|---|------------|-------------|------------------------|------|
+| # | クライアント | Backlog 認証 | Gateway 認証 | 状態 |
+|---|------------|-------------|-------------|------|
 | 1 | CLI | API key | — | ✅ サポート |
-| 2 | CLI | OAuth | — | ❌ 未実装（CLI 向け OAuth ログインコマンドは未配線。現状は `tokens.json` を手動編集した場合のみ動作） |
-| 3 | MCP | API key | なし | ✅ サポート |
-| 4 | MCP | API key | OIDC | ✅ サポート |
-| 5 | MCP | OAuth | なし | ❌ 非サポート（設計上） — OAuth は per-user で、userID の取得元が OIDC subject のみ。`logvalet mcp` を `--backlog-client-id` 設定 + `--auth` 無しで起動すると fast-fail エラーになります |
-| 6 | MCP | OAuth | OIDC | ✅ サポート |
+| 2 | MCP stdio | API key | — | ✅ サポート |
+| 3 | MCP HTTP | Gateway passthrough | none | ✅ サポート |
+| 4 | MCP HTTP | Gateway passthrough | apikey | ✅ サポート |
 
-以下の例ではサポートされる 4 モードについて、(A) 環境変数のみ・(B) CLI 引数のみ（フラグに対応しない設定は必要最小限の環境変数）の 2 通りで記載しています。
+以下の例では各モードについて、(A) 環境変数のみ・(B) CLI 引数のみ（フラグに対応しない設定は必要最小限の環境変数）の 2 通りで記載しています。
 
 #### Mode 1: CLI + API key
 
@@ -682,7 +680,7 @@ logvalet issue get EXAMPLE-1
 logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 ```
 
-#### Mode 3: MCP + API key（クライアント認証なし）
+#### Mode 2: MCP stdio + API key
 
 (A) 環境変数:
 
@@ -690,31 +688,26 @@ logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
 
-logvalet mcp
+logvalet mcp-stdio
 ```
 
 (B) CLI 引数:
 
 ```bash
-logvalet mcp --api-key=your-api-key-here --space=example-space
+logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
 ```
 
-#### Mode 4: MCP + API key + OIDC (idproxy)
+これらはローカル CLI/stdio 用の認証情報です。リモート HTTP は下記 Mode 4 で説明する AgentCore Gateway passthrough 契約を使用します。
+`LOGVALET_API_KEY` / `--api-key` はこれらローカル CLI/stdio モード専用です。
+
+#### Mode 3: MCP HTTP + AgentCore Gateway (none)
 
 (A) 環境変数:
 
 ```bash
-export LOGVALET_API_KEY=your-api-key-here
 export LOGVALET_SPACE=example-space
-
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (デフォルト: 30 日)
+export LOGVALET_MCP_AUTH_MODE=none
+export LOGVALET_MCP_SPACE_STORE=sqlite
 
 logvalet mcp
 ```
@@ -723,205 +716,64 @@ logvalet mcp
 
 ```bash
 logvalet mcp \
-  --api-key=your-api-key-here \
   --space=example-space \
-  --auth \
-  --external-url=https://mcp.example.com \
-  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
-  --oidc-client-id=your-oidc-client-id-here \
-  --oidc-client-secret=your-oidc-client-secret-here \
-  --cookie-secret=$(openssl rand -hex 32) \
-  --allowed-domains=example.com
+  --auth-mode=none \
+  --space-store=sqlite
 ```
 
-#### Mode 6: MCP + Backlog OAuth + OIDC
+Mode 3・4 は HTTP モードであり、明示的な SpaceStore を使用します。CLI/stdio 用のローカル Backlog 認証情報は使用しません。Mode 3 は信頼済みの `none` Gateway モードを許可し、Mode 4 はさらに共有 Gateway API key を検証します。
 
-Backlog OAuth 関連の設定は CLI フラグまたは対応する `LOGVALET_MCP_*` 環境変数で行います。
+#### Mode 4: MCP HTTP + AgentCore Gateway
 
 (A) 環境変数:
 
 ```bash
-# Backlog space
 export LOGVALET_SPACE=example-space
 
-# OIDC (idproxy)
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-
-# Backlog OAuth
-export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
-
-# Token store（Lambda では DynamoDB 推奨）
-export LOGVALET_MCP_TOKEN_STORE=dynamodb
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
-
-# OAuth refresh token TTL
-export LOGVALET_MCP_REFRESH_TOKEN_TTL=720h  # MCP OAuth refresh token TTL (デフォルト: 30 日)
+export LOGVALET_MCP_AUTH_MODE=apikey
+export LOGVALET_MCP_API_KEY=shared-gateway-key
+export LOGVALET_MCP_SPACE_STORE=sqlite
 
 logvalet mcp
 ```
 
-(B) CLI 引数（全設定をフラグで指定）:
+(B) CLI 引数:
 
 ```bash
 logvalet mcp \
   --space=example-space \
-  --auth \
-  --external-url=https://mcp.example.com \
-  --oidc-issuer=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0 \
-  --oidc-client-id=your-oidc-client-id-here \
-  --oidc-client-secret=your-oidc-client-secret-here \
-  --cookie-secret=$(openssl rand -hex 32) \
-  --allowed-domains=example.com \
-  --backlog-client-id=your-backlog-oauth-client-id-here \
-  --backlog-client-secret=your-backlog-oauth-client-secret-here \
-  --backlog-redirect-url=https://mcp.example.com/oauth/backlog/callback \
-  --oauth-state-secret=$(openssl rand -hex 32) \
-  --token-store=dynamodb \
-  --token-store-dynamodb-table=logvalet-oauth-tokens \
-  --token-store-dynamodb-region=ap-northeast-1
+  --auth-mode=apikey \
+  --gateway-api-key=shared-gateway-key \
+  --space-store=sqlite
 ```
 
-Token Store の詳細や初回接続フローは後述の **Backlog OAuth（ユーザーごとの認可）** を参照してください。
+リモート HTTP は AgentCore Gateway passthrough 経由で Backlog `Authorization: Bearer` 認証情報を受け取ります。
 
-### 認証（オプション）
+#### リモート HTTP MCP 契約
 
-リモートデプロイ向けに OIDC/OAuth 2.1 認証を有効化できます:
+Gateway がエンドユーザー認証を担います。HTTP サーバーは `none` または `apikey` で設定し、後者では `X-Logvalet-Api-Key` を送信し、`X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` を送信する場合があります。Backlog 認証情報は Bearer passthrough です。HTTP モードは明示的な space store を必須とし `memory` を拒否します。ローカルトークンストレージは CLI/stdio 専用です（`sqlite` または `tokens.json`）。詳細は [gateway-request-contract.md](docs/specs/gateway-request-contract.md) を参照してください。
+
+### 認証
+
+リモート HTTP MCP は AgentCore Gateway 配下で `none` または `apikey` を使用します。Gateway 共有キーは `X-Logvalet-Api-Key`、identity メタデータは `X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` です。Backlog 認証情報は Bearer 認証情報として passthrough されます。
+
+### Backlog 認証情報
+
+旧来のリモートブラウザコールバックとユーザーごとの OAuth 手順は廃止されました。リモート HTTP は AgentCore Gateway から Backlog Bearer passthrough を受け取り、[docs/specs/gateway-request-contract.md](docs/specs/gateway-request-contract.md) に記載のリクエスト契約を使用します。
+
+リモート HTTP では `none` または `apikey` と明示的な space store を設定してください。`memory` は無効です。CLI と `mcp-stdio` はローカル認証情報のみを使用します（`sqlite` または `tokens.json`）。デプロイ詳細は [AgentCore デプロイガイド](docs/agentcore-deployment.md) を参照してください。
 
 ```bash
-logvalet mcp --auth \
-  --external-url https://logvalet.example.com \
-  --oidc-issuer https://accounts.google.com \
-  --oidc-client-id YOUR_CLIENT_ID \
-  --cookie-secret $(openssl rand -hex 32)
+# ローカル CLI / stdio
+logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
+logvalet mcp-stdio --profile default
+
+# AgentCore Gateway 配下のリモート HTTP
+export LOGVALET_MCP_AUTH_MODE=apikey
+export LOGVALET_MCP_API_KEY=shared-gateway-key
+export LOGVALET_MCP_SPACE_STORE=sqlite
+logvalet mcp
 ```
-
-すべての認証フラグは環境変数でも設定可能です（例: `LOGVALET_MCP_AUTH=true`）。詳細は [AgentCore デプロイガイド](docs/agentcore-deployment.md) を参照してください。
-
-認証有効時:
-- `/mcp` は Bearer トークンが必要（OAuth 2.1 + PKCE）
-- `/healthz` は常に認証なしでアクセス可能
-- OAuth エンドポイント（`/register`, `/authorize`, `/token`, `/.well-known/*`）は自動的に処理されます
-
-### Backlog OAuth（ユーザーごとの認可）
-
-リモート MCP 構成では **Backlog OAuth 2.0** を上乗せして、各 Backlog API 呼び出しを **呼び出しユーザー自身の Backlog 権限** で実行できます。上記の OIDC 認証とは責務を分離しています。
-
-- **認証 (AuthN)**: `idproxy` が OIDC (Entra ID / Google 等) でユーザーを確認
-- **認可 (AuthZ)**: ユーザーごとの Backlog OAuth access token で Backlog API を呼び出す
-
-両者は独立しています。OIDC トークンが Backlog API に流用されることはなく、Backlog トークンが MCP 認証に使われることもありません。
-
-Backlog OAuth モードは次の **両方** が設定されている場合のみ有効化されます:
-1. `--auth`（または `LOGVALET_MCP_AUTH=true`）が有効
-2. `--backlog-client-id`（または `LOGVALET_MCP_BACKLOG_CLIENT_ID`）が設定されている
-
-#### Token Store
-
-Backlog のトークンはプラガブルな Token Store に保存します。用途に応じて選択してください:
-
-| Store | 推奨用途 | 補足 |
-|-------|---------|------|
-| `memory` | ローカル開発 / 単一インスタンス Lambda | デフォルト。プロセス再起動で消失 |
-| `sqlite` | セルフホスト / ローカル CLI | pure-Go（`modernc.org/sqlite`）、CGO 不要 |
-| `dynamodb` | Lambda / マルチインスタンス | VPC 不要、AWS マネージド |
-
-#### 初回接続フロー
-
-1. Claude 上で Backlog ツールを呼び出す → 未接続なら logvalet が `provider_not_connected` と接続 URL を返す。
-2. ブラウザで `GET /oauth/backlog/authorize` にアクセス → logvalet が Backlog の同意画面へリダイレクト。
-3. Backlog 上で同意 → Backlog が `/oauth/backlog/callback` にリダイレクト。
-4. logvalet が code を交換し、OIDC subject をキーに token を保存して `{"status":"connected"}` を返す。
-5. 以降、そのユーザーのツール呼び出しは保存済みトークンで自動実行される。
-6. `GET /oauth/backlog/status` で状態確認、`DELETE /oauth/backlog/disconnect` で切断が可能。
-
-#### フラグと環境変数
-
-Backlog OAuth 設定は CLI フラグまたは環境変数で行います（設定ファイル不要）:
-
-| フラグ | 環境変数 | 必須 | デフォルト | 説明 |
-|-------|---------|------|-----------|------|
-| `--backlog-client-id` | `LOGVALET_MCP_BACKLOG_CLIENT_ID` | Yes | — | Backlog OAuth クライアント ID |
-| `--backlog-client-secret` | `LOGVALET_MCP_BACKLOG_CLIENT_SECRET` | Yes | — | Backlog OAuth クライアントシークレット |
-| `--backlog-redirect-url` | `LOGVALET_MCP_BACKLOG_REDIRECT_URL` | Yes | — | OAuth コールバック URL（`https://<ホスト>/oauth/backlog/callback`） |
-| `--oauth-state-secret` | `LOGVALET_MCP_OAUTH_STATE_SECRET` | Yes | — | state JWT の HMAC-SHA256 署名鍵（hex、64 文字以上） |
-| `--token-store` | `LOGVALET_MCP_TOKEN_STORE` | No | `memory` | `memory` / `sqlite` / `dynamodb` |
-| `--token-store-sqlite-path` | `LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH` | sqlite 時 | `./logvalet.db` | SQLite DB のパス |
-| `--token-store-dynamodb-table` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE` | dynamodb 時 | — | DynamoDB テーブル名 |
-| `--token-store-dynamodb-region` | `LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION` | dynamodb 時 | — | DynamoDB のリージョン |
-
-#### 起動例
-
-```bash
-# idproxy (OIDC) 設定 — 上記「認証（オプション）」参照
-export LOGVALET_MCP_AUTH=true
-export LOGVALET_MCP_EXTERNAL_URL=https://mcp.example.com
-export LOGVALET_MCP_OIDC_ISSUER=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
-export LOGVALET_MCP_OIDC_CLIENT_ID=your-oidc-client-id-here
-export LOGVALET_MCP_OIDC_CLIENT_SECRET=your-oidc-client-secret-here
-export LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32)
-export LOGVALET_MCP_ALLOWED_DOMAINS=example.com
-
-# Token Store（Lambda では DynamoDB 推奨）
-export LOGVALET_MCP_TOKEN_STORE=dynamodb
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE=logvalet-oauth-tokens
-export LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION=ap-northeast-1
-
-# Backlog OAuth クライアント（Backlog スペースで作成）
-export LOGVALET_MCP_BACKLOG_CLIENT_ID=your-backlog-oauth-client-id-here
-export LOGVALET_MCP_BACKLOG_CLIENT_SECRET=your-backlog-oauth-client-secret-here
-export LOGVALET_MCP_BACKLOG_REDIRECT_URL=https://mcp.example.com/oauth/backlog/callback
-export LOGVALET_MCP_OAUTH_STATE_SECRET=$(openssl rand -hex 32)
-
-logvalet mcp --auth
-```
-
-起動すると次のようなログが出力されます:
-
-```
-logvalet MCP server (auth + OAuth) listening on 127.0.0.1:8080/mcp
-  OAuth routes: /oauth/backlog/{authorize,callback,status,disconnect}
-```
-
-### Docker / AgentCore デプロイ
-
-```bash
-# ビルド
-docker build -t logvalet .
-
-# 実行（認証なし）
-docker run -p 8080:8080 \
-  -e LOGVALET_API_KEY=your-api-key \
-  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
-  logvalet
-
-# 実行（認証あり）
-docker run -p 8080:8080 \
-  -e LOGVALET_MCP_AUTH=true \
-  -e LOGVALET_MCP_EXTERNAL_URL=https://logvalet.example.com \
-  -e LOGVALET_MCP_OIDC_ISSUER=https://accounts.google.com \
-  -e LOGVALET_MCP_OIDC_CLIENT_ID=your-client-id \
-  -e LOGVALET_MCP_COOKIE_SECRET=$(openssl rand -hex 32) \
-  -e LOGVALET_API_KEY=your-api-key \
-  -e LOGVALET_BASE_URL=https://your-space.backlog.com \
-  logvalet
-```
-
-AWS Bedrock AgentCore Runtime へのデプロイ方法は [docs/agentcore-deployment.md](docs/agentcore-deployment.md) を参照してください。
-
-### Lambda Function URL (lambroll)
-
-[lambroll](https://github.com/fujiwara/lambroll) と [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) を使用して logvalet を Lambda Function URL にデプロイできます。
-セットアップ手順は [examples/lambroll/](examples/lambroll/) を参照してください。
 
 ### タスクランナー（mise）
 

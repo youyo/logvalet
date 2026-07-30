@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/analysis"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
@@ -13,19 +12,12 @@ import (
 // RegisterAnalysisTools は分析系の MCP tools を ToolRegistry に登録する。
 func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_issue_context
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_context",
-		gomcp.WithDescription("Get structured issue context with signals and LLM hints for analysis"),
-		gomcp.WithString("issue_key",
-			gomcp.Required(),
-			gomcp.Description("Issue key (e.g. PROJ-123)"),
-		),
-		gomcp.WithNumber("comments",
-			gomcp.Description("Max number of recent comments to include (default 10)"),
-		),
-		gomcp.WithBoolean("compact",
-			gomcp.Description("Omit description and comment bodies (default false)"),
-		),
-		readOnlyAnnotation("課題コンテキスト取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_context",
+		WithDesc("Get structured issue context with signals and LLM hints for analysis"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
+		WithNumberParam("comments", false, "Max number of recent comments to include (default 10)"),
+		WithBooleanParam("compact", false, "Omit description and comment bodies (default false)"),
+		WithAnnotation(readOnlyAnnotation("課題コンテキスト取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -46,22 +38,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_project_blockers
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_project_blockers",
-		gomcp.WithDescription("Detect project blocker issues (high priority unassigned, long in-progress, overdue)"),
-		gomcp.WithString("project_keys",
-			gomcp.Required(),
-			gomcp.Description("Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
-		),
-		gomcp.WithNumber("days",
-			gomcp.Description("Days threshold for in-progress stagnation (default 14)"),
-		),
-		gomcp.WithBoolean("include_comments",
-			gomcp.Description("Enable blocked-by-keyword detection via latest comment (default false)"),
-		),
-		gomcp.WithString("exclude_status",
-			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
-		),
-		readOnlyAnnotation("プロジェクトブロッカー一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_project_blockers",
+		WithDesc("Detect project blocker issues (high priority unassigned, long in-progress, overdue)"),
+		WithStringParam("project_keys", true, "Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
+		WithNumberParam("days", false, "Days threshold for in-progress stagnation (default 14)"),
+		WithBooleanParam("include_comments", false, "Enable blocked-by-keyword detection via latest comment (default false)"),
+		WithStringParam("exclude_status", false, "Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		WithAnnotation(readOnlyAnnotation("プロジェクトブロッカー一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKeysStr, ok := stringArg(args, "project_keys")
 		if !ok || projectKeysStr == "" {
@@ -87,19 +70,12 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_stale
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_stale",
-		gomcp.WithDescription("Detect stale issues in specified projects"),
-		gomcp.WithString("project_keys",
-			gomcp.Required(),
-			gomcp.Description("Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
-		),
-		gomcp.WithNumber("days",
-			gomcp.Description("Days threshold for stale detection (default 7)"),
-		),
-		gomcp.WithString("exclude_status",
-			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
-		),
-		readOnlyAnnotation("停滞課題一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_stale",
+		WithDesc("Detect stale issues in specified projects"),
+		WithStringParam("project_keys", true, "Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
+		WithNumberParam("days", false, "Days threshold for stale detection (default 7)"),
+		WithStringParam("exclude_status", false, "Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		WithAnnotation(readOnlyAnnotation("停滞課題一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKeysStr, ok := stringArg(args, "project_keys")
 		if !ok || projectKeysStr == "" {
@@ -122,22 +98,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_project_health
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_project_health",
-		gomcp.WithDescription("Get project health summary (stale, blockers, workload, score)"),
-		gomcp.WithString("project_key",
-			gomcp.Required(),
-			gomcp.Description("Project key (e.g. PROJ)"),
-		),
-		gomcp.WithNumber("days",
-			gomcp.Description("Days threshold for stale/blocker detection (default 7)"),
-		),
-		gomcp.WithBoolean("include_comments",
-			gomcp.Description("Enable blocked-by-keyword detection via comments (default false)"),
-		),
-		gomcp.WithString("exclude_status",
-			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
-		),
-		readOnlyAnnotation("プロジェクトヘルス取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_project_health",
+		WithDesc("Get project health summary (stale, blockers, workload, score)"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithNumberParam("days", false, "Days threshold for stale/blocker detection (default 7)"),
+		WithBooleanParam("include_comments", false, "Enable blocked-by-keyword detection via comments (default false)"),
+		WithStringParam("exclude_status", false, "Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		WithAnnotation(readOnlyAnnotation("プロジェクトヘルス取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -180,13 +147,10 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_triage_materials
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_triage_materials",
-		gomcp.WithDescription("Get triage materials for an issue (stats, similar issues, history)"),
-		gomcp.WithString("issue_key",
-			gomcp.Required(),
-			gomcp.Description("Issue key (e.g. PROJ-123)"),
-		),
-		readOnlyAnnotation("課題トリアージ材料取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_triage_materials",
+		WithDesc("Get triage materials for an issue (stats, similar issues, history)"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
+		WithAnnotation(readOnlyAnnotation("課題トリアージ材料取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -199,19 +163,12 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_weekly
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_weekly",
-		gomcp.WithDescription("Generate weekly periodic digest for a project (completed/started/blocked)"),
-		gomcp.WithString("project_key",
-			gomcp.Required(),
-			gomcp.Description("Project key (e.g. PROJ)"),
-		),
-		gomcp.WithString("since",
-			gomcp.Description("Start date in YYYY-MM-DD format (default: 7 days ago)"),
-		),
-		gomcp.WithString("until",
-			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
-		),
-		readOnlyAnnotation("週次ダイジェスト取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_digest_weekly",
+		WithDesc("Generate weekly periodic digest for a project (completed/started/blocked)"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithStringParam("since", false, "Start date in YYYY-MM-DD format (default: 7 days ago)"),
+		WithStringParam("until", false, "End date in YYYY-MM-DD format (default: now)"),
+		WithAnnotation(readOnlyAnnotation("週次ダイジェスト取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -238,19 +195,12 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_daily
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_daily",
-		gomcp.WithDescription("Generate daily periodic digest for a project (completed/started/blocked)"),
-		gomcp.WithString("project_key",
-			gomcp.Required(),
-			gomcp.Description("Project key (e.g. PROJ)"),
-		),
-		gomcp.WithString("since",
-			gomcp.Description("Start date in YYYY-MM-DD format (default: 1 day ago)"),
-		),
-		gomcp.WithString("until",
-			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
-		),
-		readOnlyAnnotation("日次ダイジェスト取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_digest_daily",
+		WithDesc("Generate daily periodic digest for a project (completed/started/blocked)"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithStringParam("since", false, "Start date in YYYY-MM-DD format (default: 1 day ago)"),
+		WithStringParam("until", false, "End date in YYYY-MM-DD format (default: now)"),
+		WithAnnotation(readOnlyAnnotation("日次ダイジェスト取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -277,27 +227,15 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_activity_stats
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_stats",
-		gomcp.WithDescription("Get activity statistics (by type, actor, date, hour, patterns)"),
-		gomcp.WithString("scope",
-			gomcp.Description("Activity scope: project, user, or space (default: space)"),
-		),
-		gomcp.WithString("project_key",
-			gomcp.Description("Project key (required when scope=project)"),
-		),
-		gomcp.WithString("user_id",
-			gomcp.Description("User ID (required when scope=user)"),
-		),
-		gomcp.WithString("since",
-			gomcp.Description("Start date in YYYY-MM-DD format (default: 7 days ago)"),
-		),
-		gomcp.WithString("until",
-			gomcp.Description("End date in YYYY-MM-DD format (default: now)"),
-		),
-		gomcp.WithNumber("top_n",
-			gomcp.Description("Number of top actors/types to include (default: 5)"),
-		),
-		readOnlyAnnotation("アクティビティ統計取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_activity_stats",
+		WithDesc("Get activity statistics (by type, actor, date, hour, patterns)"),
+		WithStringParam("scope", false, "Activity scope: project, user, or space (default: space)"),
+		WithStringParam("project_key", false, "Project key (required when scope=project)"),
+		WithStringParam("user_id", false, "User ID (required when scope=user)"),
+		WithStringParam("since", false, "Start date in YYYY-MM-DD format (default: 7 days ago)"),
+		WithStringParam("until", false, "End date in YYYY-MM-DD format (default: now)"),
+		WithNumberParam("top_n", false, "Number of top actors/types to include (default: 5)"),
+		WithAnnotation(readOnlyAnnotation("アクティビティ統計取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		scope := "space"
 		if s, ok := stringArg(args, "scope"); ok && s != "" {
@@ -344,28 +282,15 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_issue_timeline
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_timeline",
-		gomcp.WithDescription("Get comment and update timeline for an issue (structured chronological events)"),
-		gomcp.WithString("issue_key",
-			gomcp.Required(),
-			gomcp.Description("Issue key (e.g. PROJ-123)"),
-		),
-		gomcp.WithNumber("max_comments",
-			gomcp.Description("Max number of comments to include (0 = all, default 0)"),
-		),
-		gomcp.WithBoolean("include_updates",
-			gomcp.Description("Include update history events (default true)"),
-		),
-		gomcp.WithNumber("max_activity_pages",
-			gomcp.Description("Max pages for activity pagination (default 5)"),
-		),
-		gomcp.WithString("since",
-			gomcp.Description("Filter events since date (YYYY-MM-DD)"),
-		),
-		gomcp.WithString("until",
-			gomcp.Description("Filter events until date (YYYY-MM-DD)"),
-		),
-		readOnlyAnnotation("課題タイムライン取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_timeline",
+		WithDesc("Get comment and update timeline for an issue (structured chronological events)"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
+		WithNumberParam("max_comments", false, "Max number of comments to include (0 = all, default 0)"),
+		WithBooleanParam("include_updates", false, "Include update history events (default true)"),
+		WithNumberParam("max_activity_pages", false, "Max pages for activity pagination (default 5)"),
+		WithStringParam("since", false, "Filter events since date (YYYY-MM-DD)"),
+		WithStringParam("until", false, "Filter events until date (YYYY-MM-DD)"),
+		WithAnnotation(readOnlyAnnotation("課題タイムライン取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -409,19 +334,12 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_user_workload
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_workload",
-		gomcp.WithDescription("Calculate user workload distribution for a project"),
-		gomcp.WithString("project_key",
-			gomcp.Required(),
-			gomcp.Description("Project key (e.g. PROJ)"),
-		),
-		gomcp.WithNumber("days",
-			gomcp.Description("Days threshold for stale detection (default 7)"),
-		),
-		gomcp.WithString("exclude_status",
-			gomcp.Description("Comma-separated status names to exclude (e.g. '完了,対応済み')"),
-		),
-		readOnlyAnnotation("ユーザー稼働状況取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_user_workload",
+		WithDesc("Calculate user workload distribution for a project"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithNumberParam("days", false, "Days threshold for stale detection (default 7)"),
+		WithStringParam("exclude_status", false, "Comma-separated status names to exclude (e.g. '完了,対応済み')"),
+		WithAnnotation(readOnlyAnnotation("ユーザー稼働状況取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -441,15 +359,11 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		return calculator.Calculate(ctx, projectKey, workloadCfg)
 	})
 	// logvalet_my_tasks
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_my_tasks",
-		gomcp.WithDescription("Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals"),
-		gomcp.WithString("mode",
-			gomcp.Description("View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)"),
-		),
-		gomcp.WithNumber("stale_days",
-			gomcp.Description("Days threshold for stale detection on watched issues (default 7)"),
-		),
-		readOnlyAnnotation("自分のタスク一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_my_tasks",
+		WithDesc("Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals"),
+		WithStringParam("mode", false, "View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)"),
+		WithNumberParam("stale_days", false, "Days threshold for stale detection on watched issues (default 7)"),
+		WithAnnotation(readOnlyAnnotation("自分のタスク一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opts := analysis.MyTasksOptions{}
 		if mode, ok := stringArg(args, "mode"); ok && mode != "" {
@@ -465,17 +379,17 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_digest_unified: B3
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_digest_unified",
-		gomcp.WithDescription("Generate a unified digest across projects, users, teams, or issues"),
-		gomcp.WithString("since", gomcp.Required(), gomcp.Description("Start date (YYYY-MM-DD)")),
-		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),
-		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys")),
-		gomcp.WithString("user_ids", gomcp.Description("Comma-separated user IDs")),
-		gomcp.WithString("team_ids", gomcp.Description("Comma-separated team IDs")),
-		gomcp.WithString("issue_keys", gomcp.Description("Comma-separated issue keys")),
-		gomcp.WithString("due_date", gomcp.Description("Due date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)")),
-		gomcp.WithString("start_date", gomcp.Description("Start date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)")),
-		readOnlyAnnotation("統合ダイジェスト生成"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_digest_unified",
+		WithDesc("Generate a unified digest across projects, users, teams, or issues"),
+		WithStringParam("since", true, "Start date (YYYY-MM-DD)"),
+		WithStringParam("until", false, "End date (YYYY-MM-DD)"),
+		WithStringParam("project_keys", false, "Comma-separated project keys"),
+		WithStringParam("user_ids", false, "Comma-separated user IDs"),
+		WithStringParam("team_ids", false, "Comma-separated team IDs"),
+		WithStringParam("issue_keys", false, "Comma-separated issue keys"),
+		WithStringParam("due_date", false, "Due date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)"),
+		WithStringParam("start_date", false, "Start date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)"),
+		WithAnnotation(readOnlyAnnotation("統合ダイジェスト生成")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		sinceStr, ok := stringArg(args, "since")
 		if !ok || sinceStr == "" {

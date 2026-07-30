@@ -38,7 +38,7 @@ func TestIssueAttachmentUpload_Normal(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":  "PROJ-1",
 		"file_paths": f1,
@@ -67,7 +67,7 @@ func TestIssueAttachmentUpload_Normal(t *testing.T) {
 // TestIssueAttachmentUpload_MissingIssueKey は issue_key 未指定でエラーになることを確認する。
 func TestIssueAttachmentUpload_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"file_paths": "/tmp/test.txt",
 	})
@@ -79,7 +79,7 @@ func TestIssueAttachmentUpload_MissingIssueKey(t *testing.T) {
 // TestIssueAttachmentUpload_MissingFilePaths は file_paths 未指定でエラーになることを確認する。
 func TestIssueAttachmentUpload_MissingFilePaths(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key": "PROJ-1",
 	})
@@ -91,7 +91,7 @@ func TestIssueAttachmentUpload_MissingFilePaths(t *testing.T) {
 // TestIssueAttachmentUpload_FileNotFound は存在しないファイルパスでエラーになることを確認する。
 func TestIssueAttachmentUpload_FileNotFound(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":  "PROJ-1",
 		"file_paths": "/nonexistent/path/file.txt",
@@ -124,7 +124,7 @@ func TestIssueAttachmentUpload_Base64_Normal(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "asset9.png",
@@ -155,7 +155,7 @@ func TestIssueAttachmentUpload_Base64_MimeTypeAccepted(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "asset.png",
@@ -170,7 +170,7 @@ func TestIssueAttachmentUpload_Base64_MimeTypeAccepted(t *testing.T) {
 // TestIssueAttachmentUpload_Base64_InvalidEncoding は不正な Base64 でエラーになることを確認する。
 func TestIssueAttachmentUpload_Base64_InvalidEncoding(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "a.bin",
@@ -185,7 +185,7 @@ func TestIssueAttachmentUpload_Base64_InvalidEncoding(t *testing.T) {
 func TestIssueAttachmentUpload_Base64_MissingFileName(t *testing.T) {
 	encoded := base64.StdEncoding.EncodeToString([]byte("x"))
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_content_base64": encoded,
@@ -201,7 +201,7 @@ func TestIssueAttachmentUpload_Base64_OversizeRejected(t *testing.T) {
 	big := strings.Repeat("a", 4*1024*1024+1)
 	encoded := base64.StdEncoding.EncodeToString([]byte(big))
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "big.bin",
@@ -228,7 +228,7 @@ func TestIssueAttachmentUpload_Base64_FileNameSanitized(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "/tmp/evil/path/asset.png",
@@ -258,7 +258,7 @@ func TestIssueAttachmentUpload_Base64_EmptyFile(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "empty.txt",
@@ -285,7 +285,7 @@ func TestIssueAttachmentUpload_Base64_WindowsStyleFileName(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           `C:\Users\me\asset.png`,
@@ -308,7 +308,7 @@ func TestIssueAttachmentUpload_Base64_OversizePreDecode(t *testing.T) {
 		t.Fatal("UploadAttachment must not be called when oversize is rejected pre-decode")
 		return nil, nil
 	}
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "big.bin",
@@ -322,7 +322,7 @@ func TestIssueAttachmentUpload_Base64_OversizePreDecode(t *testing.T) {
 // TestIssueAttachmentUpload_NeitherSpecified_ErrorMessage は両モード未指定エラーが両方のモードに言及することを確認する。
 func TestIssueAttachmentUpload_NeitherSpecified_ErrorMessage(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key": "PROJ-1",
 	})
@@ -346,7 +346,7 @@ func TestIssueAttachmentUpload_DisableFilePaths_RejectsFilePaths(t *testing.T) {
 	}
 
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{DisableFilePaths: true})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{DisableFilePaths: true})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":  "PROJ-1",
 		"file_paths": f1,
@@ -375,7 +375,7 @@ func TestIssueAttachmentUpload_DisableFilePaths_AllowsBase64(t *testing.T) {
 		return &domain.Issue{IssueKey: issueKey}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{DisableFilePaths: true})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{DisableFilePaths: true})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_name":           "safe.txt",
@@ -396,7 +396,7 @@ func TestIssueAttachmentUpload_BothModesSpecified(t *testing.T) {
 	encoded := base64.StdEncoding.EncodeToString([]byte("y"))
 
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_attachment_upload", map[string]any{
 		"issue_key":           "PROJ-1",
 		"file_paths":          f1,

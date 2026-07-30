@@ -29,7 +29,7 @@ const (
 // 既存の OAuthHandler は変更せず、multi-space 登録フロー専用に別ファイルで実装する。
 //
 // Authorize → Callback の処理順序 (C2):
-//  1. bootstrap_token 検証 + jti consume（idproxy 不要）
+//  1. bootstrap_token 検証 + jti consume（セッション Cookie 不要）
 //  2. state JWT 検証
 //  3. userID 一致検証
 //  4. nonce 消費（replay 防止: C3）
@@ -40,15 +40,15 @@ const (
 //  9. UserPreference 条件付き更新
 //  10. 200 JSON
 type MultiSpaceOAuthHandler struct {
-	provider      provider.OAuthProvider
-	tokenManager  auth.TokenManager
-	nonceStore    space.NonceStore
-	spaceStore    space.Store
-	redirectURI   string
-	stateSecret   []byte
-	stateTTL      time.Duration
-	logger        *slog.Logger
-	bootstrapKey  []byte
+	provider     provider.OAuthProvider
+	tokenManager auth.TokenManager
+	nonceStore   space.NonceStore
+	spaceStore   space.Store
+	redirectURI  string
+	stateSecret  []byte
+	stateTTL     time.Duration
+	logger       *slog.Logger
+	bootstrapKey []byte
 }
 
 // NewMultiSpaceOAuthHandler は MultiSpaceOAuthHandler を構築する。
@@ -153,7 +153,7 @@ func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *st
 		return
 	}
 
-	// idproxy の continue リダイレクト経由で二重エンコードされた場合に備えてデコードを試みる
+	// continue リダイレクト経由で二重エンコードされた場合に備えてデコードを試みる
 	if decoded, decErr := stdurl.QueryUnescape(rawBaseURL); decErr == nil && decoded != rawBaseURL {
 		rawBaseURL = decoded
 	}
@@ -187,7 +187,7 @@ func (h *MultiSpaceOAuthHandler) HandleAuthorize(w stdhttp.ResponseWriter, r *st
 		return
 	}
 
-	// bootstrap_token 検証で userID を取得（idproxy 不要）
+	// bootstrap_token 検証で userID を取得（セッション Cookie 不要）
 	userID, err := h.extractUserIDFromBootstrap(ctx, w, r, baseURL, alias)
 	if err != nil {
 		// extractUserIDFromBootstrap 内でレスポンスを書き込み済み
@@ -311,10 +311,10 @@ func (h *MultiSpaceOAuthHandler) HandleCallback(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	// 2. userID 一致検証（idproxy セッション切れ時は state.UserID をフォールバックとして使用）
+	// 2. userID 一致検証（context に userID が無い場合は state.UserID をフォールバックとして使用）
 	ctxUserID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		// idproxy セッション切れケース: state.UserID を信頼して注入
+		// context 未注入ケース: state.UserID を信頼して注入
 		ctx = auth.ContextWithUserID(ctx, claims.UserID)
 		r = r.WithContext(ctx)
 		ctxUserID = claims.UserID

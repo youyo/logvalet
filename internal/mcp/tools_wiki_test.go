@@ -19,7 +19,7 @@ func TestWikiList_Normal(t *testing.T) {
 		return []domain.WikiPage{{ID: 1, Name: "Top"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_list", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -35,7 +35,7 @@ func TestWikiList_Normal(t *testing.T) {
 
 func TestWikiList_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_list", map[string]any{})
 	if !result.IsError {
 		t.Fatal("expected tool error but got none")
@@ -50,7 +50,7 @@ func TestWikiList_WithKeyword(t *testing.T) {
 		return []domain.WikiPage{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_list", map[string]any{
 		"project_key": "PROJ",
 		"keyword":     "hello",
@@ -74,7 +74,7 @@ func TestWikiGet_Normal(t *testing.T) {
 		return &domain.WikiPage{ID: wikiID, Name: "Top"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_get", map[string]any{"wiki_id": float64(42)})
 
 	if result.IsError {
@@ -87,7 +87,7 @@ func TestWikiGet_Normal(t *testing.T) {
 
 func TestWikiGet_MissingID(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_get", map[string]any{})
 	if !result.IsError {
 		t.Fatal("expected tool error but got none")
@@ -102,7 +102,7 @@ func TestWikiCount_Normal(t *testing.T) {
 		return 5, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_count", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -115,7 +115,7 @@ func TestWikiCount_Normal(t *testing.T) {
 
 func TestWikiCount_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_count", map[string]any{})
 	if !result.IsError {
 		t.Fatal("expected tool error but got none")
@@ -130,7 +130,7 @@ func TestWikiTags_Normal(t *testing.T) {
 		return []domain.WikiTag{{ID: 1, Name: "go"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_tags", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -148,7 +148,7 @@ func TestWikiHistory_Normal(t *testing.T) {
 		return []domain.WikiHistory{{PageID: wikiID, Version: 1}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_history", map[string]any{"wiki_id": float64(10)})
 
 	if result.IsError {
@@ -167,7 +167,7 @@ func TestWikiStars_Normal(t *testing.T) {
 		return []domain.WikiStar{{ID: 1, Title: "Top"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_stars", map[string]any{"wiki_id": float64(10)})
 
 	if result.IsError {
@@ -183,7 +183,7 @@ func TestWikiAttachmentList_Normal(t *testing.T) {
 		return []domain.Attachment{{ID: 1, Name: "file.txt"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_attachment_list", map[string]any{"wiki_id": float64(10)})
 
 	if result.IsError {
@@ -199,7 +199,7 @@ func TestWikiSharedFileList_Normal(t *testing.T) {
 		return []domain.SharedFile{{ID: 1, Name: "report.pdf"}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_wiki_sharedfile_list", map[string]any{"wiki_id": float64(10)})
 
 	if result.IsError {

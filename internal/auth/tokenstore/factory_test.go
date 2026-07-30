@@ -106,22 +106,19 @@ func TestNewTokenStore_SQLite(t *testing.T) {
 	}
 }
 
-func TestNewTokenStore_DynamoDB(t *testing.T) {
+func TestNewTokenStore_DynamoDBRemoved(t *testing.T) {
+	// dynamodb バックエンドは廃止済み。auth.StoreType("dynamodb") を直接渡しても
+	// ErrInvalidStoreType になることを確認する（決定F）。
 	cfg := &auth.OAuthEnvConfig{
-		TokenStoreType: auth.StoreTypeDynamoDB,
-		DynamoDBTable:  "test-table",
-		DynamoDBRegion: "ap-northeast-1",
+		TokenStoreType: auth.StoreType("dynamodb"),
 	}
 
 	store, err := NewTokenStore(cfg)
-	if err != nil {
-		t.Fatalf("NewTokenStore(dynamodb): unexpected error: %v", err)
+	if store != nil {
+		t.Errorf("expected nil store, got %v", store)
 	}
-	defer store.Close()
-
-	// DynamoDBStore が返されたことを型アサーションで確認
-	if _, ok := store.(*DynamoDBStore); !ok {
-		t.Errorf("expected *DynamoDBStore, got %T", store)
+	if !errors.Is(err, auth.ErrInvalidStoreType) {
+		t.Errorf("expected ErrInvalidStoreType, got: %v", err)
 	}
 }
 

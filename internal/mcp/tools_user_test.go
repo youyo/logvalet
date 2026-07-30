@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -21,7 +20,7 @@ func TestUserMe_Normal(t *testing.T) {
 		return &domain.User{ID: 42, UserID: "testuser", Name: "テストユーザー"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_me", map[string]any{})
 
 	if result.IsError {
@@ -39,7 +38,7 @@ func TestUserMe_Error(t *testing.T) {
 		return nil, backlog.ErrNotFound
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_me", map[string]any{})
 
 	if !result.IsError {
@@ -61,7 +60,7 @@ func TestUserActivity_Normal(t *testing.T) {
 		return []domain.Activity{{ID: 1, Type: 1, Created: &now}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{
 		"user_id": "12345",
 		"limit":   float64(10),
@@ -91,7 +90,7 @@ func TestUserActivity_Me(t *testing.T) {
 		return []domain.Activity{{ID: 2, Type: 2, Created: &now}}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{"user_id": "me"})
 
 	if result.IsError {
@@ -109,7 +108,7 @@ func TestUserActivity_Me(t *testing.T) {
 func TestUserActivity_MissingUserID(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{})
 
 	if !result.IsError {
@@ -155,7 +154,7 @@ func TestUserActivity_SincePaginates(t *testing.T) {
 		return apr2026, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{
 		"user_id": "user1",
 		"since":   "2026-04-01",
@@ -191,7 +190,7 @@ func TestUserActivity_UntilEndOfDay(t *testing.T) {
 		return activities, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{
 		"user_id": "user1",
 		"until":   "2026-04-30",
@@ -208,10 +207,7 @@ func TestUserActivity_UntilEndOfDay(t *testing.T) {
 	// TextContent から JSON テキストを取得して ID=1 が含まれることを確認
 	// 現在の実装は parseDateStr("2026-04-30") → 2026-04-30T00:00:00 として
 	// midday.After(2026-04-30T00:00:00) = true で除外してしまうため失敗（Red）
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected gomcp.TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	// JSON パースして activities 配列を取得し、ID=1 が含まれることを確認
 	var got []domain.Activity
@@ -259,7 +255,7 @@ func TestUserActivity_LimitWithoutDateFilter(t *testing.T) {
 		return bigBatch, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_user_activity", map[string]any{
 		"user_id": "user1",
 		"limit":   float64(5),
@@ -273,10 +269,7 @@ func TestUserActivity_LimitWithoutDateFilter(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected gomcp.TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 
 	// JSON パースして activities 配列の件数が limit=5 以内であることを確認
 	// 現在の実装: フィルタなしの場合 activities をそのまま返す（100件）→ Red

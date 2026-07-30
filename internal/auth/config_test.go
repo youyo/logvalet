@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -15,14 +16,12 @@ func mockGetenv(envs map[string]string) func(string) string {
 // fullOAuthEnvs は OAuth が有効な全環境変数セットを返すヘルパー。
 func fullOAuthEnvs() map[string]string {
 	return map[string]string{
-		"LOGVALET_MCP_TOKEN_STORE":                "memory",
-		"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH":    "/tmp/test.db",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
-		"LOGVALET_MCP_BACKLOG_CLIENT_ID":           "test-client-id",
-		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET":       "test-client-secret",
-		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":        "https://example.com/callback",
-		"LOGVALET_MCP_OAUTH_STATE_SECRET":          "0123456789abcdef0123456789abcdef", // 32 hex chars = 16 bytes
+		"LOGVALET_MCP_TOKEN_STORE":             "memory",
+		"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH": "/tmp/test.db",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":       "test-client-id",
+		"LOGVALET_MCP_BACKLOG_CLIENT_SECRET":   "test-client-secret",
+		"LOGVALET_MCP_BACKLOG_REDIRECT_URL":    "https://example.com/callback",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":      "0123456789abcdef0123456789abcdef", // 32 hex chars = 16 bytes
 	}
 }
 
@@ -36,12 +35,6 @@ func TestLoadOAuthEnvConfig_Defaults(t *testing.T) {
 	}
 	if cfg.SQLitePath != "./logvalet.db" {
 		t.Errorf("SQLitePath = %q, want %q", cfg.SQLitePath, "./logvalet.db")
-	}
-	if cfg.DynamoDBTable != "" {
-		t.Errorf("DynamoDBTable = %q, want empty", cfg.DynamoDBTable)
-	}
-	if cfg.DynamoDBRegion != "" {
-		t.Errorf("DynamoDBRegion = %q, want empty", cfg.DynamoDBRegion)
 	}
 	if cfg.BacklogClientID != "" {
 		t.Errorf("BacklogClientID = %q, want empty", cfg.BacklogClientID)
@@ -68,12 +61,6 @@ func TestLoadOAuthEnvConfig_AllSet(t *testing.T) {
 	}
 	if cfg.SQLitePath != "/tmp/test.db" {
 		t.Errorf("SQLitePath = %q, want %q", cfg.SQLitePath, "/tmp/test.db")
-	}
-	if cfg.DynamoDBTable != "test-table" {
-		t.Errorf("DynamoDBTable = %q, want %q", cfg.DynamoDBTable, "test-table")
-	}
-	if cfg.DynamoDBRegion != "ap-northeast-1" {
-		t.Errorf("DynamoDBRegion = %q, want %q", cfg.DynamoDBRegion, "ap-northeast-1")
 	}
 	if cfg.BacklogClientID != "test-client-id" {
 		t.Errorf("BacklogClientID = %q, want %q", cfg.BacklogClientID, "test-client-id")
@@ -113,15 +100,13 @@ func TestLoadOAuthEnvConfig_StoreTypeSQLite(t *testing.T) {
 	}
 }
 
-func TestLoadOAuthEnvConfig_StoreTypeDynamoDB(t *testing.T) {
-	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
+func TestLoadOAuthEnvConfig_StoreTypeDynamoDBRemoved(t *testing.T) {
+	// dynamodb バックエンドは廃止済み。未知値として ErrInvalidStoreType になる（決定F）。
+	_, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
 		"LOGVALET_MCP_TOKEN_STORE": "dynamodb",
 	}))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.TokenStoreType != StoreTypeDynamoDB {
-		t.Errorf("TokenStoreType = %q, want %q", cfg.TokenStoreType, StoreTypeDynamoDB)
+	if !errors.Is(err, ErrInvalidStoreType) {
+		t.Errorf("expected ErrInvalidStoreType, got: %v", err)
 	}
 }
 
@@ -134,8 +119,6 @@ func TestLoadOAuthEnvConfig_StoreTypeCaseInsensitive(t *testing.T) {
 		{"Memory", StoreTypeMemory},
 		{"SQLITE", StoreTypeSQLite},
 		{"Sqlite", StoreTypeSQLite},
-		{"DYNAMODB", StoreTypeDynamoDB},
-		{"DynamoDB", StoreTypeDynamoDB},
 	}
 	for _, tc := range cases {
 		t.Run(tc.input, func(t *testing.T) {
@@ -189,8 +172,8 @@ func TestValidate_OAuthEnabled_MissingClientID(t *testing.T) {
 
 func TestValidate_OAuthEnabled_MissingClientSecret(t *testing.T) {
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_BACKLOG_CLIENT_ID":  "test-id",
-		"LOGVALET_MCP_OAUTH_STATE_SECRET": "0123456789abcdef0123456789abcdef",
+		"LOGVALET_MCP_BACKLOG_CLIENT_ID":    "test-id",
+		"LOGVALET_MCP_OAUTH_STATE_SECRET":   "0123456789abcdef0123456789abcdef", // gitleaks:allow (test fixture)
 		"LOGVALET_MCP_BACKLOG_REDIRECT_URL": "https://example.com/callback",
 	}))
 	if err != nil {
@@ -257,58 +240,10 @@ func TestValidate_SQLite_MissingSQLitePath(t *testing.T) {
 	}
 }
 
-func TestValidate_DynamoDB_MissingTable(t *testing.T) {
-	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_TOKEN_STORE":                "dynamodb",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
-	}))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatal("expected validation error for missing dynamodb table")
-	}
-	if !strings.Contains(err.Error(), EnvDynamoDBTable) {
-		t.Errorf("error should mention %s: %v", EnvDynamoDBTable, err)
-	}
-}
-
-func TestValidate_DynamoDB_MissingRegion(t *testing.T) {
-	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_TOKEN_STORE":               "dynamodb",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE": "test-table",
-	}))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatal("expected validation error for missing dynamodb region")
-	}
-	if !strings.Contains(err.Error(), EnvDynamoDBRegion) {
-		t.Errorf("error should mention %s: %v", EnvDynamoDBRegion, err)
-	}
-}
-
-func TestValidate_DynamoDB_AllSet(t *testing.T) {
-	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_TOKEN_STORE":                "dynamodb",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE":  "test-table",
-		"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION": "ap-northeast-1",
-	}))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("dynamodb with all set should not fail: %v", err)
-	}
-}
-
 func TestValidate_MultipleErrors(t *testing.T) {
-	// OAuth 有効 + DynamoDB だが、必須項目が複数欠けている
+	// OAuth 有効だが、必須項目が複数欠けている
 	cfg, err := LoadOAuthEnvConfig(mockGetenv(map[string]string{
-		"LOGVALET_MCP_TOKEN_STORE":       "dynamodb",
+		"LOGVALET_MCP_TOKEN_STORE":       "memory",
 		"LOGVALET_MCP_BACKLOG_CLIENT_ID": "test-id",
 	}))
 	if err != nil {
@@ -320,13 +255,10 @@ func TestValidate_MultipleErrors(t *testing.T) {
 	}
 	errStr := err.Error()
 	// OAuth 必須項目: client_secret, redirect_url, state_secret
-	// DynamoDB 必須項目: table, region
 	expectedMentions := []string{
 		EnvBacklogClientSecret,
 		EnvBacklogRedirectURL,
 		EnvOAuthStateSecret,
-		EnvDynamoDBTable,
-		EnvDynamoDBRegion,
 	}
 	for _, mention := range expectedMentions {
 		if !strings.Contains(errStr, mention) {
@@ -370,7 +302,6 @@ func TestStoreType_String(t *testing.T) {
 	}{
 		{StoreTypeMemory, "memory"},
 		{StoreTypeSQLite, "sqlite"},
-		{StoreTypeDynamoDB, "dynamodb"},
 	}
 	for _, tc := range cases {
 		if got := string(tc.st); got != tc.want {

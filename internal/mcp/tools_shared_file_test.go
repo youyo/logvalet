@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -23,7 +22,7 @@ func TestSharedFileList_Count_Normal(t *testing.T) {
 		return []domain.SharedFile{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_shared_file_list", map[string]any{
 		"project_key": "PROJ",
 		"count":       float64(10),
@@ -52,7 +51,7 @@ func TestSharedFileDownload_Normal(t *testing.T) {
 		return []byte("file contents"), "readme.txt", "text/plain", nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_shared_file_download", map[string]any{
 		"project_key": "PROJ",
 		"file_id":     float64(42),
@@ -64,10 +63,7 @@ func TestSharedFileDownload_Normal(t *testing.T) {
 	if len(result.Content) == 0 {
 		t.Fatal("expected non-empty result")
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var out map[string]any
 	if err := json.Unmarshal([]byte(textContent.Text), &out); err != nil {
 		t.Fatalf("failed to parse result JSON: %v", err)
@@ -90,7 +86,7 @@ func TestSharedFileDownload_TooLarge(t *testing.T) {
 		return nil, "", "", backlog.ErrDownloadTooLarge
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_shared_file_download", map[string]any{
 		"project_key": "PROJ",
 		"file_id":     float64(42),
@@ -100,10 +96,7 @@ func TestSharedFileDownload_TooLarge(t *testing.T) {
 		t.Fatal("expected tool error but got none")
 	}
 	// エラーメッセージに too large が含まれるか確認
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	if !strings.Contains(strings.ToLower(textContent.Text), "too large") &&
 		!strings.Contains(strings.ToLower(textContent.Text), "large") {
 		t.Logf("error message: %s", textContent.Text)
@@ -114,7 +107,7 @@ func TestSharedFileDownload_TooLarge(t *testing.T) {
 func TestSharedFileDownload_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_shared_file_download", map[string]any{"file_id": float64(42)})
 
 	if !result.IsError {
@@ -126,7 +119,7 @@ func TestSharedFileDownload_MissingProjectKey(t *testing.T) {
 func TestSharedFileDownload_MissingFileID(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_shared_file_download", map[string]any{"project_key": "PROJ"})
 
 	if !result.IsError {
