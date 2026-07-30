@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -21,7 +20,9 @@ func TestRegisterWithSpaces_InjectsSpacesAndAllSpaces(t *testing.T) {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
-	tool := gomcp.NewTool("inject_test", gomcp.WithDescription("test"))
+	tool := mcpinternal.NewToolDef("inject_test",
+		mcpinternal.WithDesc("test"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})
@@ -44,9 +45,9 @@ func TestRegisterWithSpaces_PreservesExistingProperties(t *testing.T) {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
-	tool := gomcp.NewTool("preserve_test",
-		gomcp.WithDescription("preserve"),
-		gomcp.WithString("mode", gomcp.Description("mode")),
+	tool := mcpinternal.NewToolDef("preserve_test",
+		mcpinternal.WithDesc("preserve"),
+		mcpinternal.WithStringParam("mode", false, "mode"),
 	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
@@ -74,7 +75,9 @@ func TestRegisterWithSpacesWrite_InjectsSpaces(t *testing.T) {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
-	tool := gomcp.NewTool("write_inject_test", gomcp.WithDescription("test write"))
+	tool := mcpinternal.NewToolDef("write_inject_test",
+		mcpinternal.WithDesc("test write"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})
@@ -94,7 +97,9 @@ func TestRegisterWithSpaces_SpacesPropertySchema(t *testing.T) {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
-	tool := gomcp.NewTool("schema_test", gomcp.WithDescription("schema"))
+	tool := mcpinternal.NewToolDef("schema_test",
+		mcpinternal.WithDesc("schema"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})

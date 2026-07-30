@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
 )
@@ -13,14 +12,14 @@ import (
 // RegisterActivityTools はアクティビティ関連の MCP tools を ToolRegistry に登録する。
 func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_activity_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_list",
-		gomcp.WithDescription("List activities by scope (space, project, or user)"),
-		gomcp.WithString("user_id", gomcp.Description("User ID or 'me' for current user")),
-		gomcp.WithString("project_key", gomcp.Description("Project key")),
-		gomcp.WithNumber("count", gomcp.Description("Max number of activities (default 20, max 100)")),
-		gomcp.WithString("activity_type_ids", gomcp.Description("Comma-separated activity type IDs to filter")),
-		gomcp.WithString("order", gomcp.Description("Sort order: asc or desc (default: desc)")),
-		readOnlyAnnotation("アクティビティ一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_activity_list",
+		WithDesc("List activities by scope (space, project, or user)"),
+		WithStringParam("user_id", false, "User ID or 'me' for current user"),
+		WithStringParam("project_key", false, "Project key"),
+		WithNumberParam("count", false, "Max number of activities (default 20, max 100)"),
+		WithStringParam("activity_type_ids", false, "Comma-separated activity type IDs to filter"),
+		WithStringParam("order", false, "Sort order: asc or desc (default: desc)"),
+		WithAnnotation(readOnlyAnnotation("アクティビティ一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, hasUserID := stringArg(args, "user_id")
 		projectKey, hasProjectKey := stringArg(args, "project_key")
@@ -84,13 +83,13 @@ func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_activity_digest: B4
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_activity_digest",
-		gomcp.WithDescription("Generate an activity digest for a space or project"),
-		gomcp.WithString("since", gomcp.Description("Start date (YYYY-MM-DD)")),
-		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),
-		gomcp.WithNumber("limit", gomcp.Description("Max number of activities (default 20)")),
-		gomcp.WithString("project", gomcp.Description("Filter by project key")),
-		readOnlyAnnotation("アクティビティダイジェスト生成"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_activity_digest",
+		WithDesc("Generate an activity digest for a space or project"),
+		WithStringParam("since", false, "Start date (YYYY-MM-DD)"),
+		WithStringParam("until", false, "End date (YYYY-MM-DD)"),
+		WithNumberParam("limit", false, "Max number of activities (default 20)"),
+		WithStringParam("project", false, "Filter by project key"),
+		WithAnnotation(readOnlyAnnotation("アクティビティダイジェスト生成")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := digest.ActivityDigestOptions{
 			Limit: 20,

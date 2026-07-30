@@ -38,9 +38,9 @@ func newMultiSpaceRegistryWithFactory(
 }
 
 // echoTool は引数に "echo_key" を含み、それをそのまま返すテスト用 ToolFunc。
-var echoTool = gomcp.NewTool("echo_tool",
-	gomcp.WithDescription("echo tool for testing"),
-	gomcp.WithString("echo_key", gomcp.Description("value to echo")),
+var echoTool = mcpinternal.NewToolDef("echo_tool",
+	mcpinternal.WithDesc("echo tool for testing"),
+	mcpinternal.WithStringParam("echo_key", false, "value to echo"),
 )
 
 func echoFn(_ context.Context, _ backlog.Client, args map[string]any) (any, error) {
@@ -93,7 +93,9 @@ func TestRegisterWithSpaces_NoSpaces(t *testing.T) {
 
 	s, reg := newMultiSpaceRegistry(store)
 	fnCalled := false
-	tool := gomcp.NewTool("check_tool", gomcp.WithDescription("check"))
+	tool := mcpinternal.NewToolDef("check_tool",
+		mcpinternal.WithDesc("check"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		fnCalled = true
 		return map[string]any{"ok": true}, nil
@@ -130,7 +132,9 @@ func TestRegisterWithSpaces_SingleSpace(t *testing.T) {
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("fanout_tool", gomcp.WithDescription("fanout"))
+	tool := mcpinternal.NewToolDef("fanout_tool",
+		mcpinternal.WithDesc("fanout"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"result": "ok"}, nil
 	})
@@ -184,7 +188,9 @@ func TestRegisterWithSpaces_MultiSpace(t *testing.T) {
 	}
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("multi_tool", gomcp.WithDescription("multi"))
+	tool := mcpinternal.NewToolDef("multi_tool",
+		mcpinternal.WithDesc("multi"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"result": "ok"}, nil
 	})
@@ -231,7 +237,9 @@ func TestRegisterWithSpaces_AllSpaces(t *testing.T) {
 	}
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("all_tool", gomcp.WithDescription("all spaces"))
+	tool := mcpinternal.NewToolDef("all_tool",
+		mcpinternal.WithDesc("all spaces"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"result": "ok"}, nil
 	})
@@ -262,7 +270,9 @@ func TestRegisterWithSpaces_Conflict(t *testing.T) {
 	store := space.NewMemoryStore()
 	s, reg := newMultiSpaceRegistry(store)
 
-	tool := gomcp.NewTool("conflict_tool", gomcp.WithDescription("conflict"))
+	tool := mcpinternal.NewToolDef("conflict_tool",
+		mcpinternal.WithDesc("conflict"),
+	)
 	reg.RegisterWithSpaces(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})
@@ -286,7 +296,9 @@ func TestRegisterWithSpacesWrite_NoSpaces(t *testing.T) {
 	s, reg := newMultiSpaceRegistry(store)
 
 	fnCalled := false
-	tool := gomcp.NewTool("write_nospace_tool", gomcp.WithDescription("write no space"))
+	tool := mcpinternal.NewToolDef("write_nospace_tool",
+		mcpinternal.WithDesc("write no space"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		fnCalled = true
 		return map[string]any{"written": true}, nil
@@ -322,7 +334,9 @@ func TestRegisterWithSpacesWrite_SingleOK(t *testing.T) {
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
-	tool := gomcp.NewTool("write_single_tool", gomcp.WithDescription("write single"))
+	tool := mcpinternal.NewToolDef("write_single_tool",
+		mcpinternal.WithDesc("write single"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return map[string]any{"written": true}, nil
 	})
@@ -351,7 +365,9 @@ func TestRegisterWithSpacesWrite_MultiError(t *testing.T) {
 	store := space.NewMemoryStore()
 	s, reg := newMultiSpaceRegistry(store)
 
-	tool := gomcp.NewTool("write_multi_tool", gomcp.WithDescription("write multi"))
+	tool := mcpinternal.NewToolDef("write_multi_tool",
+		mcpinternal.WithDesc("write multi"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})
@@ -373,7 +389,9 @@ func TestRegisterWithSpacesWrite_AllSpacesError(t *testing.T) {
 	store := space.NewMemoryStore()
 	s, reg := newMultiSpaceRegistry(store)
 
-	tool := gomcp.NewTool("write_allspaces_tool", gomcp.WithDescription("write all spaces"))
+	tool := mcpinternal.NewToolDef("write_allspaces_tool",
+		mcpinternal.WithDesc("write all spaces"),
+	)
 	reg.RegisterWithSpacesWrite(tool, func(_ context.Context, _ backlog.Client, _ map[string]any) (any, error) {
 		return nil, nil
 	})

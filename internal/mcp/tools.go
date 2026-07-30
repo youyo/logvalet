@@ -106,39 +106,74 @@ func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context
 // factory が設定されている場合、リクエストの context から per-user クライアントを生成する。
 // factory が ErrProviderNotConnected / ErrTokenRefreshFailed / ErrTokenExpired を返し、
 // authorizationURL が設定されている場合は _meta.authorization_url を付与する。
-func (r *ToolRegistry) Register(tool gomcp.Tool, fn ToolFunc) {
-	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+func (r *ToolRegistry) Register(tool ToolDef, fn ToolFunc) {
+	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		return r.callWithDefaultClient(ctx, fn, req.GetArguments())
 	})
 }
 
-// injectSpaceParams は tool.InputSchema.Properties に "spaces" と "all_spaces" を注入する。
-// 既存の properties は保持される。
-func injectSpaceParams(tool *gomcp.Tool) {
-	if tool.InputSchema.Properties == nil {
-		tool.InputSchema.Properties = make(map[string]any)
-	}
-	tool.InputSchema.Properties["spaces"] = map[string]any{
-		"type":        "array",
-		"items":       map[string]any{"type": "string"},
-		"description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-	}
-	tool.InputSchema.Properties["all_spaces"] = map[string]any{
-		"type":        "boolean",
-		"description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-	}
+// injectSpaceParams は tool.Params に "spaces" と "all_spaces" を注入する。
+// 既存の Params は保持される。
+func injectSpaceParams(tool *ToolDef) {
+	tool.Params = append(tool.Params,
+		SpacesParamSpec("対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）"),
+		AllSpacesParamSpec("登録済みの全スペースを対象にする（spaces と同時指定不可）"),
+	)
 }
 
 // injectSpaceParamWrite は write ツール用に "spaces" のみを注入する。
-func injectSpaceParamWrite(tool *gomcp.Tool) {
-	if tool.InputSchema.Properties == nil {
-		tool.InputSchema.Properties = make(map[string]any)
+func injectSpaceParamWrite(tool *ToolDef) {
+	tool.Params = append(tool.Params,
+		SpacesWriteParamSpec("対象 Backlog スペースの alias（1件のみ指定可）"),
+	)
+}
+
+// NewToolDef は functional option を順に適用して ToolDef を組み立てる。
+// gomcp.NewTool(name, opts...) ビルダーパターンの logvalet 版で、既存の
+// 呼び出しパターンを機械的に置き換えられるよう設計している。
+func NewToolDef(name string, opts ...func(*ToolDef)) ToolDef {
+	t := ToolDef{Name: name}
+	for _, opt := range opts {
+		opt(&t)
 	}
-	tool.InputSchema.Properties["spaces"] = map[string]any{
-		"type":        "array",
-		"items":       map[string]any{"type": "string"},
-		"description": "対象 Backlog スペースの alias（1件のみ指定可）",
+	return t
+}
+
+// WithDesc は ToolDef.Description を設定する。gomcp.WithDescription 相当。
+func WithDesc(desc string) func(*ToolDef) {
+	return func(t *ToolDef) { t.Description = desc }
+}
+
+// WithAnnotation は ToolDef.Annotation を設定する。
+// gomcp.WithToolAnnotation(readOnlyAnnotation(...)) 等の置き換えに使う。
+func WithAnnotation(a ToolAnnotation) func(*ToolDef) {
+	return func(t *ToolDef) { t.Annotation = a }
+}
+
+// withParam は ParamSpec を ToolDef.Params に追加し、required なら Required にも追加する
+// 共通ヘルパー。
+func withParam(p ParamSpec, required bool) func(*ToolDef) {
+	return func(t *ToolDef) {
+		t.Params = append(t.Params, p)
+		if required {
+			t.Required = append(t.Required, p.Name)
+		}
 	}
+}
+
+// WithStringParam は string パラメータを追加する。gomcp.WithString(name, gomcp.Required(), gomcp.Description(desc)) 相当。
+func WithStringParam(name string, required bool, desc string) func(*ToolDef) {
+	return withParam(ParamSpec{Name: name, Type: ParamTypeString, Description: desc}, required)
+}
+
+// WithNumberParam は number パラメータを追加する。gomcp.WithNumber(...) 相当。
+func WithNumberParam(name string, required bool, desc string) func(*ToolDef) {
+	return withParam(ParamSpec{Name: name, Type: ParamTypeNumber, Description: desc}, required)
+}
+
+// WithBooleanParam は boolean パラメータを追加する。gomcp.WithBoolean(...) 相当。
+func WithBooleanParam(name string, required bool, desc string) func(*ToolDef) {
+	return withParam(ParamSpec{Name: name, Type: ParamTypeBoolean, Description: desc}, required)
 }
 
 // RegisterWithSpaces は read-only ツールを multi-space fan-out 対応で登録する。
@@ -146,9 +181,9 @@ func injectSpaceParamWrite(tool *gomcp.Tool) {
 // args に "spaces" ([]string) または "all_spaces" (bool) を渡すと fan-out モードになる。
 // "spaces" と "all_spaces" の同時指定はエラー。
 // spaces/all_spaces 未指定時は DynamoDB UserPreference → 単一スペース fallback → default client の順で解決する。
-func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
+func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 	injectSpaceParams(&tool)
-	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		args := req.GetArguments()
 
 		spaces := stringSliceArg(args, "spaces")
@@ -206,9 +241,9 @@ func (r *ToolRegistry) RegisterWithSpaces(tool gomcp.Tool, fn ToolFunc) {
 // spaces=["foo"]（1件）→ foo スペースの client で fn を実行。
 // spaces 複数 → エラー。
 // all_spaces=true → エラー。
-func (r *ToolRegistry) RegisterWithSpacesWrite(tool gomcp.Tool, fn ToolFunc) {
+func (r *ToolRegistry) RegisterWithSpacesWrite(tool ToolDef, fn ToolFunc) {
 	injectSpaceParamWrite(&tool)
-	r.server.AddTool(tool, func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+	r.server.AddTool(tool.ToSDKTool(), func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		args := req.GetArguments()
 
 		spaces := stringSliceArg(args, "spaces")

@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"sort"
-
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 )
 
 // ParamType は ToolDef パラメータが表す JSON Schema の "type" 値。
@@ -145,62 +143,6 @@ func (t ToolDef) InputSchemaJSON() map[string]any {
 		"type":       "object",
 		"properties": props,
 		"required":   append([]string(nil), t.Required...),
-	}
-}
-
-// ToSDKTool は ToolDef を mark3labs/mcp-go の gomcp.Tool に変換する。
-// マイグレーション期間中、logvalet 型で組み立てたツール定義を既存の
-// ToolRegistry.Register 系 API (gomcp.Tool を要求する) に橋渡しするために使う。
-func (t ToolDef) ToSDKTool() gomcp.Tool {
-	props := make(map[string]any, len(t.Params))
-	for _, p := range t.Params {
-		props[p.Name] = p.ToJSONSchema()
-	}
-	return gomcp.Tool{
-		Name:        t.Name,
-		Title:       t.Title,
-		Description: t.Description,
-		InputSchema: gomcp.ToolInputSchema{
-			Type:       "object",
-			Properties: props,
-			Required:   append([]string(nil), t.Required...),
-		},
-		Annotations: gomcp.ToolAnnotation{
-			Title:           t.Annotation.Title,
-			ReadOnlyHint:    t.Annotation.ReadOnlyHint,
-			DestructiveHint: t.Annotation.DestructiveHint,
-			IdempotentHint:  t.Annotation.IdempotentHint,
-			OpenWorldHint:   t.Annotation.OpenWorldHint,
-		},
-	}
-}
-
-// ToolDefFromSDKTool は gomcp.Tool から ToolDef を復元する (ToSDKTool の逆変換)。
-// tools_list_baseline.json のような SDK 生成物を logvalet 型に取り込む経路として使う。
-func ToolDefFromSDKTool(t gomcp.Tool) ToolDef {
-	names := make([]string, 0, len(t.InputSchema.Properties))
-	for k := range t.InputSchema.Properties {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-	params := make([]ParamSpec, 0, len(names))
-	for _, name := range names {
-		schema, _ := t.InputSchema.Properties[name].(map[string]any)
-		params = append(params, ParamSpecFromJSONSchema(name, schema))
-	}
-	return ToolDef{
-		Name:        t.Name,
-		Title:       t.Title,
-		Description: t.Description,
-		Params:      params,
-		Required:    append([]string(nil), t.InputSchema.Required...),
-		Annotation: ToolAnnotation{
-			Title:           t.Annotations.Title,
-			ReadOnlyHint:    t.Annotations.ReadOnlyHint,
-			DestructiveHint: t.Annotations.DestructiveHint,
-			IdempotentHint:  t.Annotations.IdempotentHint,
-			OpenWorldHint:   t.Annotations.OpenWorldHint,
-		},
 	}
 }
 

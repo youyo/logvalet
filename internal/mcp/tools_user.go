@@ -6,25 +6,24 @@ import (
 	"strconv"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
 // RegisterUserTools はユーザー関連の MCP tools を ToolRegistry に登録する。
 func RegisterUserTools(r *ToolRegistry) {
 	// logvalet_user_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_list",
-		gomcp.WithDescription("List all users in the space"),
-		readOnlyAnnotation("ユーザー一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_user_list",
+		WithDesc("List all users in the space"),
+		WithAnnotation(readOnlyAnnotation("ユーザー一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		return client.ListUsers(ctx)
 	})
 
 	// logvalet_user_get
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_get",
-		gomcp.WithDescription("Get user details by user ID"),
-		gomcp.WithString("user_id", gomcp.Required(), gomcp.Description("User ID")),
-		readOnlyAnnotation("ユーザー詳細取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_user_get",
+		WithDesc("Get user details by user ID"),
+		WithStringParam("user_id", true, "User ID"),
+		WithAnnotation(readOnlyAnnotation("ユーザー詳細取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, ok := stringArg(args, "user_id")
 		if !ok || userID == "" {
@@ -34,23 +33,23 @@ func RegisterUserTools(r *ToolRegistry) {
 	})
 
 	// logvalet_user_me: B1
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_me",
-		gomcp.WithDescription("Get the authenticated user's information"),
-		readOnlyAnnotation("認証ユーザー情報取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_user_me",
+		WithDesc("Get the authenticated user's information"),
+		WithAnnotation(readOnlyAnnotation("認証ユーザー情報取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		return client.GetMyself(ctx)
 	})
 
 	// logvalet_user_activity: B2
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_user_activity",
-		gomcp.WithDescription("List activities for a specific user"),
-		gomcp.WithString("user_id", gomcp.Required(), gomcp.Description("User ID or 'me' for current user")),
-		gomcp.WithString("since", gomcp.Description("Start date (YYYY-MM-DD)")),
-		gomcp.WithString("until", gomcp.Description("End date (YYYY-MM-DD)")),
-		gomcp.WithNumber("limit", gomcp.Description("Max number of activities (default 20)")),
-		gomcp.WithString("project", gomcp.Description("Filter by project key (client-side filter)")),
-		gomcp.WithString("activity_type_ids", gomcp.Description("Comma-separated activity type IDs")),
-		readOnlyAnnotation("ユーザーアクティビティ取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_user_activity",
+		WithDesc("List activities for a specific user"),
+		WithStringParam("user_id", true, "User ID or 'me' for current user"),
+		WithStringParam("since", false, "Start date (YYYY-MM-DD)"),
+		WithStringParam("until", false, "End date (YYYY-MM-DD)"),
+		WithNumberParam("limit", false, "Max number of activities (default 20)"),
+		WithStringParam("project", false, "Filter by project key (client-side filter)"),
+		WithStringParam("activity_type_ids", false, "Comma-separated activity type IDs"),
+		WithAnnotation(readOnlyAnnotation("ユーザーアクティビティ取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		userID, ok := stringArg(args, "user_id")
 		if !ok || userID == "" {

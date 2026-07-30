@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
 )
@@ -12,10 +11,10 @@ import (
 // RegisterDocumentTools はドキュメント関連の MCP tools を ToolRegistry に登録する。
 func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_document_get
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_get",
-		gomcp.WithDescription("Get document by document ID"),
-		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
-		readOnlyAnnotation("ドキュメント取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_document_get",
+		WithDesc("Get document by document ID"),
+		WithStringParam("document_id", true, "Document ID"),
+		WithAnnotation(readOnlyAnnotation("ドキュメント取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		documentID, ok := stringArg(args, "document_id")
 		if !ok || documentID == "" {
@@ -25,12 +24,12 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_list",
-		gomcp.WithDescription("List documents in a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key (e.g. PROJ)")),
-		gomcp.WithNumber("count", gomcp.Description("Max number of documents")),
-		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
-		readOnlyAnnotation("ドキュメント一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_document_list",
+		WithDesc("List documents in a project"),
+		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
+		WithNumberParam("count", false, "Max number of documents"),
+		WithNumberParam("offset", false, "Offset for pagination"),
+		WithAnnotation(readOnlyAnnotation("ドキュメント一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -51,13 +50,13 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_create
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_document_create",
-		gomcp.WithDescription("Create a new document in a project"),
-		gomcp.WithNumber("project_id", gomcp.Required(), gomcp.Description("Project ID (numeric)")),
-		gomcp.WithString("title", gomcp.Required(), gomcp.Description("Document title")),
-		gomcp.WithString("content", gomcp.Required(), gomcp.Description("Document content (markdown)")),
-		gomcp.WithString("parent_id", gomcp.Description("Parent document ID (optional)")),
-		writeAnnotation("ドキュメント作成", false),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_document_create",
+		WithDesc("Create a new document in a project"),
+		WithNumberParam("project_id", true, "Project ID (numeric)"),
+		WithStringParam("title", true, "Document title"),
+		WithStringParam("content", true, "Document content (markdown)"),
+		WithStringParam("parent_id", false, "Parent document ID (optional)"),
+		WithAnnotation(writeAnnotation("ドキュメント作成", false)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectID, ok := intArg(args, "project_id")
 		if !ok || projectID == 0 {
@@ -85,10 +84,10 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_tree: B5
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_tree",
-		gomcp.WithDescription("Get the document tree for a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		readOnlyAnnotation("ドキュメントツリー取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_document_tree",
+		WithDesc("Get the document tree for a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithAnnotation(readOnlyAnnotation("ドキュメントツリー取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -98,10 +97,10 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_digest: B6
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_digest",
-		gomcp.WithDescription("Generate a digest for a document"),
-		gomcp.WithString("document_id", gomcp.Required(), gomcp.Description("Document ID")),
-		readOnlyAnnotation("ドキュメントダイジェスト生成"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_document_digest",
+		WithDesc("Generate a digest for a document"),
+		WithStringParam("document_id", true, "Document ID"),
+		WithAnnotation(readOnlyAnnotation("ドキュメントダイジェスト生成")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		documentID, ok := stringArg(args, "document_id")
 		if !ok || documentID == "" {
@@ -113,16 +112,16 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_search
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_document_search",
-		gomcp.WithDescription("Search documents by keyword within a Backlog space"),
-		gomcp.WithString("keyword", gomcp.Required(), gomcp.Description("Search keyword")),
-		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys to filter (e.g. PROJ1,PROJ2)")),
-		gomcp.WithNumber("count", gomcp.Description("Max results (1-100, default 100)")),
-		gomcp.WithNumber("offset", gomcp.Description("Pagination offset (default 0)")),
-		gomcp.WithString("sort", gomcp.Description("Sort field: created | updated")),
-		gomcp.WithString("order", gomcp.Description("Sort order: asc | desc")),
-		gomcp.WithString("detail", gomcp.Description("Verbosity: snippet | meta | full (default: snippet)")),
-		readOnlyAnnotation("ドキュメント検索"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_document_search",
+		WithDesc("Search documents by keyword within a Backlog space"),
+		WithStringParam("keyword", true, "Search keyword"),
+		WithStringParam("project_keys", false, "Comma-separated project keys to filter (e.g. PROJ1,PROJ2)"),
+		WithNumberParam("count", false, "Max results (1-100, default 100)"),
+		WithNumberParam("offset", false, "Pagination offset (default 0)"),
+		WithStringParam("sort", false, "Sort field: created | updated"),
+		WithStringParam("order", false, "Sort order: asc | desc"),
+		WithStringParam("detail", false, "Verbosity: snippet | meta | full (default: snippet)"),
+		WithAnnotation(readOnlyAnnotation("ドキュメント検索")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		keyword, ok := stringArg(args, "keyword")
 		if !ok || keyword == "" {
@@ -174,8 +173,8 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
 		builder := digest.NewDefaultDocumentSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, docs, digest.DocumentSearchOptions{
-			Keyword:        keyword,
-			Detail:         detail,
+			Keyword: keyword,
+			Detail:  detail,
 			// RequestedCount は API の Count と同値（不一致だと possibly_more が偽陰性に戻る・AD11）
 			RequestedCount: count,
 			Offset:         offset,

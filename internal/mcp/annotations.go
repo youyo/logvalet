@@ -1,37 +1,40 @@
 package mcp
 
-import gomcp "github.com/mark3labs/mcp-go/mcp"
+// annotationBoolPtr は bool リテラルへのポインタを返す小さなヘルパー。
+// ToolAnnotation の *bool フィールドは「未設定」と「明示的に false」を
+// 区別するために値ではなくポインタで保持する。
+func annotationBoolPtr(b bool) *bool { return &b }
 
 // readOnlyAnnotation は list/get/stats/digest/health などの参照系ツールに適用する。
 // 環境を変更せず、retry しても副作用なし。
-func readOnlyAnnotation(title string) gomcp.ToolOption {
-	return gomcp.WithToolAnnotation(gomcp.ToolAnnotation{
+func readOnlyAnnotation(title string) ToolAnnotation {
+	return ToolAnnotation{
 		Title:          title,
-		ReadOnlyHint:   gomcp.ToBoolPtr(true),
-		IdempotentHint: gomcp.ToBoolPtr(true),
-		OpenWorldHint:  gomcp.ToBoolPtr(true),
-	})
+		ReadOnlyHint:   annotationBoolPtr(true),
+		IdempotentHint: annotationBoolPtr(true),
+		OpenWorldHint:  annotationBoolPtr(true),
+	}
 }
 
 // writeAnnotation は非破壊の書き込み系ツールに適用する。
 // idempotent は create=false / update=true 等で切り替える。
-func writeAnnotation(title string, idempotent bool) gomcp.ToolOption {
-	return gomcp.WithToolAnnotation(gomcp.ToolAnnotation{
+func writeAnnotation(title string, idempotent bool) ToolAnnotation {
+	return ToolAnnotation{
 		Title:           title,
-		ReadOnlyHint:    gomcp.ToBoolPtr(false),
-		DestructiveHint: gomcp.ToBoolPtr(false),
-		IdempotentHint:  gomcp.ToBoolPtr(idempotent),
-		OpenWorldHint:   gomcp.ToBoolPtr(true),
-	})
+		ReadOnlyHint:    annotationBoolPtr(false),
+		DestructiveHint: annotationBoolPtr(false),
+		IdempotentHint:  annotationBoolPtr(idempotent),
+		OpenWorldHint:   annotationBoolPtr(true),
+	}
 }
 
 // destructiveAnnotation は delete 系など破壊的更新ツールに適用する。
-func destructiveAnnotation(title string) gomcp.ToolOption {
-	return gomcp.WithToolAnnotation(gomcp.ToolAnnotation{
+func destructiveAnnotation(title string) ToolAnnotation {
+	return ToolAnnotation{
 		Title:           title,
-		ReadOnlyHint:    gomcp.ToBoolPtr(false),
-		DestructiveHint: gomcp.ToBoolPtr(true),
-		IdempotentHint:  gomcp.ToBoolPtr(true),
-		OpenWorldHint:   gomcp.ToBoolPtr(true),
-	})
+		ReadOnlyHint:    annotationBoolPtr(false),
+		DestructiveHint: annotationBoolPtr(true),
+		IdempotentHint:  annotationBoolPtr(true),
+		OpenWorldHint:   annotationBoolPtr(true),
+	}
 }
