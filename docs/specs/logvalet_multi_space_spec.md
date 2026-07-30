@@ -517,7 +517,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 local
 ```
 
-ただし remote MCP では idproxy/OIDC 由来の user_id を必ず使う。
+ただし remote MCP では Gateway（AgentCore）が確定した user_id を必ず使う。
 
 **【C1: devils-advocate 指摘】SQLite Store を remote MCP で使用した場合のデータ漏洩リスク:**
 
@@ -530,7 +530,7 @@ local
 対策（必須）:
   サーバー起動時に以下の組み合わせを validation error として拒否する:
     LOGVALET_SPACE_STORE_TYPE=sqlite かつ remote MCP モード
-    （remote MCP モードの判定: LOGVALET_MCP_MODE=remote または idproxy 設定が存在する場合）
+    （remote MCP モードの判定: LOGVALET_MCP_MODE=remote の場合）
 
   実装:
     func ValidateSpaceStoreConfig(storeType string, isMCPRemote bool) error {
@@ -1366,7 +1366,7 @@ remote MCP では MCP tool の中でブラウザ OAuth を完結しづらい。
 
 ### 9.4 MCP ユーザー分離
 
-MCP request は idproxy/OIDC 等により userID を確定している前提。
+MCP request は Gateway（AgentCore）等により userID を確定している前提。
 
 全ての MCP tool は以下の流れにする。
 
@@ -1437,7 +1437,7 @@ authorization_url を返す
   ↓
 /oauth/backlog/callback
   ↓
-idproxy/OIDC userID と state userID を検証
+Gateway 由来の userID と state userID を検証
   ↓
 token 保存
   ↓
@@ -2940,8 +2940,8 @@ tokenstore_get_latency_ms
 2. `lv spaces use <alias>` で default を設定
 
 **症状: MCP で `all_spaces` が 0件返る**
-1. idproxy userID の確認（`auth.UserIDFromContext` の返り値）
-2. SpaceStore の user_id キーが idproxy userID と一致しているか確認
+1. userID の確認（`auth.UserIDFromContext` の返り値）
+2. SpaceStore の user_id キーがリクエストの userID と一致しているか確認
 3. DynamoDB console で `PK=USER#<userID>` で Query
 
 ---

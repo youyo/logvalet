@@ -452,7 +452,7 @@ func TestBuildOAuthDeps_BootstrapKeyDerived(t *testing.T) {
 
 // TestInstallOAuthRoutes_MultiAuthorize_DirectTopMux:
 // MultiSpaceHandler が存在する場合、topMux に直接 GET /oauth/backlog/multi/authorize を登録できること。
-// (topMux は idproxy ラップ外なので bootstrap_token が検証される)
+// (topMux は認証ミドルウェア外なので bootstrap_token が検証される)
 func TestInstallOAuthRoutes_MultiAuthorize_DirectTopMux(t *testing.T) {
 	cfg := newValidOAuthCfg()
 	deps, err := cli.BuildOAuthDeps(cfg, "test-space", "https://test-space.backlog.com", "https://example.com", nil, nil)

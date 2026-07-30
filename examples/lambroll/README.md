@@ -1,5 +1,10 @@
 # logvalet on Lambda Function URL
 
+> **⚠️ 廃止済みの記述を含みます**
+> MCP アクセスの OIDC 認証（外部 IdP 連携）は削除され、認証は AgentCore Gateway に委譲されました。
+> `--auth` / `--external-url` / `--oidc-*` / `--cookie-secret` / `--allowed-*` / `--signing-key` は
+> 指定すると起動時エラーになります。本ドキュメントの認証設定部分は今後の更新で書き換えられます。
+
 lambroll + Lambda Web Adapter (LWA) を使って logvalet MCP サーバーを Lambda Function URL にデプロイします。
 OIDC 認証を前提とし、Backlog 側の認証は次の 2 モードから選択します。
 

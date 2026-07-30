@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/auth/provider"
 	tokenstore "github.com/youyo/logvalet/internal/auth/tokenstore"
@@ -150,12 +149,12 @@ func BuildOAuthDeps(cfg *auth.OAuthEnvConfig, spaceName, baseURL, externalURL st
 // InstallOAuthRoutes は OAuth ハンドラーの 4 メソッドを mux に登録する。
 //
 // 登録パス:
-//   - GET    /oauth/backlog/authorize  (single-space、idproxy ラップ内)
+//   - GET    /oauth/backlog/authorize  (single-space)
 //   - GET    /oauth/backlog/callback   (single/multi 共有。multi は OAuthHandler 内 dispatcher で委譲)
 //   - GET    /oauth/backlog/status
 //   - DELETE /oauth/backlog/disconnect
 //
-// multi-space authorize は topMux に直登録（idproxy ラップ外）するため、本関数では登録しない。
+// multi-space authorize は上位 mux に直登録するため、本関数では登録しない。
 // HTTP メソッドフィルタは各ハンドラー内で実施する（本関数では mux.HandleFunc でパスのみ登録）。
 func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler) {
 	mux.HandleFunc("/oauth/backlog/authorize", h.HandleAuthorize)
@@ -166,9 +165,6 @@ func InstallOAuthRoutes(mux *http.ServeMux, h *httptransport.OAuthHandler) {
 
 // BridgeFromUserIDFn は、ctx から userID を取得する関数を受け取り、
 // その値を auth.ContextWithUserID で再注入する HTTP ミドルウェアを返す。
-//
-// 通常は newUserIDBridge() から呼ばれ、idproxy の *User.Subject を
-// auth.UserIDFromContext が参照する context key に橋渡しする。
 //
 // fn が nil、または fn(ctx) が空文字列の場合は何もせず pass-through する
 // （後段ハンドラーが 401 を返す）。
@@ -183,22 +179,4 @@ func BridgeFromUserIDFn(fn func(ctx context.Context) string) func(http.Handler) 
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// newUserIDBridge は idproxy の *User.Subject を auth.UserIDFromContext が
-// 参照する context key に橋渡しするミドルウェアを返す。
-//
-// 配置: auth.Wrap の内側（innerMux を wrap する手前）。
-// idproxy の外側に置くと、idproxy が context に注入する前に bridge が動き無効化する。
-func newUserIDBridge() func(http.Handler) http.Handler {
-	return BridgeFromUserIDFn(idproxyUserID)
-}
-
-// idproxyUserID は idproxy.UserFromContext から Subject を取り出すヘルパー。
-// ユーザー未注入または Subject が空の場合は "" を返す。
-func idproxyUserID(ctx context.Context) string {
-	if u := idproxy.UserFromContext(ctx); u != nil {
-		return u.Subject
-	}
-	return ""
 }

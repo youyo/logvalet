@@ -1075,8 +1075,8 @@ func TestMultiSpaceOAuthHandler_HandleCallback_DefensiveFlowCheck(t *testing.T) 
 	}
 }
 
-// TestHandleCallback_NoIdproxyContext_StillSucceeds: idproxy ctx に uid なくても state.UserID で完走。
-func TestMultiSpaceOAuthHandler_HandleCallback_NoIdproxyContext_StillSucceeds(t *testing.T) {
+// TestHandleCallback_NoUserIDContext_StillSucceeds: ctx に uid なくても state.UserID で完走。
+func TestMultiSpaceOAuthHandler_HandleCallback_NoUserIDContext_StillSucceeds(t *testing.T) {
 	var upsertedAlias string
 	nonceStore := &fakeNonceStore{}
 	spaceStore := &fakeSpaceStore{
@@ -1105,13 +1105,13 @@ func TestMultiSpaceOAuthHandler_HandleCallback_NoIdproxyContext_StillSucceeds(t 
 		t.Fatalf("GenerateStateWithSpaceInfo: %v", stErr)
 	}
 
-	// context に uid を注入しない（idproxy セッション切れを模擬）
+	// context に uid を注入しない（userID 未確定を模擬）
 	req := httptest.NewRequest(stdhttp.MethodGet, "/oauth/backlog/callback?code=auth-code&state="+st, nil)
 	w := httptest.NewRecorder()
 	h.HandleCallback(w, req)
 
 	if w.Code != stdhttp.StatusOK {
-		t.Errorf("status = %d, want 200 (no idproxy ctx should still succeed)", w.Code)
+		t.Errorf("status = %d, want 200 (no userID ctx should still succeed)", w.Code)
 	}
 	if upsertedAlias != "foo" {
 		t.Errorf("upsertedAlias = %q, want %q", upsertedAlias, "foo")
