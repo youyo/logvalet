@@ -65,8 +65,8 @@ func rawPostDiscover(t *testing.T, url string) (int, []byte) {
 type discoverResponse struct {
 	Result struct {
 		SupportedVersions []string                   `json:"supportedVersions"`
-		Capabilities       map[string]json.RawMessage `json:"capabilities"`
-		Meta               map[string]json.RawMessage `json:"_meta"`
+		Capabilities      map[string]json.RawMessage `json:"capabilities"`
+		Meta              map[string]json.RawMessage `json:"_meta"`
 	} `json:"result"`
 	Error *struct {
 		Message string `json:"message"`

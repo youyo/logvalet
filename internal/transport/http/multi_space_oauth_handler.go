@@ -40,15 +40,15 @@ const (
 //  9. UserPreference 条件付き更新
 //  10. 200 JSON
 type MultiSpaceOAuthHandler struct {
-	provider      provider.OAuthProvider
-	tokenManager  auth.TokenManager
-	nonceStore    space.NonceStore
-	spaceStore    space.Store
-	redirectURI   string
-	stateSecret   []byte
-	stateTTL      time.Duration
-	logger        *slog.Logger
-	bootstrapKey  []byte
+	provider     provider.OAuthProvider
+	tokenManager auth.TokenManager
+	nonceStore   space.NonceStore
+	spaceStore   space.Store
+	redirectURI  string
+	stateSecret  []byte
+	stateTTL     time.Duration
+	logger       *slog.Logger
+	bootstrapKey []byte
 }
 
 // NewMultiSpaceOAuthHandler は MultiSpaceOAuthHandler を構築する。
