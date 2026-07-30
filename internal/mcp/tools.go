@@ -64,6 +64,38 @@ type ToolRegistry struct {
 	disableFilePaths bool // stdio モードでローカルファイルシステムへのアクセスを防止する
 	resolver         *space.Resolver
 	spaceFactory     space.ClientFactory
+	idempotency      *IdempotencyCache // CategoryWriteNonIdempotent ツール向け。遅延初期化 (idempotencyCache 参照)
+}
+
+// idempotencyCache は r.idempotency を初回アクセス時に遅延初期化して返す。
+// registerAllTools はサーバー起動時に単一 goroutine から逐次呼ばれるため、
+// ここでの遅延初期化にロックは不要。
+func (r *ToolRegistry) idempotencyCache() *IdempotencyCache {
+	if r.idempotency == nil {
+		r.idempotency = NewIdempotencyCache(DefaultIdempotencyTTL)
+	}
+	return r.idempotency
+}
+
+// wrapIdempotent は toolName が toolCategories 上で CategoryWriteNonIdempotent の
+// 場合のみ、IdempotencyCache 経由で fn を実行するようラップする。それ以外の
+// カテゴリ（read-only / write idempotent / destructive）や toolCategories 未登録の
+// ツールは fn をそのまま返す（余計なオーバーヘッドや意味論変化を避けるため）。
+//
+// MCP 2026-07-28 で stream 再開が廃止され、クライアント再送による create 系
+// ツールの重複実行リスクが上がったことへの対策 (IdempotencyCache 参照)。
+func (r *ToolRegistry) wrapIdempotent(toolName string, fn ToolFunc) ToolFunc {
+	spec, ok := toolCategories[toolName]
+	if !ok || spec.Category != CategoryWriteNonIdempotent {
+		return fn
+	}
+	cache := r.idempotencyCache()
+	return func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		result, err, _ := cache.Execute(toolName, args, func() (any, error) {
+			return fn(ctx, client, args)
+		})
+		return result, err
+	}
 }
 
 // NewToolRegistryWithMultiSpace は resolver と spaceFactory を持つ multi-space 対応の
@@ -101,6 +133,7 @@ func NewToolRegistryWithFactory(backend ServerBackend, factory func(ctx context.
 // factory が ErrProviderNotConnected / ErrTokenRefreshFailed / ErrTokenExpired を返し、
 // authorizationURL が設定されている場合は _meta.authorization_url を付与する。
 func (r *ToolRegistry) Register(tool ToolDef, fn ToolFunc) {
+	fn = r.wrapIdempotent(tool.Name, fn)
 	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		return r.callWithDefaultClient(ctx, fn, args)
 	})
@@ -175,6 +208,7 @@ func WithBooleanParam(name string, required bool, desc string) func(*ToolDef) {
 // spaces/all_spaces 未指定時は DynamoDB UserPreference → 単一スペース fallback → default client の順で解決する。
 func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 	injectSpaceParams(&tool)
+	fn = r.wrapIdempotent(tool.Name, fn)
 	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		spaces := stringSliceArg(args, "spaces")
 		allSpaces, _ := boolArg(args, "all_spaces")
@@ -233,6 +267,7 @@ func (r *ToolRegistry) RegisterWithSpaces(tool ToolDef, fn ToolFunc) {
 // all_spaces=true → エラー。
 func (r *ToolRegistry) RegisterWithSpacesWrite(tool ToolDef, fn ToolFunc) {
 	injectSpaceParamWrite(&tool)
+	fn = r.wrapIdempotent(tool.Name, fn)
 	r.server.RegisterTool(tool, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		spaces := stringSliceArg(args, "spaces")
 		allSpaces, _ := boolArg(args, "all_spaces")
