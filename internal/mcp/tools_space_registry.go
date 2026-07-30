@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/space"
@@ -19,56 +18,47 @@ import (
 // bootstrapKey が nil / nonceStore が nil の場合は bootstrap_token 未付与でエラーを返す（fail-safe）。
 func RegisterSpaceRegistryTools(reg *ToolRegistry, store space.Store, resolver *space.Resolver, multiAuthURL string, bootstrapKey []byte, bootstrapTTL time.Duration, nonceStore space.NonceStore) {
 	// logvalet_space_list — 登録済みスペース一覧
-	reg.Register(gomcp.NewTool("logvalet_space_list",
-		gomcp.WithDescription("List all Backlog spaces registered for the current user"),
-		readOnlyAnnotation("スペース一覧取得"),
+	reg.Register(NewToolDef("logvalet_space_list",
+		WithDesc("List all Backlog spaces registered for the current user"),
+		WithAnnotation(readOnlyAnnotation("スペース一覧取得")),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
 		return spaceList(ctx, store)
 	})
 
 	// logvalet_space_use — default space 設定
-	reg.Register(gomcp.NewTool("logvalet_space_use",
-		gomcp.WithDescription("Set the default Backlog space for the current user"),
-		writeAnnotation("デフォルトスペース設定", true),
-		gomcp.WithString("alias",
-			gomcp.Required(),
-			gomcp.Description("Space alias to set as default"),
-		),
+	reg.Register(NewToolDef("logvalet_space_use",
+		WithDesc("Set the default Backlog space for the current user"),
+		WithAnnotation(writeAnnotation("デフォルトスペース設定", true)),
+		WithStringParam("alias", true, "Space alias to set as default"),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
 		return spaceUse(ctx, store, args)
 	})
 
 	// logvalet_space_verify — スペース接続確認
-	reg.Register(gomcp.NewTool("logvalet_space_verify",
-		gomcp.WithDescription("Verify connection status of registered Backlog spaces"),
-		readOnlyAnnotation("スペース接続確認"),
-		gomcp.WithString("alias", gomcp.Description("Target space alias (omit to use default)")),
-		gomcp.WithBoolean("all_spaces", gomcp.Description("Check all registered spaces")),
+	reg.Register(NewToolDef("logvalet_space_verify",
+		WithDesc("Verify connection status of registered Backlog spaces"),
+		WithAnnotation(readOnlyAnnotation("スペース接続確認")),
+		WithStringParam("alias", false, "Target space alias (omit to use default)"),
+		WithBooleanParam("all_spaces", false, "Check all registered spaces"),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
 		return spaceVerify(ctx, store, resolver, args)
 	})
 
 	// logvalet_space_connect_url — OAuth 認可 URL 生成
-	reg.Register(gomcp.NewTool("logvalet_space_connect_url",
-		gomcp.WithDescription("Generate an OAuth authorization URL to connect a new Backlog space"),
-		readOnlyAnnotation("スペース接続 URL 生成"),
-		gomcp.WithString("base_url",
-			gomcp.Required(),
-			gomcp.Description("Backlog space base URL (e.g. https://myspace.backlog.com)"),
-		),
-		gomcp.WithString("alias", gomcp.Description("Space alias (derived from base_url if omitted)")),
+	reg.Register(NewToolDef("logvalet_space_connect_url",
+		WithDesc("Generate an OAuth authorization URL to connect a new Backlog space"),
+		WithAnnotation(readOnlyAnnotation("スペース接続 URL 生成")),
+		WithStringParam("base_url", true, "Backlog space base URL (e.g. https://myspace.backlog.com)"),
+		WithStringParam("alias", false, "Space alias (derived from base_url if omitted)"),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
 		return spaceConnectURL(ctx, args, multiAuthURL, bootstrapKey, bootstrapTTL, nonceStore)
 	})
 
 	// logvalet_space_disconnect — スペース削除
-	reg.Register(gomcp.NewTool("logvalet_space_disconnect",
-		gomcp.WithDescription("Remove a registered Backlog space for the current user"),
-		destructiveAnnotation("スペース削除"),
-		gomcp.WithString("alias",
-			gomcp.Required(),
-			gomcp.Description("Space alias to disconnect"),
-		),
+	reg.Register(NewToolDef("logvalet_space_disconnect",
+		WithDesc("Remove a registered Backlog space for the current user"),
+		WithAnnotation(destructiveAnnotation("スペース削除")),
+		WithStringParam("alias", true, "Space alias to disconnect"),
 	), func(ctx context.Context, _ backlog.Client, args map[string]any) (any, error) {
 		return spaceDisconnect(ctx, store, args)
 	})

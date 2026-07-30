@@ -1,7 +1,5 @@
 package mcp
 
-import gomcp "github.com/mark3labs/mcp-go/mcp"
-
 // ServerInfo は tool 呼び出し結果の _meta.serverInfo に相当する logvalet 独自型
 // (gomcp.Implementation 相当)。
 type ServerInfo struct {
@@ -86,72 +84,4 @@ func NewErrorToolResult(toolErr ToolError) ToolResult {
 		Content: []ToolContent{{Type: ToolContentTypeText, Text: toolErr.Message}},
 		IsError: true,
 	}
-}
-
-// ToSDKResult は ToolResult を mark3labs/mcp-go の gomcp.CallToolResult に変換する。
-func (r ToolResult) ToSDKResult() *gomcp.CallToolResult {
-	content := make([]gomcp.Content, 0, len(r.Content))
-	for _, c := range r.Content {
-		content = append(content, gomcp.TextContent{Type: string(c.Type), Text: c.Text})
-	}
-	result := &gomcp.CallToolResult{
-		Content:           content,
-		StructuredContent: r.StructuredContent,
-		IsError:           r.IsError,
-	}
-	if r.Meta != nil {
-		if fields := r.Meta.ToMap(); len(fields) > 0 {
-			result.Meta = &gomcp.Meta{AdditionalFields: fields}
-		}
-	}
-	return result
-}
-
-// ToolResultFromSDKResult は gomcp.CallToolResult から ToolResult を復元する
-// (ToSDKResult の逆変換)。text content 以外 (image/audio/embedded resource) は
-// 現時点で扱わないため無視する。
-func ToolResultFromSDKResult(r *gomcp.CallToolResult) ToolResult {
-	if r == nil {
-		return ToolResult{}
-	}
-	content := make([]ToolContent, 0, len(r.Content))
-	for _, c := range r.Content {
-		if tc, ok := c.(gomcp.TextContent); ok {
-			content = append(content, ToolContent{Type: ToolContentType(tc.Type), Text: tc.Text})
-		}
-	}
-	result := ToolResult{
-		Content:           content,
-		StructuredContent: r.StructuredContent,
-		IsError:           r.IsError,
-	}
-	if r.Meta != nil && len(r.Meta.AdditionalFields) > 0 {
-		meta := &ResultMeta{Extra: map[string]any{}}
-		for k, v := range r.Meta.AdditionalFields {
-			switch k {
-			case "authorization_required":
-				if b, ok := v.(bool); ok {
-					meta.AuthorizationRequired = b
-				}
-			case "authorization_url":
-				if s, ok := v.(string); ok {
-					meta.AuthorizationURL = s
-				}
-			case "serverInfo":
-				if si, ok := v.(map[string]any); ok {
-					name, _ := si["name"].(string)
-					version, _ := si["version"].(string)
-					title, _ := si["title"].(string)
-					meta.ServerInfo = &ServerInfo{Name: name, Version: version, Title: title}
-				}
-			default:
-				meta.Extra[k] = v
-			}
-		}
-		if len(meta.Extra) == 0 {
-			meta.Extra = nil
-		}
-		result.Meta = meta
-	}
-	return result
 }

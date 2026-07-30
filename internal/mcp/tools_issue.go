@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
@@ -25,13 +24,10 @@ const maxUploadInlineDecodedBytes = 4 * 1024 * 1024
 // logvalet_issue_get, list, create, update, comment 系, attachment 系 を含む。
 func RegisterIssueTools(r *ToolRegistry) {
 	// logvalet_issue_get
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_get",
-		gomcp.WithDescription("Get issue details by issue key"),
-		gomcp.WithString("issue_key",
-			gomcp.Required(),
-			gomcp.Description("Issue key (e.g. PROJECT-123)"),
-		),
-		readOnlyAnnotation("課題詳細取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_get",
+		WithDesc("Get issue details by issue key"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithAnnotation(readOnlyAnnotation("課題詳細取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -41,23 +37,23 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_list",
-		gomcp.WithDescription("List issues with optional filters, including parent issue filtering"),
-		gomcp.WithString("project_key", gomcp.Description("Filter by single project key (legacy; use project_keys for multiple)")),
-		gomcp.WithString("project_keys", gomcp.Description("Comma-separated project keys (e.g. PROJ1,PROJ2)")),
-		gomcp.WithNumber("count", gomcp.Description("Max number of issues (default 20, max 100)")),
-		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
-		gomcp.WithString("sort", gomcp.Description("Sort field (e.g. updated, created)")),
-		gomcp.WithString("order", gomcp.Description("Sort order (asc/desc)")),
-		gomcp.WithString("assignee_id", gomcp.Description("Assignee filter: me (resolved via GetMyself) or numeric user ID")),
-		gomcp.WithString("status_id", gomcp.Description("Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs")),
-		gomcp.WithString("keyword", gomcp.Description("Keyword search against Backlog issues")),
-		gomcp.WithString("due_date", gomcp.Description("Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
-		gomcp.WithString("start_date", gomcp.Description("Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD")),
-		gomcp.WithString("updated_since", gomcp.Description("Updated since (YYYY-MM-DD)")),
-		gomcp.WithString("updated_until", gomcp.Description("Updated until (YYYY-MM-DD)")),
-		gomcp.WithString("parent_issue_ids", gomcp.Description("Comma-separated parent issue IDs to filter child issues (e.g. \"100,200\")")),
-		readOnlyAnnotation("課題一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_list",
+		WithDesc("List issues with optional filters, including parent issue filtering"),
+		WithStringParam("project_key", false, "Filter by single project key (legacy; use project_keys for multiple)"),
+		WithStringParam("project_keys", false, "Comma-separated project keys (e.g. PROJ1,PROJ2)"),
+		WithNumberParam("count", false, "Max number of issues (default 20, max 100)"),
+		WithNumberParam("offset", false, "Offset for pagination"),
+		WithStringParam("sort", false, "Sort field (e.g. updated, created)"),
+		WithStringParam("order", false, "Sort order (asc/desc)"),
+		WithStringParam("assignee_id", false, "Assignee filter: me (resolved via GetMyself) or numeric user ID"),
+		WithStringParam("status_id", false, "Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs"),
+		WithStringParam("keyword", false, "Keyword search against Backlog issues"),
+		WithStringParam("due_date", false, "Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD"),
+		WithStringParam("start_date", false, "Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD"),
+		WithStringParam("updated_since", false, "Updated since (YYYY-MM-DD)"),
+		WithStringParam("updated_until", false, "Updated until (YYYY-MM-DD)"),
+		WithStringParam("parent_issue_ids", false, "Comma-separated parent issue IDs to filter child issues (e.g. \"100,200\")"),
+		WithAnnotation(readOnlyAnnotation("課題一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		opt := backlog.ListIssuesOptions{}
 
@@ -168,22 +164,22 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_create
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_create",
-		gomcp.WithDescription("Create a new issue"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		gomcp.WithString("summary", gomcp.Required(), gomcp.Description("Issue summary")),
-		gomcp.WithNumber("issue_type_id", gomcp.Required(), gomcp.Description("Issue type ID")),
-		gomcp.WithString("description", gomcp.Description("Issue description")),
-		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
-		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
-		gomcp.WithNumber("parent_issue_id", gomcp.Description("Parent issue ID for creating a child issue")),
-		gomcp.WithString("category_ids", gomcp.Description("Comma-separated category IDs (e.g. \"10,20\")")),
-		gomcp.WithString("version_ids", gomcp.Description("Comma-separated version IDs")),
-		gomcp.WithString("milestone_ids", gomcp.Description("Comma-separated milestone IDs")),
-		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
-		gomcp.WithString("due_date", gomcp.Description("Due date in YYYY-MM-DD format")),
-		gomcp.WithString("start_date", gomcp.Description("Start date in YYYY-MM-DD format")),
-		writeAnnotation("課題作成", false),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_create",
+		WithDesc("Create a new issue"),
+		WithStringParam("project_key", true, "Project key"),
+		WithStringParam("summary", true, "Issue summary"),
+		WithNumberParam("issue_type_id", true, "Issue type ID"),
+		WithStringParam("description", false, "Issue description"),
+		WithNumberParam("priority_id", false, "Priority ID"),
+		WithNumberParam("assignee_id", false, "Assignee user ID"),
+		WithNumberParam("parent_issue_id", false, "Parent issue ID for creating a child issue"),
+		WithStringParam("category_ids", false, "Comma-separated category IDs (e.g. \"10,20\")"),
+		WithStringParam("version_ids", false, "Comma-separated version IDs"),
+		WithStringParam("milestone_ids", false, "Comma-separated milestone IDs"),
+		WithStringParam("notified_user_ids", false, "Comma-separated user IDs to notify"),
+		WithStringParam("due_date", false, "Due date in YYYY-MM-DD format"),
+		WithStringParam("start_date", false, "Start date in YYYY-MM-DD format"),
+		WithAnnotation(writeAnnotation("課題作成", false)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -266,24 +262,24 @@ func RegisterIssueTools(r *ToolRegistry) {
 		return client.CreateIssue(ctx, req)
 	})
 	// logvalet_issue_update
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_update",
-		gomcp.WithDescription("Update an existing issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("summary", gomcp.Description("New summary")),
-		gomcp.WithString("description", gomcp.Description("New description")),
-		gomcp.WithNumber("status_id", gomcp.Description("Status ID")),
-		gomcp.WithNumber("priority_id", gomcp.Description("Priority ID")),
-		gomcp.WithNumber("assignee_id", gomcp.Description("Assignee user ID")),
-		gomcp.WithNumber("issue_type_id", gomcp.Description("Issue type ID")),
-		gomcp.WithNumber("parent_issue_id", gomcp.Description("Parent issue ID (0 to remove parent)")),
-		gomcp.WithString("category_ids", gomcp.Description("Comma-separated category IDs (e.g. \"10,20\")")),
-		gomcp.WithString("version_ids", gomcp.Description("Comma-separated version IDs")),
-		gomcp.WithString("milestone_ids", gomcp.Description("Comma-separated milestone IDs")),
-		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
-		gomcp.WithString("due_date", gomcp.Description("Due date in YYYY-MM-DD format")),
-		gomcp.WithString("start_date", gomcp.Description("Start date in YYYY-MM-DD format")),
-		gomcp.WithString("comment", gomcp.Description("Comment to add with the update")),
-		writeAnnotation("課題更新", true),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_update",
+		WithDesc("Update an existing issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithStringParam("summary", false, "New summary"),
+		WithStringParam("description", false, "New description"),
+		WithNumberParam("status_id", false, "Status ID"),
+		WithNumberParam("priority_id", false, "Priority ID"),
+		WithNumberParam("assignee_id", false, "Assignee user ID"),
+		WithNumberParam("issue_type_id", false, "Issue type ID"),
+		WithNumberParam("parent_issue_id", false, "Parent issue ID (0 to remove parent)"),
+		WithStringParam("category_ids", false, "Comma-separated category IDs (e.g. \"10,20\")"),
+		WithStringParam("version_ids", false, "Comma-separated version IDs"),
+		WithStringParam("milestone_ids", false, "Comma-separated milestone IDs"),
+		WithStringParam("notified_user_ids", false, "Comma-separated user IDs to notify"),
+		WithStringParam("due_date", false, "Due date in YYYY-MM-DD format"),
+		WithStringParam("start_date", false, "Start date in YYYY-MM-DD format"),
+		WithStringParam("comment", false, "Comment to add with the update"),
+		WithAnnotation(writeAnnotation("課題更新", true)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -366,12 +362,12 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_comment_list",
-		gomcp.WithDescription("List comments for an issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithNumber("count", gomcp.Description("Max number of comments")),
-		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
-		readOnlyAnnotation("課題コメント一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_comment_list",
+		WithDesc("List comments for an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("count", false, "Max number of comments"),
+		WithNumberParam("offset", false, "Offset for pagination"),
+		WithAnnotation(readOnlyAnnotation("課題コメント一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -388,13 +384,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_add
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_comment_add",
-		gomcp.WithDescription("Add a comment to an issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("content", gomcp.Description("Comment content (alias: body)")),
-		gomcp.WithString("body", gomcp.Description("Alias for content")),
-		gomcp.WithString("notified_user_ids", gomcp.Description("Comma-separated user IDs to notify")),
-		writeAnnotation("課題コメント追加", false),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_comment_add",
+		WithDesc("Add a comment to an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithStringParam("content", false, "Comment content (alias: body)"),
+		WithStringParam("body", false, "Alias for content"),
+		WithStringParam("notified_user_ids", false, "Comma-separated user IDs to notify"),
+		WithAnnotation(writeAnnotation("課題コメント追加", false)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -419,13 +415,13 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_update
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_comment_update",
-		gomcp.WithDescription("Update a comment on an issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithNumber("comment_id", gomcp.Required(), gomcp.Description("Comment ID")),
-		gomcp.WithString("content", gomcp.Description("New comment content (alias: body)")),
-		gomcp.WithString("body", gomcp.Description("Alias for content")),
-		writeAnnotation("課題コメント更新", true),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_comment_update",
+		WithDesc("Update a comment on an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("comment_id", true, "Comment ID"),
+		WithStringParam("content", false, "New comment content (alias: body)"),
+		WithStringParam("body", false, "Alias for content"),
+		WithAnnotation(writeAnnotation("課題コメント更新", true)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -447,10 +443,10 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_attachment_list",
-		gomcp.WithDescription("List attachments for an issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		readOnlyAnnotation("課題添付ファイル一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_attachment_list",
+		WithDesc("List attachments for an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithAnnotation(readOnlyAnnotation("課題添付ファイル一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -460,11 +456,11 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_delete: B12
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_attachment_delete",
-		gomcp.WithDescription("Delete an attachment from an issue"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),
-		destructiveAnnotation("添付ファイル削除"),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_attachment_delete",
+		WithDesc("Delete an attachment from an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("attachment_id", true, "Attachment ID"),
+		WithAnnotation(destructiveAnnotation("添付ファイル削除")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -478,14 +474,14 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_upload
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_issue_attachment_upload",
-		gomcp.WithDescription("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithString("file_paths", gomcp.Description("Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64.")),
-		gomcp.WithString("file_name", gomcp.Description("File name for inline upload (e.g. asset9.png). Required when file_content_base64 is set.")),
-		gomcp.WithString("file_content_base64", gomcp.Description("Base64-encoded file content for inline upload. Decoded size must be <= 4MB. Mutually exclusive with file_paths.")),
-		gomcp.WithString("mime_type", gomcp.Description("MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename.")),
-		writeAnnotation("添付ファイルアップロード", false),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_attachment_upload",
+		WithDesc("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithStringParam("file_paths", false, "Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64."),
+		WithStringParam("file_name", false, "File name for inline upload (e.g. asset9.png). Required when file_content_base64 is set."),
+		WithStringParam("file_content_base64", false, "Base64-encoded file content for inline upload. Decoded size must be <= 4MB. Mutually exclusive with file_paths."),
+		WithStringParam("mime_type", false, "MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename."),
+		WithAnnotation(writeAnnotation("添付ファイルアップロード", false)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
@@ -554,11 +550,11 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_download: B13
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_issue_attachment_download",
-		gomcp.WithDescription("Download an attachment from an issue (max 20MB, returned as base64)"),
-		gomcp.WithString("issue_key", gomcp.Required(), gomcp.Description("Issue key (e.g. PROJECT-123)")),
-		gomcp.WithNumber("attachment_id", gomcp.Required(), gomcp.Description("Attachment ID")),
-		readOnlyAnnotation("添付ファイルダウンロード"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_attachment_download",
+		WithDesc("Download an attachment from an issue (max 20MB, returned as base64)"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("attachment_id", true, "Attachment ID"),
+		WithAnnotation(readOnlyAnnotation("添付ファイルダウンロード")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {

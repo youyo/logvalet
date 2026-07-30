@@ -494,9 +494,9 @@ func TestNewToolRegistryWithFactory_RegisterAndCall(t *testing.T) {
 	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	// 簡単なツールを登録
-	tool := gomcp.NewTool("test_tool",
-		gomcp.WithDescription("test tool"),
-		gomcp.WithString("issue_key", gomcp.Description("issue key"), gomcp.Required()),
+	tool := mcpinternal.NewToolDef("test_tool",
+		mcpinternal.WithDesc("test tool"),
+		mcpinternal.WithStringParam("issue_key", true, "issue key"),
 	)
 	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		key := args["issue_key"].(string)
@@ -537,8 +537,8 @@ func TestNewToolRegistryWithFactory_FactoryError(t *testing.T) {
 	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	fnCalled := false
-	tool := gomcp.NewTool("test_tool",
-		gomcp.WithDescription("test tool"),
+	tool := mcpinternal.NewToolDef("test_tool",
+		mcpinternal.WithDesc("test tool"),
 	)
 	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		fnCalled = true
@@ -569,9 +569,9 @@ func TestNewToolRegistry_BackwardCompat(t *testing.T) {
 	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
 	reg := mcpinternal.NewToolRegistry(s, mock, "")
 
-	tool := gomcp.NewTool("test_tool",
-		gomcp.WithDescription("test tool"),
-		gomcp.WithString("issue_key", gomcp.Description("issue key"), gomcp.Required()),
+	tool := mcpinternal.NewToolDef("test_tool",
+		mcpinternal.WithDesc("test tool"),
+		mcpinternal.WithStringParam("issue_key", true, "issue key"),
 	)
 	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		key := args["issue_key"].(string)
@@ -647,7 +647,9 @@ func TestToolRegistry_AuthRequired(t *testing.T) {
 			}
 			reg := mcpinternal.NewToolRegistryWithFactory(s, factory, tc.authorizationURL)
 
-			tool := gomcp.NewTool("auth_test_tool", gomcp.WithDescription("test"))
+			tool := mcpinternal.NewToolDef("auth_test_tool",
+				mcpinternal.WithDesc("test"),
+			)
 			reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 				return nil, nil
 			})
@@ -699,7 +701,9 @@ func TestFactoryError_AuthRequired_MetaJSONSerialization(t *testing.T) {
 	}
 	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, toolAuthTestAuthorizeURL)
 
-	tool := gomcp.NewTool("auth_test_tool", gomcp.WithDescription("test"))
+	tool := mcpinternal.NewToolDef("auth_test_tool",
+		mcpinternal.WithDesc("test"),
+	)
 	reg.Register(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		return nil, nil
 	})

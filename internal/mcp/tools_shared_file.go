@@ -5,20 +5,19 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
 // RegisterSharedFileTools は共有ファイル関連の MCP tools を ToolRegistry に登録する。
 func RegisterSharedFileTools(r *ToolRegistry) {
 	// logvalet_shared_file_list
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_shared_file_list",
-		gomcp.WithDescription("List shared files in a project"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		gomcp.WithString("path", gomcp.Description("Directory path within the project (default: root)")),
-		gomcp.WithNumber("count", gomcp.Description("Max number of files")),
-		gomcp.WithNumber("offset", gomcp.Description("Offset for pagination")),
-		readOnlyAnnotation("共有ファイル一覧取得"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_shared_file_list",
+		WithDesc("List shared files in a project"),
+		WithStringParam("project_key", true, "Project key"),
+		WithStringParam("path", false, "Directory path within the project (default: root)"),
+		WithNumberParam("count", false, "Max number of files"),
+		WithNumberParam("offset", false, "Offset for pagination"),
+		WithAnnotation(readOnlyAnnotation("共有ファイル一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {
@@ -38,11 +37,11 @@ func RegisterSharedFileTools(r *ToolRegistry) {
 	})
 
 	// logvalet_shared_file_download: B14
-	r.RegisterWithSpaces(gomcp.NewTool("logvalet_shared_file_download",
-		gomcp.WithDescription("Download a shared file (max 20MB, returned as base64)"),
-		gomcp.WithString("project_key", gomcp.Required(), gomcp.Description("Project key")),
-		gomcp.WithNumber("file_id", gomcp.Required(), gomcp.Description("Shared file ID")),
-		readOnlyAnnotation("共有ファイルダウンロード"),
+	r.RegisterWithSpaces(NewToolDef("logvalet_shared_file_download",
+		WithDesc("Download a shared file (max 20MB, returned as base64)"),
+		WithStringParam("project_key", true, "Project key"),
+		WithNumberParam("file_id", true, "Shared file ID"),
+		WithAnnotation(readOnlyAnnotation("共有ファイルダウンロード")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		projectKey, ok := stringArg(args, "project_key")
 		if !ok || projectKey == "" {

@@ -4,21 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 )
 
 // RegisterStarTools はスター関連の MCP tools を ToolRegistry に登録する。
 func RegisterStarTools(r *ToolRegistry) {
 	// logvalet_star_add
-	r.RegisterWithSpacesWrite(gomcp.NewTool("logvalet_star_add",
-		gomcp.WithDescription("Add a star to an issue, comment, wiki, pull request, or pull request comment. Specify exactly one of: issue_id, comment_id, wiki_id, pull_request_id, pull_request_comment_id"),
-		gomcp.WithNumber("issue_id", gomcp.Description("Issue ID to star")),
-		gomcp.WithNumber("comment_id", gomcp.Description("Comment ID to star")),
-		gomcp.WithNumber("wiki_id", gomcp.Description("Wiki ID to star")),
-		gomcp.WithNumber("pull_request_id", gomcp.Description("Pull request ID to star")),
-		gomcp.WithNumber("pull_request_comment_id", gomcp.Description("Pull request comment ID to star")),
-		writeAnnotation("スター追加", true),
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_star_add",
+		WithDesc("Add a star to an issue, comment, wiki, pull request, or pull request comment. Specify exactly one of: issue_id, comment_id, wiki_id, pull_request_id, pull_request_comment_id"),
+		WithNumberParam("issue_id", false, "Issue ID to star"),
+		WithNumberParam("comment_id", false, "Comment ID to star"),
+		WithNumberParam("wiki_id", false, "Wiki ID to star"),
+		WithNumberParam("pull_request_id", false, "Pull request ID to star"),
+		WithNumberParam("pull_request_comment_id", false, "Pull request comment ID to star"),
+		WithAnnotation(writeAnnotation("スター追加", true)),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		req := backlog.AddStarRequest{}
 		count := 0
