@@ -1,0 +1,2793 @@
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "tools": [
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "アクティビティダイジェスト生成"
+        },
+        "description": "Generate an activity digest for a space or project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Max number of activities (default 20)",
+              "type": "number"
+            },
+            "project": {
+              "description": "Filter by project key",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "until": {
+              "description": "End date (YYYY-MM-DD)",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_activity_digest"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "アクティビティ一覧取得"
+        },
+        "description": "List activities by scope (space, project, or user)",
+        "inputSchema": {
+          "properties": {
+            "activity_type_ids": {
+              "description": "Comma-separated activity type IDs to filter",
+              "type": "string"
+            },
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of activities (default 20, max 100)",
+              "type": "number"
+            },
+            "order": {
+              "description": "Sort order: asc or desc (default: desc)",
+              "type": "string"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "user_id": {
+              "description": "User ID or 'me' for current user",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_activity_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "アクティビティ統計取得"
+        },
+        "description": "Get activity statistics (by type, actor, date, hour, patterns)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (required when scope=project)",
+              "type": "string"
+            },
+            "scope": {
+              "description": "Activity scope: project, user, or space (default: space)",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date in YYYY-MM-DD format (default: 7 days ago)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "top_n": {
+              "description": "Number of top actors/types to include (default: 5)",
+              "type": "number"
+            },
+            "until": {
+              "description": "End date in YYYY-MM-DD format (default: now)",
+              "type": "string"
+            },
+            "user_id": {
+              "description": "User ID (required when scope=user)",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_activity_stats"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "日次ダイジェスト取得"
+        },
+        "description": "Generate daily periodic digest for a project (completed/started/blocked)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date in YYYY-MM-DD format (default: 1 day ago)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "until": {
+              "description": "End date in YYYY-MM-DD format (default: now)",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_digest_daily"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "統合ダイジェスト生成"
+        },
+        "description": "Generate a unified digest across projects, users, teams, or issues",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "due_date": {
+              "description": "Due date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)",
+              "type": "string"
+            },
+            "issue_keys": {
+              "description": "Comma-separated issue keys",
+              "type": "string"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "start_date": {
+              "description": "Start date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)",
+              "type": "string"
+            },
+            "team_ids": {
+              "description": "Comma-separated team IDs",
+              "type": "string"
+            },
+            "until": {
+              "description": "End date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "user_ids": {
+              "description": "Comma-separated user IDs",
+              "type": "string"
+            }
+          },
+          "required": [
+            "since"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_digest_unified"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "週次ダイジェスト取得"
+        },
+        "description": "Generate weekly periodic digest for a project (completed/started/blocked)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date in YYYY-MM-DD format (default: 7 days ago)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "until": {
+              "description": "End date in YYYY-MM-DD format (default: now)",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_digest_weekly"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "ドキュメント作成"
+        },
+        "description": "Create a new document in a project",
+        "inputSchema": {
+          "properties": {
+            "content": {
+              "description": "Document content (markdown)",
+              "type": "string"
+            },
+            "parent_id": {
+              "description": "Parent document ID (optional)",
+              "type": "string"
+            },
+            "project_id": {
+              "description": "Project ID (numeric)",
+              "type": "number"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "description": "Document title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "content",
+            "project_id",
+            "title"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_create"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ドキュメントダイジェスト生成"
+        },
+        "description": "Generate a digest for a document",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "document_id": {
+              "description": "Document ID",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "document_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_digest"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ドキュメント取得"
+        },
+        "description": "Get document by document ID",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "document_id": {
+              "description": "Document ID",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "document_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ドキュメント一覧取得"
+        },
+        "description": "List documents in a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of documents",
+              "type": "number"
+            },
+            "offset": {
+              "description": "Offset for pagination",
+              "type": "number"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ドキュメント検索"
+        },
+        "description": "Search documents by keyword within a Backlog space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max results (1-100, default 100)",
+              "type": "number"
+            },
+            "detail": {
+              "description": "Verbosity: snippet | meta | full (default: snippet)",
+              "type": "string"
+            },
+            "keyword": {
+              "description": "Search keyword",
+              "type": "string"
+            },
+            "offset": {
+              "description": "Pagination offset (default 0)",
+              "type": "number"
+            },
+            "order": {
+              "description": "Sort order: asc | desc",
+              "type": "string"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys to filter (e.g. PROJ1,PROJ2)",
+              "type": "string"
+            },
+            "sort": {
+              "description": "Sort field: created | updated",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "keyword"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_search"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ドキュメントツリー取得"
+        },
+        "description": "Get the document tree for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_document_tree"
+      },
+      {
+        "annotations": {
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "添付ファイル削除"
+        },
+        "description": "Delete an attachment from an issue",
+        "inputSchema": {
+          "properties": {
+            "attachment_id": {
+              "description": "Attachment ID",
+              "type": "number"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "attachment_id",
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_attachment_delete"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "添付ファイルダウンロード"
+        },
+        "description": "Download an attachment from an issue (max 20MB, returned as base64)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "attachment_id": {
+              "description": "Attachment ID",
+              "type": "number"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "attachment_id",
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_attachment_download"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題添付ファイル一覧取得"
+        },
+        "description": "List attachments for an issue",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_attachment_list"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "添付ファイルアップロード"
+        },
+        "description": "Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog.",
+        "inputSchema": {
+          "properties": {
+            "file_content_base64": {
+              "description": "Base64-encoded file content for inline upload. Decoded size must be <= 4MB. Mutually exclusive with file_paths.",
+              "type": "string"
+            },
+            "file_name": {
+              "description": "File name for inline upload (e.g. asset9.png). Required when file_content_base64 is set.",
+              "type": "string"
+            },
+            "file_paths": {
+              "description": "Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64.",
+              "type": "string"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "mime_type": {
+              "description": "MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename.",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_attachment_upload"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "課題コメント追加"
+        },
+        "description": "Add a comment to an issue",
+        "inputSchema": {
+          "properties": {
+            "body": {
+              "description": "Alias for content",
+              "type": "string"
+            },
+            "content": {
+              "description": "Comment content (alias: body)",
+              "type": "string"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "notified_user_ids": {
+              "description": "Comma-separated user IDs to notify",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_comment_add"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題コメント一覧取得"
+        },
+        "description": "List comments for an issue",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of comments",
+              "type": "number"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "offset": {
+              "description": "Offset for pagination",
+              "type": "number"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_comment_list"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "課題コメント更新"
+        },
+        "description": "Update a comment on an issue",
+        "inputSchema": {
+          "properties": {
+            "body": {
+              "description": "Alias for content",
+              "type": "string"
+            },
+            "comment_id": {
+              "description": "Comment ID",
+              "type": "number"
+            },
+            "content": {
+              "description": "New comment content (alias: body)",
+              "type": "string"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "comment_id",
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_comment_update"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題コンテキスト取得"
+        },
+        "description": "Get structured issue context with signals and LLM hints for analysis",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "comments": {
+              "description": "Max number of recent comments to include (default 10)",
+              "type": "number"
+            },
+            "compact": {
+              "description": "Omit description and comment bodies (default false)",
+              "type": "boolean"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJ-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_context"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "課題作成"
+        },
+        "description": "Create a new issue",
+        "inputSchema": {
+          "properties": {
+            "assignee_id": {
+              "description": "Assignee user ID",
+              "type": "number"
+            },
+            "category_ids": {
+              "description": "Comma-separated category IDs (e.g. \"10,20\")",
+              "type": "string"
+            },
+            "description": {
+              "description": "Issue description",
+              "type": "string"
+            },
+            "due_date": {
+              "description": "Due date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "issue_type_id": {
+              "description": "Issue type ID",
+              "type": "number"
+            },
+            "milestone_ids": {
+              "description": "Comma-separated milestone IDs",
+              "type": "string"
+            },
+            "notified_user_ids": {
+              "description": "Comma-separated user IDs to notify",
+              "type": "string"
+            },
+            "parent_issue_id": {
+              "description": "Parent issue ID for creating a child issue",
+              "type": "number"
+            },
+            "priority_id": {
+              "description": "Priority ID",
+              "type": "number"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "start_date": {
+              "description": "Start date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "summary": {
+              "description": "Issue summary",
+              "type": "string"
+            },
+            "version_ids": {
+              "description": "Comma-separated version IDs",
+              "type": "string"
+            }
+          },
+          "required": [
+            "issue_type_id",
+            "project_key",
+            "summary"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_create"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題詳細取得"
+        },
+        "description": "Get issue details by issue key",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題一覧取得"
+        },
+        "description": "List issues with optional filters, including parent issue filtering",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "assignee_id": {
+              "description": "Assignee filter: me (resolved via GetMyself) or numeric user ID",
+              "type": "string"
+            },
+            "count": {
+              "description": "Max number of issues (default 20, max 100)",
+              "type": "number"
+            },
+            "due_date": {
+              "description": "Due date filter: overdue, this-week, today, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD",
+              "type": "string"
+            },
+            "keyword": {
+              "description": "Keyword search against Backlog issues",
+              "type": "string"
+            },
+            "offset": {
+              "description": "Offset for pagination",
+              "type": "number"
+            },
+            "order": {
+              "description": "Sort order (asc/desc)",
+              "type": "string"
+            },
+            "parent_issue_ids": {
+              "description": "Comma-separated parent issue IDs to filter child issues (e.g. \"100,200\")",
+              "type": "string"
+            },
+            "project_key": {
+              "description": "Filter by single project key (legacy; use project_keys for multiple)",
+              "type": "string"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys (e.g. PROJ1,PROJ2)",
+              "type": "string"
+            },
+            "sort": {
+              "description": "Sort field (e.g. updated, created)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "start_date": {
+              "description": "Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD",
+              "type": "string"
+            },
+            "status_id": {
+              "description": "Status filter: not-closed (IDs 1,2,3) or comma-separated numeric IDs",
+              "type": "string"
+            },
+            "updated_since": {
+              "description": "Updated since (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "updated_until": {
+              "description": "Updated until (YYYY-MM-DD)",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_issue_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "停滞課題一覧取得"
+        },
+        "description": "Detect stale issues in specified projects",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "days": {
+              "description": "Days threshold for stale detection (default 7)",
+              "type": "number"
+            },
+            "exclude_status": {
+              "description": "Comma-separated status names to exclude (e.g. '完了,対応済み')",
+              "type": "string"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys (e.g. 'PROJ1,PROJ2')",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_keys"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_stale"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題タイムライン取得"
+        },
+        "description": "Get comment and update timeline for an issue (structured chronological events)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "include_updates": {
+              "description": "Include update history events (default true)",
+              "type": "boolean"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJ-123)",
+              "type": "string"
+            },
+            "max_activity_pages": {
+              "description": "Max pages for activity pagination (default 5)",
+              "type": "number"
+            },
+            "max_comments": {
+              "description": "Max number of comments to include (0 = all, default 0)",
+              "type": "number"
+            },
+            "since": {
+              "description": "Filter events since date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "until": {
+              "description": "Filter events until date (YYYY-MM-DD)",
+              "type": "string"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_timeline"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題トリアージ材料取得"
+        },
+        "description": "Get triage materials for an issue (stats, similar issues, history)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJ-123)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_triage_materials"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "課題更新"
+        },
+        "description": "Update an existing issue",
+        "inputSchema": {
+          "properties": {
+            "assignee_id": {
+              "description": "Assignee user ID",
+              "type": "number"
+            },
+            "category_ids": {
+              "description": "Comma-separated category IDs (e.g. \"10,20\")",
+              "type": "string"
+            },
+            "comment": {
+              "description": "Comment to add with the update",
+              "type": "string"
+            },
+            "description": {
+              "description": "New description",
+              "type": "string"
+            },
+            "due_date": {
+              "description": "Due date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "issue_type_id": {
+              "description": "Issue type ID",
+              "type": "number"
+            },
+            "milestone_ids": {
+              "description": "Comma-separated milestone IDs",
+              "type": "string"
+            },
+            "notified_user_ids": {
+              "description": "Comma-separated user IDs to notify",
+              "type": "string"
+            },
+            "parent_issue_id": {
+              "description": "Parent issue ID (0 to remove parent)",
+              "type": "number"
+            },
+            "priority_id": {
+              "description": "Priority ID",
+              "type": "number"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "start_date": {
+              "description": "Start date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "status_id": {
+              "description": "Status ID",
+              "type": "number"
+            },
+            "summary": {
+              "description": "New summary",
+              "type": "string"
+            },
+            "version_ids": {
+              "description": "Comma-separated version IDs",
+              "type": "string"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_update"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "カテゴリ一覧取得"
+        },
+        "description": "List categories for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_meta_categories"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "カスタムフィールド一覧取得"
+        },
+        "description": "List custom field definitions for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_meta_custom_field"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "課題種別一覧取得"
+        },
+        "description": "List issue types for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_meta_issue_types"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ステータス一覧取得"
+        },
+        "description": "List statuses for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_meta_statuses"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "バージョン一覧取得"
+        },
+        "description": "List versions for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_meta_version"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "自分のタスク一覧取得"
+        },
+        "description": "Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "mode": {
+              "description": "View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stale_days": {
+              "description": "Days threshold for stale detection on watched issues (default 7)",
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_my_tasks"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "プロジェクトブロッカー一覧取得"
+        },
+        "description": "Detect project blocker issues (high priority unassigned, long in-progress, overdue)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "days": {
+              "description": "Days threshold for in-progress stagnation (default 14)",
+              "type": "number"
+            },
+            "exclude_status": {
+              "description": "Comma-separated status names to exclude (e.g. '完了,対応済み')",
+              "type": "string"
+            },
+            "include_comments": {
+              "description": "Enable blocked-by-keyword detection via latest comment (default false)",
+              "type": "boolean"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys (e.g. 'PROJ1,PROJ2')",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_keys"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_project_blockers"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "プロジェクト詳細取得"
+        },
+        "description": "Get project details by project key",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJECT)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_project_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "プロジェクトヘルス取得"
+        },
+        "description": "Get project health summary (stale, blockers, workload, score)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "days": {
+              "description": "Days threshold for stale/blocker detection (default 7)",
+              "type": "number"
+            },
+            "exclude_status": {
+              "description": "Comma-separated status names to exclude (e.g. '完了,対応済み')",
+              "type": "string"
+            },
+            "include_comments": {
+              "description": "Enable blocked-by-keyword detection via comments (default false)",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_project_health"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "プロジェクト一覧取得"
+        },
+        "description": "List all projects in the space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_project_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "横断検索"
+        },
+        "description": "Search issues, documents, and wiki pages by keyword",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max results per resource (1-100, default 20)",
+              "type": "number"
+            },
+            "detail": {
+              "description": "Verbosity: snippet | meta (default: snippet)",
+              "type": "string"
+            },
+            "keyword": {
+              "description": "Search keyword",
+              "type": "string"
+            },
+            "offset": {
+              "description": "Pagination offset per resource (default 0)",
+              "type": "number"
+            },
+            "project_keys": {
+              "description": "Comma-separated project keys to filter (optional)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "keyword"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_search"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "共有ファイルダウンロード"
+        },
+        "description": "Download a shared file (max 20MB, returned as base64)",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "file_id": {
+              "description": "Shared file ID",
+              "type": "number"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "file_id",
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_shared_file_download"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "共有ファイル一覧取得"
+        },
+        "description": "List shared files in a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of files",
+              "type": "number"
+            },
+            "offset": {
+              "description": "Offset for pagination",
+              "type": "number"
+            },
+            "path": {
+              "description": "Directory path within the project (default: root)",
+              "type": "string"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_shared_file_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペース接続 URL 生成"
+        },
+        "description": "Generate an OAuth authorization URL to connect a new Backlog space",
+        "inputSchema": {
+          "properties": {
+            "alias": {
+              "description": "Space alias (derived from base_url if omitted)",
+              "type": "string"
+            },
+            "base_url": {
+              "description": "Backlog space base URL (e.g. https://myspace.backlog.com)",
+              "type": "string"
+            }
+          },
+          "required": [
+            "base_url"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_space_connect_url"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペースダイジェスト生成"
+        },
+        "description": "Generate a digest for the entire Backlog space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_space_digest"
+      },
+      {
+        "annotations": {
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "スペース削除"
+        },
+        "description": "Remove a registered Backlog space for the current user",
+        "inputSchema": {
+          "properties": {
+            "alias": {
+              "description": "Space alias to disconnect",
+              "type": "string"
+            }
+          },
+          "required": [
+            "alias"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_space_disconnect"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペースディスク使用量取得"
+        },
+        "description": "Get disk usage information for the Backlog space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_space_disk_usage"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペース情報取得"
+        },
+        "description": "Get information about the Backlog space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_space_info"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペース一覧取得"
+        },
+        "description": "List all Backlog spaces registered for the current user",
+        "inputSchema": {
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_space_list"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "デフォルトスペース設定"
+        },
+        "description": "Set the default Backlog space for the current user",
+        "inputSchema": {
+          "properties": {
+            "alias": {
+              "description": "Space alias to set as default",
+              "type": "string"
+            }
+          },
+          "required": [
+            "alias"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_space_use"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "スペース接続確認"
+        },
+        "description": "Verify connection status of registered Backlog spaces",
+        "inputSchema": {
+          "properties": {
+            "alias": {
+              "description": "Target space alias (omit to use default)",
+              "type": "string"
+            },
+            "all_spaces": {
+              "description": "Check all registered spaces",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_space_verify"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "スター追加"
+        },
+        "description": "Add a star to an issue, comment, wiki, pull request, or pull request comment. Specify exactly one of: issue_id, comment_id, wiki_id, pull_request_id, pull_request_comment_id",
+        "inputSchema": {
+          "properties": {
+            "comment_id": {
+              "description": "Comment ID to star",
+              "type": "number"
+            },
+            "issue_id": {
+              "description": "Issue ID to star",
+              "type": "number"
+            },
+            "pull_request_comment_id": {
+              "description": "Pull request comment ID to star",
+              "type": "number"
+            },
+            "pull_request_id": {
+              "description": "Pull request ID to star",
+              "type": "number"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki ID to star",
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_star_add"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "チーム詳細取得"
+        },
+        "description": "Get team details by team ID",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "team_id": {
+              "description": "Team ID (numeric)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "team_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_team_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "チーム一覧取得"
+        },
+        "description": "List all teams in the space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of teams (max 100)",
+              "type": "number"
+            },
+            "no_members": {
+              "description": "If true, exclude member information from response",
+              "type": "boolean"
+            },
+            "offset": {
+              "description": "Offset for pagination",
+              "type": "number"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_team_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "プロジェクトチーム一覧取得"
+        },
+        "description": "List teams for a specific project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_team_project"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ユーザーアクティビティ取得"
+        },
+        "description": "List activities for a specific user",
+        "inputSchema": {
+          "properties": {
+            "activity_type_ids": {
+              "description": "Comma-separated activity type IDs",
+              "type": "string"
+            },
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Max number of activities (default 20)",
+              "type": "number"
+            },
+            "project": {
+              "description": "Filter by project key (client-side filter)",
+              "type": "string"
+            },
+            "since": {
+              "description": "Start date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "until": {
+              "description": "End date (YYYY-MM-DD)",
+              "type": "string"
+            },
+            "user_id": {
+              "description": "User ID or 'me' for current user",
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_user_activity"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ユーザー詳細取得"
+        },
+        "description": "Get user details by user ID",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "user_id": {
+              "description": "User ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_user_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ユーザー一覧取得"
+        },
+        "description": "List all users in the space",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_user_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "認証ユーザー情報取得"
+        },
+        "description": "Get the authenticated user's information",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "logvalet_user_me"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ユーザー稼働状況取得"
+        },
+        "description": "Calculate user workload distribution for a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "days": {
+              "description": "Days threshold for stale detection (default 7)",
+              "type": "number"
+            },
+            "exclude_status": {
+              "description": "Comma-separated status names to exclude (e.g. '完了,対応済み')",
+              "type": "string"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_user_workload"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "ウォッチ追加"
+        },
+        "description": "Add a watching for an issue. Returns the created watching.",
+        "inputSchema": {
+          "properties": {
+            "issue_id_or_key": {
+              "description": "Issue ID or key (e.g., PROJ-123) (required)",
+              "type": "string"
+            },
+            "note": {
+              "description": "Optional note for the watching",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue_id_or_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_add"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ウォッチ数取得"
+        },
+        "description": "Get the count of watchings for a user.",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "user_id": {
+              "description": "User ID (required)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "user_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_count"
+      },
+      {
+        "annotations": {
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "ウォッチ削除"
+        },
+        "description": "Delete a watching by watching ID. Returns the deleted watching.",
+        "inputSchema": {
+          "properties": {
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "watching_id": {
+              "description": "Watching ID (required)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "watching_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_delete"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ウォッチ詳細取得"
+        },
+        "description": "Get watching detail by watching ID.",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "watching_id": {
+              "description": "Watching ID (required)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "watching_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "ウォッチ一覧取得"
+        },
+        "description": "List watchings for a user. Returns issues being watched by the specified user.",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Max number of items (default: 20, max: 100)",
+              "type": "number"
+            },
+            "offset": {
+              "description": "Offset for pagination (default: 0)",
+              "type": "number"
+            },
+            "order": {
+              "description": "Sort order: asc or desc (default: desc)",
+              "type": "string"
+            },
+            "sort": {
+              "description": "Sort key: created, updated, or issueUpdated",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "user_id": {
+              "description": "User ID: \"me\" (resolved via GetMyself) or numeric user ID (e.g. \"12345\")",
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_list"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "ウォッチ既読化"
+        },
+        "description": "Mark a watching as read by watching ID.",
+        "inputSchema": {
+          "properties": {
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "watching_id": {
+              "description": "Watching ID (required)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "watching_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_mark_as_read"
+      },
+      {
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "ウォッチ更新"
+        },
+        "description": "Update the note of a watching.",
+        "inputSchema": {
+          "properties": {
+            "note": {
+              "description": "New note for the watching (required)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "watching_id": {
+              "description": "Watching ID (required)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "note",
+            "watching_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_watching_update"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki 添付ファイル一覧取得"
+        },
+        "description": "List attachments on a wiki page",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki page ID",
+              "type": "number"
+            }
+          },
+          "required": [
+            "wiki_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_attachment_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki ページ件数取得"
+        },
+        "description": "Count wiki pages in a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_count"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki ページ取得"
+        },
+        "description": "Get a wiki page by ID",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki page ID",
+              "type": "number"
+            }
+          },
+          "required": [
+            "wiki_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_get"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki 履歴取得"
+        },
+        "description": "Get wiki page history",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "count": {
+              "description": "Number of records (1-100, default 20)",
+              "type": "number"
+            },
+            "max_id": {
+              "description": "Maximum history ID",
+              "type": "number"
+            },
+            "min_id": {
+              "description": "Minimum history ID",
+              "type": "number"
+            },
+            "order": {
+              "description": "Sort order: asc or desc (default desc)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki page ID",
+              "type": "number"
+            }
+          },
+          "required": [
+            "wiki_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_history"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki ページ一覧取得"
+        },
+        "description": "List wiki pages in a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "keyword": {
+              "description": "Keyword to search in wiki pages",
+              "type": "string"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki 共有ファイル一覧取得"
+        },
+        "description": "List shared files on a wiki page",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki page ID",
+              "type": "number"
+            }
+          },
+          "required": [
+            "wiki_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_sharedfile_list"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki スター一覧取得"
+        },
+        "description": "List stars on a wiki page",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "wiki_id": {
+              "description": "Wiki page ID",
+              "type": "number"
+            }
+          },
+          "required": [
+            "wiki_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_stars"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "Wiki タグ一覧取得"
+        },
+        "description": "List wiki tags in a project",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key (e.g. PROJ)",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_wiki_tags"
+      }
+    ]
+  }
+}
