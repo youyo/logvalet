@@ -27,11 +27,13 @@ run = "rm -f logvalet"
 
 [tasks."mcp:start"]
 description = "Start MCP server (local, no auth)"
-run = "go run ./cmd/logvalet/ mcp"
+run = "go run ./cmd/logvalet/ mcp-stdio"
 
 [tasks."mcp:start-auth"]
-description = "Start MCP server with authentication"
-run = "go run ./cmd/logvalet/ mcp --auth"
+description = "Start MCP server over Streamable HTTP with API key auth (requires LOGVALET_MCP_API_KEY, 32+ chars)"
+run = "go run ./cmd/logvalet/ mcp --auth-mode=apikey"
+[tasks."mcp:start-auth".env]
+LOGVALET_SPACE_STORE_TYPE = "sqlite"
 
 [tasks."docker:build"]
 description = "Build Docker image"
