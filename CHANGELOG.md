@@ -1,11 +1,10 @@
 # Changelog
 
-## Unreleased (next major)
+## v0.36.0 (2026-07-30)
 
 MCP 2026-07-28 (stateless) 対応と認証モデルの再設計（AgentCore Gateway/Identity への委譲）。
 複数の破壊的変更を含む（issue #52、ADR: [0001](docs/adr/0001-mcp-sdk-official-go-sdk.md),
-[0002](docs/adr/0002-auth-none-apikey-gateway-delegation.md)）。バージョン番号はリリース実行時に
-ユーザー確認のうえ確定する。
+[0002](docs/adr/0002-auth-none-apikey-gateway-delegation.md)）。
 
 ### Breaking Changes
 
