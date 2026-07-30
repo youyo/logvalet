@@ -16,6 +16,15 @@ description: >
 
 logvalet プラグインの全スキルの使い方・組み合わせ・ワークフローを案内する。
 
+## 認証・MCP の前提
+
+Remote HTTP MCP は `none` または `apikey` を使う。`apikey` では
+AgentCore Gateway が `X-Logvalet-Api-Key` を送り、任意の利用者識別情報を
+`X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` で伝える。
+Backlog credential は Bearer passthrough とする。HTTP mode は space store の
+明示指定が必要で `memory` は使えない。tokenstore は CLI/stdio 専用で、
+ローカルの SQLite または `tokens.json` のみを使い、DynamoDB は使わない。
+
 ## スキル一覧
 
 ### 📥 情報収集（現状把握）
