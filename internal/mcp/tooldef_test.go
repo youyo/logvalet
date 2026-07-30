@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
+	officialmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -93,7 +93,7 @@ func TestToolDef_InputSchemaJSON_Required(t *testing.T) {
 	}
 }
 
-// TestToolDef_SDKRoundTrip は ToolDef -> gomcp.Tool -> ToolDef の相互変換で
+// TestToolDef_SDKRoundTrip は ToolDef -> 公式 SDK Tool -> ToolDef の相互変換で
 // 情報が失われないことを確認する。
 func TestToolDef_SDKRoundTrip(t *testing.T) {
 	original := ToolDef{
@@ -114,7 +114,7 @@ func TestToolDef_SDKRoundTrip(t *testing.T) {
 		},
 	}
 
-	sdkTool := original.ToSDKTool()
+	sdkTool := original.ToOfficialSDKTool()
 	if sdkTool.Name != original.Name {
 		t.Errorf("sdkTool.Name = %q, want %q", sdkTool.Name, original.Name)
 	}
@@ -122,7 +122,7 @@ func TestToolDef_SDKRoundTrip(t *testing.T) {
 		t.Errorf("sdkTool.Annotations.Title = %q, want %q", sdkTool.Annotations.Title, original.Annotation.Title)
 	}
 
-	roundTripped := ToolDefFromSDKTool(sdkTool)
+	roundTripped := ToolDefFromOfficialSDKTool(sdkTool)
 
 	if roundTripped.Name != original.Name {
 		t.Errorf("roundTripped.Name = %q, want %q", roundTripped.Name, original.Name)
@@ -196,12 +196,12 @@ func TestToolAnnotation_ToSDK_PreservesUnsetHints(t *testing.T) {
 			// Title は未設定のまま
 		},
 	}
-	sdkTool := td.ToSDKTool()
+	sdkTool := td.ToOfficialSDKTool()
 	if sdkTool.Annotations.Title != "" {
 		t.Errorf("sdkTool.Annotations.Title = %q, want empty", sdkTool.Annotations.Title)
 	}
-	if sdkTool.Annotations.ReadOnlyHint == nil || *sdkTool.Annotations.ReadOnlyHint != false {
-		t.Error("sdkTool.Annotations.ReadOnlyHint should be pointer to false")
+	if sdkTool.Annotations.ReadOnlyHint {
+		t.Error("sdkTool.Annotations.ReadOnlyHint should be false")
 	}
-	var _ gomcp.Tool = sdkTool // 型が gomcp.Tool であることの静的確認
+	var _ *officialmcp.Tool = sdkTool // 型が公式 SDK の *Tool であることの静的確認
 }

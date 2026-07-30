@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -14,8 +12,8 @@ import (
 )
 
 // newMultiSpaceRegistry は multi-space 対応の ToolRegistry と MCPServer を返すテストヘルパー。
-func newMultiSpaceRegistry(store space.Store) (*mcpserver.MCPServer, *mcpinternal.ToolRegistry) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+func newMultiSpaceRegistry(store space.Store) (*fakeBackend, *mcpinternal.ToolRegistry) {
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	spaceFactory := func(ctx context.Context, reg space.SpaceRegistration) (backlog.Client, error) {
 		mock := backlog.NewMockClient()
@@ -30,8 +28,8 @@ func newMultiSpaceRegistryWithFactory(
 	store space.Store,
 	factory func(ctx context.Context) (backlog.Client, error),
 	spaceFactory space.ClientFactory,
-) (*mcpserver.MCPServer, *mcpinternal.ToolRegistry) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+) (*fakeBackend, *mcpinternal.ToolRegistry) {
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, factory, "", resolver, spaceFactory)
 	return s, reg
@@ -49,7 +47,7 @@ func echoFn(_ context.Context, _ backlog.Client, args map[string]any) (any, erro
 }
 
 // decodeTextJSON は TextContent の JSON を map に変換するヘルパー。
-func decodeTextJSON(t *testing.T, result *gomcp.CallToolResult) map[string]any {
+func decodeTextJSON(t *testing.T, result mcpinternal.ToolResult) map[string]any {
 	t.Helper()
 	text := mustTextContent(t, result)
 	var out map[string]any
@@ -64,7 +62,7 @@ func decodeTextJSON(t *testing.T, result *gomcp.CallToolResult) map[string]any {
 // ============================================================================
 
 func TestRegisterWithSpaces_NilResolver(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", nil, nil)
 
 	reg.RegisterWithSpaces(echoTool, echoFn)
@@ -128,7 +126,7 @@ func TestRegisterWithSpaces_SingleSpace(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
@@ -181,7 +179,7 @@ func TestRegisterWithSpaces_MultiSpace(t *testing.T) {
 		UserID: "u1", Alias: "bar", BaseURL: "https://bar.backlog.com", Status: space.SpaceStatusOK,
 	})
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	spaceFactory := func(ctx context.Context, reg space.SpaceRegistration) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
@@ -230,7 +228,7 @@ func TestRegisterWithSpaces_AllSpaces(t *testing.T) {
 		UserID: "u1", Alias: "baz", BaseURL: "https://baz.backlog.com", Status: space.SpaceStatusOK,
 	})
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	spaceFactory := func(ctx context.Context, reg space.SpaceRegistration) (backlog.Client, error) {
 		return backlog.NewMockClient(), nil
@@ -330,7 +328,7 @@ func TestRegisterWithSpacesWrite_SingleOK(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 

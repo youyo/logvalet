@@ -1,5 +1,6 @@
 // Package mcp は logvalet MCP サーバーの実装を提供する。
-// mark3labs/mcp-go を使用して Streamable HTTP MCP サーバーを起動する。
+// 公式 Go SDK (github.com/modelcontextprotocol/go-sdk) を使用して
+// Streamable HTTP / stdio の MCP サーバーを起動する。
 package mcp
 
 import (
@@ -12,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/space"
@@ -54,8 +54,8 @@ func spaceInfoFromContext(ctx context.Context, fbSpace, fbBaseURL string) (strin
 }
 
 // ToolRegistry は MCP サーバーへの tool 登録を管理する。
-// server は ServerBackend インターフェースにのみ依存し、mark3labs/mcp-go 等の
-// 具体的な SDK 型には依存しない (backend.go / tooldef_mark3labs.go 参照)。
+// server は ServerBackend インターフェースにのみ依存し、公式 Go SDK 等の
+// 具体的な SDK 型には依存しない (backend.go / backend_official.go 参照)。
 type ToolRegistry struct {
 	server           ServerBackend
 	client           backlog.Client
@@ -66,25 +66,18 @@ type ToolRegistry struct {
 	spaceFactory     space.ClientFactory
 }
 
-// NewToolRegistry は新しい ToolRegistry を返す。
-// authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
-// 空文字列の場合は従来挙動（Meta なし）。
-func NewToolRegistry(s *mcpserver.MCPServer, client backlog.Client, authorizationURL string) *ToolRegistry {
-	return NewToolRegistryWithBackend(NewMark3labsBackend(s), client, authorizationURL)
-}
-
 // NewToolRegistryWithMultiSpace は resolver と spaceFactory を持つ multi-space 対応の
 // ToolRegistry を返す。resolver が nil の場合は RegisterWithSpaces/RegisterWithSpacesWrite
 // は通常の Register と同等に動作する。
 func NewToolRegistryWithMultiSpace(
-	s *mcpserver.MCPServer,
+	backend ServerBackend,
 	factory func(ctx context.Context) (backlog.Client, error),
 	authorizationURL string,
 	resolver *space.Resolver,
 	spaceFactory space.ClientFactory,
 ) *ToolRegistry {
 	return &ToolRegistry{
-		server:           NewMark3labsBackend(s),
+		server:           backend,
 		factory:          factory,
 		authorizationURL: authorizationURL,
 		resolver:         resolver,
@@ -98,12 +91,12 @@ func NewToolRegistryWithMultiSpace(
 // そのユーザー用の backlog.Client を返す。
 // authorizationURL は OAuth 未接続エラー時に _meta に付与する認可 URL。
 // 空文字列の場合は従来挙動（Meta なし）。
-func NewToolRegistryWithFactory(s *mcpserver.MCPServer, factory func(ctx context.Context) (backlog.Client, error), authorizationURL string) *ToolRegistry {
-	return &ToolRegistry{server: NewMark3labsBackend(s), factory: factory, authorizationURL: authorizationURL}
+func NewToolRegistryWithFactory(backend ServerBackend, factory func(ctx context.Context) (backlog.Client, error), authorizationURL string) *ToolRegistry {
+	return &ToolRegistry{server: backend, factory: factory, authorizationURL: authorizationURL}
 }
 
-// Register は tool を MCPServer に登録する。
-// ToolFunc が error を返した場合、自動的に mcp.NewToolResultError に変換する。
+// Register は tool を ServerBackend に登録する。
+// ToolFunc が error を返した場合、自動的に IsError=true の ToolResult に変換する。
 // factory が設定されている場合、リクエストの context から per-user クライアントを生成する。
 // factory が ErrProviderNotConnected / ErrTokenRefreshFailed / ErrTokenExpired を返し、
 // authorizationURL が設定されている場合は _meta.authorization_url を付与する。
@@ -130,8 +123,7 @@ func injectSpaceParamWrite(tool *ToolDef) {
 }
 
 // NewToolDef は functional option を順に適用して ToolDef を組み立てる。
-// gomcp.NewTool(name, opts...) ビルダーパターンの logvalet 版で、既存の
-// 呼び出しパターンを機械的に置き換えられるよう設計している。
+// SDK 非依存のビルダーパターンで、ToolDef 単体でツール定義を組み立てられる。
 func NewToolDef(name string, opts ...func(*ToolDef)) ToolDef {
 	t := ToolDef{Name: name}
 	for _, opt := range opts {
@@ -140,13 +132,12 @@ func NewToolDef(name string, opts ...func(*ToolDef)) ToolDef {
 	return t
 }
 
-// WithDesc は ToolDef.Description を設定する。gomcp.WithDescription 相当。
+// WithDesc は ToolDef.Description を設定する。
 func WithDesc(desc string) func(*ToolDef) {
 	return func(t *ToolDef) { t.Description = desc }
 }
 
 // WithAnnotation は ToolDef.Annotation を設定する。
-// gomcp.WithToolAnnotation(readOnlyAnnotation(...)) 等の置き換えに使う。
 func WithAnnotation(a ToolAnnotation) func(*ToolDef) {
 	return func(t *ToolDef) { t.Annotation = a }
 }
@@ -162,17 +153,17 @@ func withParam(p ParamSpec, required bool) func(*ToolDef) {
 	}
 }
 
-// WithStringParam は string パラメータを追加する。gomcp.WithString(name, gomcp.Required(), gomcp.Description(desc)) 相当。
+// WithStringParam は string パラメータを追加する。
 func WithStringParam(name string, required bool, desc string) func(*ToolDef) {
 	return withParam(ParamSpec{Name: name, Type: ParamTypeString, Description: desc}, required)
 }
 
-// WithNumberParam は number パラメータを追加する。gomcp.WithNumber(...) 相当。
+// WithNumberParam は number パラメータを追加する。
 func WithNumberParam(name string, required bool, desc string) func(*ToolDef) {
 	return withParam(ParamSpec{Name: name, Type: ParamTypeNumber, Description: desc}, required)
 }
 
-// WithBooleanParam は boolean パラメータを追加する。gomcp.WithBoolean(...) 相当。
+// WithBooleanParam は boolean パラメータを追加する。
 func WithBooleanParam(name string, required bool, desc string) func(*ToolDef) {
 	return withParam(ParamSpec{Name: name, Type: ParamTypeBoolean, Description: desc}, required)
 }

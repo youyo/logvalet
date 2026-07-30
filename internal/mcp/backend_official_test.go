@@ -224,8 +224,8 @@ func TestOfficialServer_ToolsList_NoInitializeRequired(t *testing.T) {
 // (cacheScope/ttlMs) を全ての list 系レスポンスに無条件で含める
 // (github.com/modelcontextprotocol/go-sdk/mcp/protocol.go の Cacheable 構造体。
 // ttlMs は json タグに omitempty が無いため値が 0 でも必ず出力される)。
-// mark3labs/mcp-go は SEP-2575 に対応しておらずこのフィールド自体が存在しないため、
-// tools_list_baseline.json (mark3labs backend で採取) にも含まれない。
+// baseline 採取時の旧 SDK は SEP-2575 に対応しておらずこのフィールド自体が存在しないため、
+// tools_list_baseline.json にも含まれない。
 // これはプロトコルバージョンのアップグレードに伴う SDK の仕様差であり、
 // logvalet 側の ToolDef/ToolResult 変換ロジックの不整合ではないため、
 // テスト側でこの2フィールドのみを許容差分として除外した上で baseline と比較する。
@@ -250,7 +250,7 @@ func stripOfficialSDKOnlyResultFields(t *testing.T, normalized []byte) []byte {
 }
 
 // O07: tools/list の正規化後のレスポンスが testdata/tools_list_baseline.json
-// (mark3labs backend による移行前の golden) と一致することを確認する
+// (移行前の旧 SDK backend による golden) と一致することを確認する
 // (S09 done_criteria)。SDK 間表現差については stripOfficialSDKOnlyResultFields の
 // コメントを参照。annotations.readOnlyHint/idempotentHint については、logvalet の
 // 全72ツール定義が両フィールドを常に明示設定しているため (tool_categories.go)、

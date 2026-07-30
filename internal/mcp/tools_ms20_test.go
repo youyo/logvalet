@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -34,7 +33,7 @@ func TestRegisterWithSpaces_DefaultSpaceFromPreference(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
@@ -79,7 +78,7 @@ func TestRegisterWithSpacesWrite_DefaultSpaceFromPreference(t *testing.T) {
 		return backlog.NewMockClient(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 

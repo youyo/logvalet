@@ -8,10 +8,9 @@ import (
 )
 
 // TestToolCategories_CoversAllRegisteredTools は toolCategories マップと
-// s.ListTools() が完全一致することを検証する（件数 42 を含む）。
+// 実際に登録される全ツール定義が完全一致することを検証する。
 func TestToolCategories_CoversAllRegisteredTools(t *testing.T) {
-	s := NewServer(backlog.NewMockClient(), "test", ServerConfig{})
-	tools := s.ListTools()
+	tools := registeredToolDefs(backlog.NewMockClient(), ServerConfig{})
 
 	// toolCategories に存在しないツールが登録されていないか
 	for name := range tools {
@@ -23,7 +22,7 @@ func TestToolCategories_CoversAllRegisteredTools(t *testing.T) {
 	// toolCategories に存在するツールが登録されているか
 	for name := range toolCategories {
 		if _, ok := tools[name]; !ok {
-			t.Errorf("toolCategories に %q があるが ListTools に存在しない", name)
+			t.Errorf("toolCategories に %q があるが登録ツールに存在しない", name)
 		}
 	}
 
@@ -40,16 +39,15 @@ func TestToolCategories_CoversAllRegisteredTools(t *testing.T) {
 // TestToolAnnotations_MatchCategorySpec は各ツールの Annotations フィールドが
 // toolCategories のカテゴリ仕様と一致することを検証する。
 func TestToolAnnotations_MatchCategorySpec(t *testing.T) {
-	s := NewServer(backlog.NewMockClient(), "test", ServerConfig{})
-	tools := s.ListTools()
+	tools := registeredToolDefs(backlog.NewMockClient(), ServerConfig{})
 
-	for name, st := range tools {
+	for name, td := range tools {
 		spec, ok := toolCategories[name]
 		if !ok {
 			// TestToolCategories_CoversAllRegisteredTools で検出されるので skip
 			continue
 		}
-		ann := st.Tool.Annotations
+		ann := td.Annotation
 		title := ann.Title
 
 		if title == "" {
@@ -94,19 +92,19 @@ func TestToolAnnotations_MatchCategorySpec(t *testing.T) {
 	}
 }
 
-// TestToolAnnotations_JSONSerialization は json.Marshal で annotations キーが
-// 正しく出力されることを検証する（MCP クライアントが読む JSON 構造の回帰テスト）。
+// TestToolAnnotations_JSONSerialization は ToolDef を公式 SDK の Tool に変換して
+// json.Marshal したときに annotations キーが正しく出力されることを検証する
+// （MCP クライアントが実際に読む JSON 構造の回帰テスト）。
 func TestToolAnnotations_JSONSerialization(t *testing.T) {
-	s := NewServer(backlog.NewMockClient(), "test", ServerConfig{})
-	tools := s.ListTools()
+	tools := registeredToolDefs(backlog.NewMockClient(), ServerConfig{})
 
-	for name, st := range tools {
+	for name, td := range tools {
 		spec, ok := toolCategories[name]
 		if !ok {
 			continue
 		}
 
-		jsonBytes, err := json.Marshal(st.Tool)
+		jsonBytes, err := json.Marshal(td.ToOfficialSDKTool())
 		if err != nil {
 			t.Fatalf("tool %q: json.Marshal error: %v", name, err)
 		}

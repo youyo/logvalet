@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
+	officialmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/space"
 )
@@ -28,25 +28,51 @@ type ServerConfig struct {
 	NonceStore             space.NonceStore
 }
 
-// NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
-// すべての tool を登録済みの MCPServer を返す。
-// 既存パス（CLI profile / API key 認証）で使用する。
-func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.MCPServer {
-	s := mcpserver.NewMCPServer(
-		"logvalet",
-		ver,
-		mcpserver.WithToolCapabilities(true),
-	)
+// newOfficialMCPServer は公式 Go SDK の *officialmcp.Server を logvalet の
+// Implementation 情報で生成する。NewServer / NewServerWithFactory の共通処理。
+func newOfficialMCPServer(ver string) *officialmcp.Server {
+	return officialmcp.NewServer(&officialmcp.Implementation{Name: "logvalet", Version: ver}, nil)
+}
+
+// buildRegistry は cfg に応じた ToolRegistry を backend 上に構築し、全ツールを登録する。
+//
+// client と factory はどちらか一方を渡す (factory != nil が優先)。cfg.SpaceResolver が
+// 設定されている場合は multi-space 対応の ToolRegistry を使い、factory が nil のときは
+// client を返すだけの固定 factory でラップする。
+//
+// NewServer / NewServerWithFactory / NewOfficialStreamableHTTPHandler 系および
+// テスト用の fake backend 経路がすべてこの関数を通ることで、どの経路でも
+// 同一のツールセットが登録されることを保証する。
+func buildRegistry(
+	backend ServerBackend,
+	client backlog.Client,
+	factory func(ctx context.Context) (backlog.Client, error),
+	cfg ServerConfig,
+) *ToolRegistry {
 	var reg *ToolRegistry
-	if cfg.SpaceResolver != nil {
-		reg = NewToolRegistryWithMultiSpace(s, func(ctx context.Context) (backlog.Client, error) {
-			return client, nil
-		}, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
-	} else {
-		reg = NewToolRegistry(s, client, cfg.AuthorizationURL)
+	switch {
+	case cfg.SpaceResolver != nil:
+		f := factory
+		if f == nil {
+			f = func(context.Context) (backlog.Client, error) { return client, nil }
+		}
+		reg = NewToolRegistryWithMultiSpace(backend, f, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
+	case factory != nil:
+		reg = NewToolRegistryWithFactory(backend, factory, cfg.AuthorizationURL)
+	default:
+		reg = NewToolRegistryWithBackend(backend, client, cfg.AuthorizationURL)
 	}
 	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
+	return reg
+}
+
+// NewServer は logvalet MCP サーバーを単一 client で初期化して返す。
+// すべての tool を登録済みの公式 Go SDK サーバー (*officialmcp.Server) を返す。
+// 既存パス（CLI profile / API key 認証）で使用する。
+func NewServer(client backlog.Client, ver string, cfg ServerConfig) *officialmcp.Server {
+	s := newOfficialMCPServer(ver)
+	buildRegistry(NewOfficialBackend(s), client, nil, cfg)
 	return s
 }
 
@@ -57,20 +83,9 @@ func NewServer(client backlog.Client, ver string, cfg ServerConfig) *mcpserver.M
 //
 // factory には `auth.NewClientFactory(...)` で生成した ClientFactory を渡す。
 // mcp → auth の import cycle を避けるため、引数型は匿名関数型で表現する。
-func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, error), ver string, cfg ServerConfig) *mcpserver.MCPServer {
-	s := mcpserver.NewMCPServer(
-		"logvalet",
-		ver,
-		mcpserver.WithToolCapabilities(true),
-	)
-	var reg *ToolRegistry
-	if cfg.SpaceResolver != nil {
-		reg = NewToolRegistryWithMultiSpace(s, factory, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
-	} else {
-		reg = NewToolRegistryWithFactory(s, factory, cfg.AuthorizationURL)
-	}
-	reg.disableFilePaths = cfg.DisableFilePaths
-	registerAllTools(reg, cfg)
+func NewServerWithFactory(factory func(ctx context.Context) (backlog.Client, error), ver string, cfg ServerConfig) *officialmcp.Server {
+	s := newOfficialMCPServer(ver)
+	buildRegistry(NewOfficialBackend(s), nil, factory, cfg)
 	return s
 }
 

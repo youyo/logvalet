@@ -1,10 +1,17 @@
 # ToolDef ownership 型一式 (S06)
 
 logvalet re-design (issue #52) の一環として、`internal/mcp` パッケージが
-`mark3labs/mcp-go` (以下 SDK) の型に依存せず MCP tool 定義・呼び出し結果を表現できる
-よう、logvalet 所有の型を `internal/mcp/tooldef.go` / `internal/mcp/toolresult.go` に
-定義した。本ドキュメントは SDK 型 → logvalet 型の対応表と、移行基準スナップショット
+MCP SDK の型に依存せず MCP tool 定義・呼び出し結果を表現できるよう、logvalet 所有の型を
+`internal/mcp/tooldef.go` / `internal/mcp/toolresult.go` に定義した。本ドキュメントは
+SDK 型 → logvalet 型の対応表と、移行基準スナップショット
 (`internal/mcp/testdata/tools_list_baseline.json`) の仕様を記録する。
+
+> **S11 時点の現状**: 旧 SDK backend は削除され、本番の ServerBackend 実装は
+> 公式 Go SDK (`github.com/modelcontextprotocol/go-sdk`) 版
+> (`internal/mcp/backend_official.go`) のみ。以下の対応表のうち「SDK 型」列は
+> baseline 採取時点の旧 SDK の型であり、現在の変換先は
+> `internal/mcp/tooldef_official.go` の `ToOfficialSDKTool` /
+> `ToOfficialSDKResult` およびその逆変換を参照すること。
 
 このステップ (S06) では **既存コード (tools_*.go, server.go 等) は変更しない**。
 新規型・新規ファイルの追加のみを行い、実際に既存ツール登録コードをこれらの型に
@@ -14,7 +21,7 @@ logvalet re-design (issue #52) の一環として、`internal/mcp` パッケー�
 
 ### 1.1 ツール定義 (tools/list の1ツール)
 
-| 概念 | SDK 型 (`github.com/mark3labs/mcp-go/mcp`) | logvalet 型 (`internal/mcp`) |
+| 概念 | SDK 型 (baseline 採取時点の旧 SDK) | logvalet 型 (`internal/mcp`) |
 |---|---|---|
 | ツール定義全体 | `gomcp.Tool` | `ToolDef` |
 | ツール名 | `Tool.Name` | `ToolDef.Name` |
@@ -100,11 +107,17 @@ resource 等、SDK の `Content` interface が持つ他バリアントは対象�
 ### 2.1 取得方法
 
 - 取得プロトコル: MCP `tools/list` (JSON-RPC 2.0)。
-- 取得経路: `internal/mcp.NewServer(backlog.NewMockClient(), "1.0.0", ServerConfig{})` で
-  本番と同一のツール登録 (`registerAllTools`) を経た `*mcpserver.MCPServer` を組み立て、
-  `s.HandleMessage(ctx, json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))`
-  でプロトコルハンドラを直接叩いて取得した (HTTP/stdio トランスポートは経由しない)。
-- 使用 SDK バージョン: `github.com/mark3labs/mcp-go v0.57.0` (go.mod に固定)。
+- 取得経路 (S11 以降 / 公式 Go SDK 基準):
+  `internal/mcp.NewOfficialStreamableHTTPHandler(backlog.NewMockClient(), "test", ServerConfig{})`
+  が返す `StreamableHTTPHandler` (`Stateless: true` / `JSONResponse: true`) を `httptest` で
+  起動し、本番と同一のツール登録 (`registerAllTools`) を経たサーバーに対して
+  `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}` を POST して取得する。
+  実際の突き合わせは `internal/mcp/backend_official_test.go` の
+  `TestOfficialServer_ToolsList_MatchesBaseline` が行う。
+- 使用 SDK バージョン: `github.com/modelcontextprotocol/go-sdk v1.7.0` (go.mod に固定)。
+  公式 SDK は SEP-2575 の `result.cacheScope` / `result.ttlMs` を追加で返すため、
+  baseline 比較時は `stripOfficialSDKOnlyResultFields` でこの2フィールドのみ除外する
+  (意図した SDK 間差分。baseline 自体は書き換えない)。
 - 登録ツール総数: 72 (`server_test.go` の `TestNewServerWithFactory_RegistersAllTools`
   が期待する `expectedCount` と同期)。
 

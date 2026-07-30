@@ -44,7 +44,7 @@ func (b *fakeBackend) call(t *testing.T, name string, args map[string]any) mcpin
 
 // B01: Register は backend.RegisterTool に ToolDef をそのまま渡し、
 // backend 経由での呼び出しがツール本体 (ToolFunc) を実行することを検証する。
-// gomcp/mcpserver 等の SDK 型を一切経由しない。
+// MCP SDK の型を一切経由しない。
 func TestRegister_DelegatesToBackend(t *testing.T) {
 	mock := backlog.NewMockClient()
 	backend := newFakeBackend()

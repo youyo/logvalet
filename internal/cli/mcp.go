@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	idproxy "github.com/youyo/idproxy"
 	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
@@ -300,14 +299,15 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		cfg.SpaceClientFactory = space.ClientFactory(auth.NewSpaceAwareClientFactory(oauthDeps.TokenManager, nil))
 	}
 
-	// MCP サーバー構築（OAuth 有無で分岐）
-	var s *mcpserver.MCPServer
+	// MCP サーバー構築（OAuth 有無で分岐）。
+	// 公式 Go SDK の StreamableHTTPHandler を Stateless=true で使う。エンドポイントパスは
+	// 下の innerMux.Handle("/mcp", h) が決めるため、ハンドラー側にパス設定は不要。
+	var h http.Handler
 	if oauthDeps != nil {
-		s = mcpinternal.NewServerWithFactory(oauthDeps.Factory, ver, cfg)
+		h = mcpinternal.NewOfficialStreamableHTTPHandlerWithFactory(oauthDeps.Factory, ver, cfg)
 	} else {
-		s = mcpinternal.NewServer(rc.Client, ver, cfg)
+		h = mcpinternal.NewOfficialStreamableHTTPHandler(rc.Client, ver, cfg)
 	}
-	h := mcpserver.NewStreamableHTTPServer(s, mcpserver.WithEndpointPath("/mcp"))
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
 

@@ -9,22 +9,20 @@ import (
 	"testing"
 	"time"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 )
 
 // newSpaceRegistryServer は space 管理 tools を登録した MCPServer を返すテストヘルパー。
-func newSpaceRegistryServer(store space.Store, authBaseURL string) *mcpserver.MCPServer {
+func newSpaceRegistryServer(store space.Store, authBaseURL string) *fakeBackend {
 	return newSpaceRegistryServerFull(store, authBaseURL, nil, 0, "")
 }
 
 // newSpaceRegistryServerFull は bootstrap_token 設定付きでサーバーを構築するテストヘルパー。
-func newSpaceRegistryServerFull(store space.Store, multiAuthURL string, bootstrapKey []byte, ttl time.Duration, _ string) *mcpserver.MCPServer {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistry(s, nil, "")
+func newSpaceRegistryServerFull(store space.Store, multiAuthURL string, bootstrapKey []byte, ttl time.Duration, _ string) *fakeBackend {
+	s := newFakeBackend()
+	reg := mcpinternal.NewToolRegistryWithBackend(s, nil, "")
 	resolver := space.NewResolver(store)
 	var ns space.NonceStore
 	if store != nil {
@@ -420,15 +418,12 @@ func TestSpaceConnectURL_BaseURLNormalization(t *testing.T) {
 	}
 }
 
-// mustTextContent は *gomcp.CallToolResult の最初の TextContent.Text を返すヘルパー。
-func mustTextContent(t *testing.T, result *gomcp.CallToolResult) string {
+// mustTextContent は mcpinternal.ToolResult の最初の TextContent.Text を返すヘルパー。
+func mustTextContent(t *testing.T, result mcpinternal.ToolResult) string {
 	t.Helper()
 	if len(result.Content) == 0 {
 		t.Fatal("expected non-empty result content")
 	}
-	tc, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	tc := resultTextContent(t, result)
 	return tc.Text
 }

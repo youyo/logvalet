@@ -7,40 +7,20 @@ import (
 	"strings"
 	"testing"
 
-	gomcp "github.com/mark3labs/mcp-go/mcp"
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
 
-// callTool は ServerTool のハンドラーを直接呼び出すテストヘルパー。
-// MCPServer.GetTool で tool を取得し、Handler を実行する。
-func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[string]any) *gomcp.CallToolResult {
-	t.Helper()
-	serverTool := s.GetTool(toolName)
-	if serverTool == nil {
-		t.Fatalf("tool %q not found", toolName)
-	}
-
-	req := gomcp.CallToolRequest{}
-	req.Params.Name = toolName
-	req.Params.Arguments = args
-
-	result, err := serverTool.Handler(context.Background(), req)
-	if err != nil {
-		t.Fatalf("tool %q handler returned error: %v", toolName, err)
-	}
-	return result
-}
+// callTool / callToolWithCtx は testserver_test.go が提供する共通ヘルパーを使う。
 
 // MCP-1: NewServer で全ツールが登録されること
 func TestNewServer_RegistersAllTools(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
-	tools := s.ListTools()
+	tools := s.toolNames()
 	expectedCount := 72
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
@@ -64,7 +44,7 @@ func TestIssueGetHandler(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{"issue_key": "TEST-1"})
 
 	if result.IsError {
@@ -74,10 +54,7 @@ func TestIssueGetHandler(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var issue domain.Issue
 	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -98,16 +75,13 @@ func TestProjectGetHandler(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_project_get", map[string]any{"project_key": "TESTPROJECT"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var proj domain.Project
 	if err := json.Unmarshal([]byte(textContent.Text), &proj); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -126,7 +100,7 @@ func TestStarAddHandler(t *testing.T) {
 		return nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_star_add", map[string]any{"issue_id": float64(100)})
 
 	if result.IsError {
@@ -140,7 +114,7 @@ func TestStarAddHandler(t *testing.T) {
 // MCP-E2: 必須パラメータ欠落 → IsError: true
 func TestIssueGetHandler_MissingIssueKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{})
 
@@ -154,7 +128,7 @@ func TestIssueGetHandler_NotFound(t *testing.T) {
 	mock := backlog.NewMockClient()
 	// GetIssueFunc が未設定の場合、MockClient は ErrNotFound を返す
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_issue_get", map[string]any{"issue_key": "NOTFOUND-999"})
 
 	if !result.IsError {
@@ -176,7 +150,7 @@ func TestProjectBlockersHandler_Basic(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_project_blockers", map[string]any{"project_keys": "PROJ"})
 
 	if result.IsError {
@@ -186,10 +160,7 @@ func TestProjectBlockersHandler_Basic(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var envelope map[string]any
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -206,7 +177,7 @@ func TestProjectBlockersHandler_Basic(t *testing.T) {
 // MCP-27: project_keys 省略 → IsError: true
 func TestProjectBlockersHandler_MissingProjectKeys(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
 	result := callTool(t, s, "logvalet_project_blockers", map[string]any{})
 
@@ -229,7 +200,7 @@ func TestProjectHealthHandler_Basic(t *testing.T) {
 		return []domain.Issue{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_project_health", map[string]any{"project_key": "PROJ"})
 
 	if result.IsError {
@@ -239,10 +210,7 @@ func TestProjectHealthHandler_Basic(t *testing.T) {
 		t.Fatal("expected non-empty result content")
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var envelope map[string]any
 	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -262,7 +230,7 @@ func TestProjectHealthHandler_Basic(t *testing.T) {
 // MCP-31: project_key 省略 → IsError: true
 func TestProjectHealthHandler_MissingProjectKey(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
 	result := callTool(t, s, "logvalet_project_health", map[string]any{})
 
@@ -284,17 +252,14 @@ func TestWatchingListHandler(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	// C2: user_id は string 型で渡す（"123" のように数値文字列）
 	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "123"})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var watchings []domain.Watching
 	if err := json.Unmarshal([]byte(textContent.Text), &watchings); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -307,7 +272,7 @@ func TestWatchingListHandler(t *testing.T) {
 // MCP-W2: logvalet_watching_list の user_id 省略 → IsError: true
 func TestWatchingListHandler_MissingUserID(t *testing.T) {
 	mock := backlog.NewMockClient()
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
 	result := callTool(t, s, "logvalet_watching_list", map[string]any{})
 	if !result.IsError {
@@ -327,7 +292,7 @@ func TestWatchingListHandler_UserIDMe(t *testing.T) {
 		return []domain.Watching{}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "me"})
 
 	if result.IsError {
@@ -342,7 +307,7 @@ func TestWatchingListHandler_UserIDMe(t *testing.T) {
 func TestWatchingListHandler_UserIDInvalid(t *testing.T) {
 	mock := backlog.NewMockClient()
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_list", map[string]any{"user_id": "abc"})
 
 	if !result.IsError {
@@ -357,16 +322,13 @@ func TestWatchingCountHandler(t *testing.T) {
 		return 7, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_count", map[string]any{"user_id": float64(123)})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var out map[string]int
 	if err := json.Unmarshal([]byte(textContent.Text), &out); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -386,16 +348,13 @@ func TestWatchingGetHandler(t *testing.T) {
 		return &domain.Watching{ID: 42, Type: "issue", Note: "my note"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_get", map[string]any{"watching_id": float64(42)})
 
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var watching domain.Watching
 	if err := json.Unmarshal([]byte(textContent.Text), &watching); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -417,7 +376,7 @@ func TestWatchingAddHandler(t *testing.T) {
 		return &domain.Watching{ID: 100, Type: "issue"}, nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_add", map[string]any{
 		"issue_id_or_key": "PROJ-1",
 		"note":            "watch this",
@@ -443,7 +402,7 @@ func TestWatchingMarkAsReadHandler(t *testing.T) {
 		return nil
 	}
 
-	s := mcpinternal.NewServer(mock, "test", mcpinternal.ServerConfig{})
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 	result := callTool(t, s, "logvalet_watching_mark_as_read", map[string]any{"watching_id": float64(42)})
 
 	if result.IsError {
@@ -452,25 +411,6 @@ func TestWatchingMarkAsReadHandler(t *testing.T) {
 	if capturedWatchingID != 42 {
 		t.Errorf("expected watchingID=42, got %d", capturedWatchingID)
 	}
-}
-
-// callToolWithCtx は指定した context で ServerTool のハンドラーを呼び出すテストヘルパー。
-func callToolWithCtx(t *testing.T, s *mcpserver.MCPServer, ctx context.Context, toolName string, args map[string]any) *gomcp.CallToolResult {
-	t.Helper()
-	serverTool := s.GetTool(toolName)
-	if serverTool == nil {
-		t.Fatalf("tool %q not found", toolName)
-	}
-
-	req := gomcp.CallToolRequest{}
-	req.Params.Name = toolName
-	req.Params.Arguments = args
-
-	result, err := serverTool.Handler(ctx, req)
-	if err != nil {
-		t.Fatalf("tool %q handler returned error: %v", toolName, err)
-	}
-	return result
 }
 
 // M11-1: NewToolRegistryWithFactory でツール登録 → factory(ctx) が呼ばれてツール実行
@@ -490,7 +430,7 @@ func TestNewToolRegistryWithFactory_RegisterAndCall(t *testing.T) {
 		return mock, nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	// 簡単なツールを登録
@@ -513,10 +453,7 @@ func TestNewToolRegistryWithFactory_RegisterAndCall(t *testing.T) {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
 
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var issue domain.Issue
 	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -533,7 +470,7 @@ func TestNewToolRegistryWithFactory_FactoryError(t *testing.T) {
 		return nil, factoryErr
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	reg := mcpinternal.NewToolRegistryWithFactory(s, factory, "")
 
 	fnCalled := false
@@ -566,8 +503,8 @@ func TestNewToolRegistry_BackwardCompat(t *testing.T) {
 		}, nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
-	reg := mcpinternal.NewToolRegistry(s, mock, "")
+	s := newFakeBackend()
+	reg := mcpinternal.NewToolRegistryWithBackend(s, mock, "")
 
 	tool := mcpinternal.NewToolDef("test_tool",
 		mcpinternal.WithDesc("test tool"),
@@ -583,10 +520,7 @@ func TestNewToolRegistry_BackwardCompat(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected tool error: %v", result.Content)
 	}
-	textContent, ok := result.Content[0].(gomcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
+	textContent := resultTextContent(t, result)
 	var issue domain.Issue
 	if err := json.Unmarshal([]byte(textContent.Text), &issue); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
@@ -641,7 +575,7 @@ func TestToolRegistry_AuthRequired(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+			s := newFakeBackend()
 			factory := func(ctx context.Context) (backlog.Client, error) {
 				return nil, tc.factoryErr
 			}
@@ -664,18 +598,18 @@ func TestToolRegistry_AuthRequired(t *testing.T) {
 				if result.Meta == nil {
 					t.Fatal("expected Meta to be non-nil")
 				}
-				authReq, ok := result.Meta.AdditionalFields["authorization_required"].(bool)
+				authReq, ok := result.Meta.ToMap()["authorization_required"].(bool)
 				if !ok || !authReq {
-					t.Errorf("Meta.authorization_required = %v, want true", result.Meta.AdditionalFields["authorization_required"])
+					t.Errorf("Meta.authorization_required = %v, want true", result.Meta.ToMap()["authorization_required"])
 				}
-				authURL, ok := result.Meta.AdditionalFields["authorization_url"].(string)
+				authURL, ok := result.Meta.ToMap()["authorization_url"].(string)
 				if !ok || authURL != tc.wantURL {
 					t.Errorf("Meta.authorization_url = %q, want %q", authURL, tc.wantURL)
 				}
 				// テキストに URL が含まれること
 				if len(result.Content) > 0 {
-					text, ok := result.Content[0].(gomcp.TextContent)
-					if ok && !strings.Contains(text.Text, tc.wantURL) {
+					text := resultTextContent(t, result)
+					if !strings.Contains(text.Text, tc.wantURL) {
 						t.Errorf("Content text does not contain URL %q: %q", tc.wantURL, text.Text)
 					}
 				}
@@ -691,11 +625,11 @@ func TestToolRegistry_AuthRequired(t *testing.T) {
 // TestFactoryError_AuthRequired_MetaJSONSerialization は ErrProviderNotConnected 時に
 // json.Marshal した CallToolResult のワイヤフォーマットが期待形状であることを検証する。
 //
-// mark3labs/mcp-go の Meta.MarshalJSON は AdditionalFields を top-level に展開するため、
+// ResultMeta.ToMap の内容は _meta の top-level フィールドとして展開されるため、
 // 実際の JSON ペイロードとして {"_meta":{"authorization_required":true,"authorization_url":"..."}}
 // が生成されることを担保する（struct フィールドアクセス検証とは独立した確認）。
 func TestFactoryError_AuthRequired_MetaJSONSerialization(t *testing.T) {
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	factory := func(ctx context.Context) (backlog.Client, error) {
 		return nil, auth.ErrProviderNotConnected
 	}
@@ -715,8 +649,9 @@ func TestFactoryError_AuthRequired_MetaJSONSerialization(t *testing.T) {
 		t.Fatal("expected IsError=true")
 	}
 
-	// JSON シリアライズ検証
-	raw, err := json.Marshal(result)
+	// JSON シリアライズ検証。MCP クライアントがワイヤ上で受け取るのは公式 SDK の
+	// CallToolResult なので、ToolResult 単体ではなく変換後の SDK 型を marshal する。
+	raw, err := json.Marshal(result.ToOfficialSDKResult())
 	if err != nil {
 		t.Fatalf("json.Marshal(result): %v", err)
 	}

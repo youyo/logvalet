@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/youyo/logvalet/internal/auth"
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
@@ -34,7 +33,7 @@ func buildMockClientForMyTasks() *backlog.MockClient {
 
 // newMultiSpaceServerForAnalysis は analysis 系ツールを登録した MCP サーバーを返す。
 // cfg.Space / cfg.BaseURL は「heptagon 固定の起動時値」を模擬する。
-func newMultiSpaceServerForAnalysis(t *testing.T) (*mcpserver.MCPServer, *space.MemoryStore) {
+func newMultiSpaceServerForAnalysis(t *testing.T) (*fakeBackend, *space.MemoryStore) {
 	t.Helper()
 	store := space.NewMemoryStore()
 	ctx := context.Background()
@@ -51,7 +50,7 @@ func newMultiSpaceServerForAnalysis(t *testing.T) (*mcpserver.MCPServer, *space.
 		return buildMockClientForMyTasks(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 
@@ -139,7 +138,7 @@ func TestProjectHealthHandler_MultiSpace_EnvelopeAndSubBuildersMetadata(t *testi
 		return buildMC(), nil
 	}
 
-	s := mcpserver.NewMCPServer("test", "0.0.0", mcpserver.WithToolCapabilities(true))
+	s := newFakeBackend()
 	resolver := space.NewResolver(store)
 	reg := mcpinternal.NewToolRegistryWithMultiSpace(s, nil, "", resolver, spaceFactory)
 	cfg := mcpinternal.ServerConfig{
