@@ -11,7 +11,8 @@ func StoreKey(userID, provider, tenant string) string {
 
 // TokenStore はユーザーごとの OAuth トークンレコードの永続化を抽象化する。
 //
-// 実装は memory / sqlite / dynamodb の3種類を提供する。
+// 実装は memory / sqlite の2種類を提供する（ローカル専用。CLI/stdio の
+// 直接 OAuth 利用専用であり、HTTP/Gateway モードでは使用しない）。
 // interface は消費者側（auth パッケージ）に配置し、実装は tokenstore サブパッケージに置く。
 // これにより auth → tokenstore の循環依存を回避する。
 type TokenStore interface {

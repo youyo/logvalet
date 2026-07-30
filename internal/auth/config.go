@@ -9,10 +9,8 @@ import (
 
 // 環境変数キー名定数
 const (
-	EnvTokenStore      = "LOGVALET_MCP_TOKEN_STORE"
-	EnvSQLitePath      = "LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"
-	EnvDynamoDBTable   = "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"
-	EnvDynamoDBRegion  = "LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"
+	EnvTokenStore          = "LOGVALET_MCP_TOKEN_STORE"
+	EnvSQLitePath          = "LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"
 	EnvBacklogClientID     = "LOGVALET_MCP_BACKLOG_CLIENT_ID"
 	EnvBacklogClientSecret = "LOGVALET_MCP_BACKLOG_CLIENT_SECRET"
 	EnvBacklogRedirectURL  = "LOGVALET_MCP_BACKLOG_REDIRECT_URL"
@@ -36,8 +34,6 @@ const (
 	StoreTypeMemory StoreType = "memory"
 	// StoreTypeSQLite は SQLite TokenStore。ローカル CLI・自己ホスト向け。
 	StoreTypeSQLite StoreType = "sqlite"
-	// StoreTypeDynamoDB は DynamoDB TokenStore。Lambda 本命。
-	StoreTypeDynamoDB StoreType = "dynamodb"
 )
 
 // ErrInvalidStoreType は不正な TokenStore 種別が指定された場合に返される。
@@ -45,12 +41,14 @@ var ErrInvalidStoreType = errors.New("auth: invalid token store type")
 
 // OAuthEnvConfig は OAuth 関連の環境変数設定を保持する。
 // LoadOAuthEnvConfig() で構築し、Validate() で必須項目チェックを行う。
+//
+// TokenStore はローカル（memory/sqlite）のみをサポートする。CLI/stdio の
+// 直接 OAuth 利用専用であり、HTTP/Gateway モードでは使用しない
+// （Backlog credential は Bearer passthrough 経路を使う）。
 type OAuthEnvConfig struct {
 	// TokenStore 設定
 	TokenStoreType StoreType // LOGVALET_TOKEN_STORE (デフォルト: memory)
 	SQLitePath     string    // LOGVALET_TOKEN_STORE_SQLITE_PATH (デフォルト: ./logvalet.db)
-	DynamoDBTable  string    // LOGVALET_TOKEN_STORE_DYNAMODB_TABLE
-	DynamoDBRegion string    // LOGVALET_TOKEN_STORE_DYNAMODB_REGION
 
 	// Backlog OAuth 設定
 	BacklogClientID     string // LOGVALET_BACKLOG_CLIENT_ID
@@ -63,7 +61,7 @@ type OAuthEnvConfig struct {
 
 // ParseStoreType は文字列を StoreType に変換する。
 // 空文字列の場合はデフォルト (memory) を返す。
-// 不正値の場合は ErrInvalidStoreType を返す。
+// 不正値の場合は ErrInvalidStoreType を返す（dynamodb は廃止されたため不正値として扱う）。
 func ParseStoreType(s string) (StoreType, error) {
 	normalized := strings.ToLower(strings.TrimSpace(s))
 	switch normalized {
@@ -71,10 +69,8 @@ func ParseStoreType(s string) (StoreType, error) {
 		return StoreTypeMemory, nil
 	case "sqlite":
 		return StoreTypeSQLite, nil
-	case "dynamodb":
-		return StoreTypeDynamoDB, nil
 	default:
-		return "", fmt.Errorf("%w: %q (valid: memory, sqlite, dynamodb)", ErrInvalidStoreType, s)
+		return "", fmt.Errorf("%w: %q (valid: memory, sqlite)", ErrInvalidStoreType, s)
 	}
 }
 
@@ -99,8 +95,6 @@ func LoadOAuthEnvConfig(getenv func(string) string) (*OAuthEnvConfig, error) {
 	return &OAuthEnvConfig{
 		TokenStoreType:      storeType,
 		SQLitePath:          sqlitePath,
-		DynamoDBTable:       getenv(EnvDynamoDBTable),
-		DynamoDBRegion:      getenv(EnvDynamoDBRegion),
 		BacklogClientID:     getenv(EnvBacklogClientID),
 		BacklogClientSecret: getenv(EnvBacklogClientSecret),
 		BacklogRedirectURL:  getenv(EnvBacklogRedirectURL),
@@ -116,7 +110,6 @@ func (c *OAuthEnvConfig) OAuthEnabled() bool {
 
 // Validate は OAuthEnvConfig の必須項目チェックを行う。
 // OAuth が有効な場合（ClientID 設定済み）は、ClientSecret, RedirectURL, StateSecret を必須とする。
-// DynamoDB 選択時は Table, Region を必須とする。
 // 複数のエラーがある場合は errors.Join で集約して返す。
 func (c *OAuthEnvConfig) Validate() error {
 	var errs []error
@@ -139,16 +132,6 @@ func (c *OAuthEnvConfig) Validate() error {
 			} else if len(decoded) < minStateSecretBytes {
 				errs = append(errs, fmt.Errorf("auth: %s must be at least 16 bytes (32 hex chars), got %d bytes", EnvOAuthStateSecret, len(decoded)))
 			}
-		}
-	}
-
-	// DynamoDB 選択時の必須チェック
-	if c.TokenStoreType == StoreTypeDynamoDB {
-		if c.DynamoDBTable == "" {
-			errs = append(errs, fmt.Errorf("auth: %s is required when token store is dynamodb", EnvDynamoDBTable))
-		}
-		if c.DynamoDBRegion == "" {
-			errs = append(errs, fmt.Errorf("auth: %s is required when token store is dynamodb", EnvDynamoDBRegion))
 		}
 	}
 

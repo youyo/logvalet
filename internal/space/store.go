@@ -2,8 +2,28 @@ package space
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 )
+
+// ErrSpaceStoreTypeRequired は HTTP/Gateway モードで LOGVALET_SPACE_STORE_TYPE が
+// 未設定、または memory が選択された場合に返される。stdio モードは memory 既定を
+// 維持するため許容されるが、HTTP/Gateway モードは明示指定を必須とし fail-fast する。
+var ErrSpaceStoreTypeRequired = errors.New(
+	"space: LOGVALET_SPACE_STORE_TYPE must be set explicitly in HTTP/Gateway mode " +
+		"(memory is not allowed; set sqlite or dynamodb)")
+
+// RequireExplicitStoreType は HTTP/Gateway モード向けに、明示的な（memory 以外の）
+// store type 指定を検証する。未設定または memory の場合は
+// ErrSpaceStoreTypeRequired を返す。
+func RequireExplicitStoreType(storeType string) error {
+	normalized := strings.ToLower(strings.TrimSpace(storeType))
+	if normalized == "" || StoreType(normalized) == StoreTypeMemory {
+		return ErrSpaceStoreTypeRequired
+	}
+	return nil
+}
 
 // Store は SpaceRegistration と UserPreference の永続ストアインターフェース。
 type Store interface {

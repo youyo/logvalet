@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
@@ -42,11 +41,12 @@ type McpCmd struct {
 	BacklogRedirectURL  string `name:"backlog-redirect-url" help:"Backlog OAuth redirect URL" group:"auth" env:"LOGVALET_MCP_BACKLOG_REDIRECT_URL"`
 	OAuthStateSecret    string `name:"oauth-state-secret" help:"HMAC-SHA256 signing key for OAuth state (hex-encoded, 32+ bytes)" group:"auth" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
 
-	// TokenStore フラグ
-	TokenStore               string `name:"token-store" help:"token store type (memory/sqlite/dynamodb)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE"`
-	TokenStoreSQLitePath     string `name:"token-store-sqlite-path" help:"SQLite DB file path (sqlite store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_SQLITE_PATH"`
-	TokenStoreDynamoDBTable  string `name:"token-store-dynamodb-table" help:"DynamoDB table name (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_TABLE"`
-	TokenStoreDynamoDBRegion string `name:"token-store-dynamodb-region" help:"AWS region for DynamoDB table (dynamodb store only)" group:"store" env:"LOGVALET_MCP_TOKEN_STORE_DYNAMODB_REGION"`
+	// 注記: --token-store 系フラグは HTTP/Gateway モードから完全に削除した
+	// （決定E: tokenstore は使用しない。Backlog credential は S30 の Bearer
+	// passthrough 経路。決定F: dynamodb バックエンド自体も廃止）。
+	// tokenstore は CLI/stdio の直接 OAuth 利用専用として存続する。
+	// これらのフラグはフィールドごと削除しているため、指定すると Kong の
+	// unknown flag エラーとして fail-fast する。
 
 	// 削除済みフラグ。値が渡された場合に移行先を案内して fail-fast するためだけに
 	// 定義を残している（ヘルプ非表示・機能なし）。
@@ -146,34 +146,19 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
-// buildOAuthEnvConfig は McpCmd のフィールドから OAuthEnvConfig を組み立てる。
-// Kong が env タグを見て McpCmd フィールドに env 値を自動注入するため、
-// flag/env 両対応は McpCmd フィールドを転記するだけで実現できる。
-func (c *McpCmd) buildOAuthEnvConfig() (*auth.OAuthEnvConfig, error) {
-	storeType, err := auth.ParseStoreType(c.TokenStore)
-	if err != nil {
-		return nil, fmt.Errorf("--token-store: %w", err)
-	}
-
-	sqlitePath := c.TokenStoreSQLitePath
-	if sqlitePath == "" {
-		sqlitePath = auth.DefaultSQLitePath
-	}
-
-	return &auth.OAuthEnvConfig{
-		TokenStoreType:      storeType,
-		SQLitePath:          sqlitePath,
-		DynamoDBTable:       c.TokenStoreDynamoDBTable,
-		DynamoDBRegion:      c.TokenStoreDynamoDBRegion,
-		BacklogClientID:     c.BacklogClientID,
-		BacklogClientSecret: c.BacklogClientSecret,
-		BacklogRedirectURL:  c.BacklogRedirectURL,
-		OAuthStateSecret:    c.OAuthStateSecret,
-	}, nil
+// checkSpaceStoreType は HTTP/Gateway モードで LOGVALET_SPACE_STORE_TYPE の
+// 明示指定を必須とする（決定F）。未設定・memory 選択時は警告ではなく起動エラーに
+// する。stdio モード（McpStdioCmd）はこのチェックを持たず memory 既定を維持する。
+func (c *McpCmd) checkSpaceStoreType() error {
+	return space.RequireExplicitStoreType(os.Getenv("LOGVALET_SPACE_STORE_TYPE"))
 }
 
 // Run は MCP サーバーを起動する。
 func (c *McpCmd) Run(g *GlobalFlags) error {
+	if err := c.checkSpaceStoreType(); err != nil {
+		return err
+	}
+
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
@@ -187,7 +172,8 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 	}
 
 	// SpaceStore / Resolver / ClientFactory を設定（space 管理ツール有効化）。
-	// 失敗しても MCP サーバー起動は継続し、space 管理ツールのみ無効になる。
+	// store type 自体は上のチェックで明示指定済みのため、以降の構築失敗
+	// （DB接続不可等）は従来どおり警告に留め、MCP サーバー起動は継続する。
 	if spaceStore, storeErr := buildSpaceStore(); storeErr != nil {
 		slog.Warn("space store init failed, space management tools disabled", "error", storeErr)
 	} else {
