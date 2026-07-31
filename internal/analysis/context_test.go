@@ -76,6 +76,9 @@ func TestIssueContextBuilder_Build_Success(t *testing.T) {
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return statuses, nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
 
@@ -148,6 +151,9 @@ func TestIssueContextBuilder_Build_Compact(t *testing.T) {
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
 
@@ -189,6 +195,9 @@ func TestIssueContextBuilder_Build_MaxComments(t *testing.T) {
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
 
@@ -224,6 +233,9 @@ func TestIssueContextBuilder_Build_OverdueSignal(t *testing.T) {
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
 
@@ -255,6 +267,9 @@ func TestIssueContextBuilder_Build_StaleSignal(t *testing.T) {
 	}
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
+	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
 	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
@@ -291,6 +306,9 @@ func TestIssueContextBuilder_Build_NotStale(t *testing.T) {
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
 
@@ -314,6 +332,9 @@ func TestIssueContextBuilder_Build_IssueNotFound(t *testing.T) {
 	mc := backlog.NewMockClient()
 	mc.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
 		return nil, backlog.ErrNotFound
+	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
 	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com")
@@ -341,6 +362,9 @@ func TestIssueContextBuilder_Build_PartialFailure(t *testing.T) {
 	}
 	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
 		return helperStatuses(), nil
+	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
 	}
 
 	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
@@ -375,5 +399,171 @@ func TestIssueContextBuilder_Build_PartialFailure(t *testing.T) {
 	// comment_count = 0
 	if ic.Signals.CommentCount != 0 {
 		t.Errorf("Signals.CommentCount = %d, want 0", ic.Signals.CommentCount)
+	}
+}
+
+// TestIssueContextBuilder_Build_RelatedIssues は関連課題が RelatedIssues に射影されることを検証する。
+func TestIssueContextBuilder_Build_RelatedIssues(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+	issue := helperIssue(fixedNow)
+	updated1 := fixedNow.Add(-24 * time.Hour)
+	updated2 := fixedNow.Add(-48 * time.Hour)
+	related := []domain.RelatedIssue{
+		{
+			Issue: domain.Issue{
+				IssueKey: "PROJ-200",
+				Summary:  "関連課題1",
+				Status:   &domain.IDName{ID: 1, Name: "未対応"},
+				Updated:  &updated1,
+			},
+			Type: "related",
+		},
+		{
+			Issue: domain.Issue{
+				IssueKey: "PROJ-201",
+				Summary:  "関連課題2",
+				Status:   &domain.IDName{ID: 2, Name: "処理中"},
+				Updated:  &updated2,
+			},
+			Type: "duplicate",
+		},
+	}
+
+	mc := backlog.NewMockClient()
+	mc.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return issue, nil
+	}
+	mc.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return nil, nil
+	}
+	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		return helperStatuses(), nil
+	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return related, nil
+	}
+
+	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", IssueContextOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	if len(env.Warnings) != 0 {
+		t.Errorf("Warnings = %v, want empty", env.Warnings)
+	}
+
+	ic := env.Analysis.(*IssueContext)
+
+	if len(ic.RelatedIssues) != 2 {
+		t.Fatalf("RelatedIssues length = %d, want 2", len(ic.RelatedIssues))
+	}
+	if ic.RelatedIssues[0].IssueKey != "PROJ-200" {
+		t.Errorf("RelatedIssues[0].IssueKey = %q, want %q", ic.RelatedIssues[0].IssueKey, "PROJ-200")
+	}
+	if ic.RelatedIssues[1].IssueKey != "PROJ-201" {
+		t.Errorf("RelatedIssues[1].IssueKey = %q, want %q", ic.RelatedIssues[1].IssueKey, "PROJ-201")
+	}
+
+	// 既存5フィールドは不変
+	if ic.Issue.IssueKey != "PROJ-123" {
+		t.Errorf("IssueKey = %q, want %q", ic.Issue.IssueKey, "PROJ-123")
+	}
+	if len(ic.Meta.Statuses) != 4 {
+		t.Errorf("Meta.Statuses length = %d, want 4", len(ic.Meta.Statuses))
+	}
+	if len(ic.RecentComments) != 0 {
+		t.Errorf("RecentComments length = %d, want 0", len(ic.RecentComments))
+	}
+	if ic.Signals.CommentCount != 0 {
+		t.Errorf("Signals.CommentCount = %d, want 0", ic.Signals.CommentCount)
+	}
+}
+
+// TestIssueContextBuilder_Build_RelatedIssuesFetchFailed は関連課題取得失敗時に
+// graceful degradation することを検証する（Func 未設定＝ backlog.ErrNotFound を含む）。
+func TestIssueContextBuilder_Build_RelatedIssuesFetchFailed(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+	issue := helperIssue(fixedNow)
+
+	mc := backlog.NewMockClient()
+	mc.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return issue, nil
+	}
+	mc.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return nil, nil
+	}
+	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		return helperStatuses(), nil
+	}
+	// ListRelatedIssuesFunc は未設定 → backlog.ErrNotFound
+
+	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", IssueContextOptions{})
+	if err != nil {
+		t.Fatalf("Build() should not return error on related issues fetch failure, got: %v", err)
+	}
+
+	ic := env.Analysis.(*IssueContext)
+
+	if ic.RelatedIssues == nil {
+		t.Error("RelatedIssues = nil, want empty slice")
+	}
+	if len(ic.RelatedIssues) != 0 {
+		t.Errorf("RelatedIssues length = %d, want 0", len(ic.RelatedIssues))
+	}
+
+	foundWarning := false
+	for _, w := range env.Warnings {
+		if w.Code == "related_issues_fetch_failed" {
+			foundWarning = true
+			break
+		}
+	}
+	if !foundWarning {
+		t.Error("Warnings does not contain code 'related_issues_fetch_failed'")
+	}
+}
+
+// TestIssueContextBuilder_Build_RelatedIssuesSkipped は SkipRelatedIssues:true で
+// client 呼び出しがスキップされることを検証する。
+func TestIssueContextBuilder_Build_RelatedIssuesSkipped(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+	issue := helperIssue(fixedNow)
+
+	mc := backlog.NewMockClient()
+	mc.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return issue, nil
+	}
+	mc.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return nil, nil
+	}
+	mc.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		return helperStatuses(), nil
+	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return []domain.RelatedIssue{{Issue: domain.Issue{IssueKey: "PROJ-200"}}}, nil
+	}
+
+	builder := NewIssueContextBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com", WithClock(func() time.Time { return fixedNow }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", IssueContextOptions{SkipRelatedIssues: true})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	if mc.GetCallCount("ListRelatedIssues") != 0 {
+		t.Errorf("ListRelatedIssues call count = %d, want 0", mc.GetCallCount("ListRelatedIssues"))
+	}
+
+	ic := env.Analysis.(*IssueContext)
+
+	if ic.RelatedIssues == nil {
+		t.Error("RelatedIssues = nil, want empty slice")
+	}
+	if len(ic.RelatedIssues) != 0 {
+		t.Errorf("RelatedIssues length = %d, want 0", len(ic.RelatedIssues))
 	}
 }
