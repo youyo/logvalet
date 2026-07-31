@@ -1129,6 +1129,8 @@ Primary endpoints expected:
 /api/v2/issues
 /api/v2/issues/:idOrKey
 /api/v2/issues/:idOrKey/comments
+/api/v2/issues/:idOrKey/relatedIssues        # undocumented; not in official Backlog API reference
+/api/v2/issues/:idOrKey/relatedIssues/:relatedIssueId  # undocumented; not in official Backlog API reference
 
 /api/v2/projects
 /api/v2/projects/:idOrKey
@@ -1433,6 +1435,11 @@ type Client interface {
     ListIssueComments(ctx context.Context, issueKey string, opt ListCommentsOptions) ([]Comment, error)
     AddIssueComment(ctx context.Context, issueKey string, req AddCommentRequest) (*Comment, error)
     UpdateIssueComment(ctx context.Context, issueKey string, commentID int64, req UpdateCommentRequest) (*Comment, error)
+
+    // Related issues (undocumented Backlog API; response shape not officially guaranteed)
+    ListRelatedIssues(ctx context.Context, issueKey string) ([]RelatedIssue, error)
+    AddRelatedIssue(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*RelatedIssue, error)
+    DeleteRelatedIssue(ctx context.Context, issueKey string, relatedIssueID int64) (*RelatedIssue, error)
 
     // Projects
     GetProject(ctx context.Context, projectKey string) (*Project, error)

@@ -116,6 +116,9 @@ end
 | `issue attachment get <KEY> <ID>` | 添付ファイル情報の取得 |
 | `issue attachment download <KEY> <ID>` | 添付ファイルのダウンロード |
 | `issue attachment delete <KEY> <ID>` | 添付ファイルの削除 |
+| `issue related list <KEY>` | 関連課題一覧（Backlog 非公開 API） |
+| `issue related add <KEY> <TARGET-ISSUE-ID>` | 関連課題の追加（Backlog 非公開 API） |
+| `issue related remove <KEY> <RELATED-ISSUE-ID>` | 関連課題の削除（Backlog 非公開 API） |
 | `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル） |
 | `issue stale` | プロジェクトの停滞課題を検出 |
 | `project get <KEY>` | プロジェクトの取得 |
@@ -438,6 +441,23 @@ logvalet issue attachment delete PROJ-123 12345 --dry-run
 logvalet issue attachment delete PROJ-123 12345
 ```
 
+## 関連課題
+
+関連課題を管理します。Backlog の非公開 API エンドポイント（`/api/v2/issues/{issueKey}/relatedIssues`）を利用しているため、レスポンス形式や挙動は Backlog による公式な保証がありません。
+
+```bash
+# 課題の関連課題一覧を表示
+logvalet issue related list PROJ-123
+
+# 関連課題を追加（target-issue-id は課題キーではなく数値の課題 ID）
+logvalet issue related add PROJ-123 456789 --dry-run
+logvalet issue related add PROJ-123 456789
+
+# 関連課題を削除（related-issue-id は「related list」が返す関連 ID）
+logvalet issue related remove PROJ-123 789012 --dry-run
+logvalet issue related remove PROJ-123 789012
+```
+
 ## 共有ファイル
 
 プロジェクト内の共有ファイルを管理します:
@@ -522,11 +542,11 @@ logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-MCP サーバーは **72 個のツール** を提供し、CLI の全サブコマンドに対応する MCP ツールが存在します。CLI と同等のオプションをサポートしており、パラメータ名は `snake_case` に変換されて JSON Schema として型付けされます。
+MCP サーバーは **75 個のツール** を提供し、CLI の全サブコマンドに対応する MCP ツールが存在します。CLI と同等のオプションをサポートしており、パラメータ名は `snake_case` に変換されて JSON Schema として型付けされます。
 
 領域別の代表的なツール:
 
-- **課題**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`
+- **課題**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`, `logvalet_issue_related_{list,add,delete}`（Backlog 非公開 API）
 - **プロジェクト**: `logvalet_project_{get,list,blockers,health}`, `logvalet_user_workload`
 - **ダイジェスト**: `logvalet_digest`, `logvalet_digest_unified`, `logvalet_digest_{weekly,daily}`, `logvalet_space_digest`, `logvalet_activity_digest`, `logvalet_document_digest`
 - **ドキュメント**: `logvalet_document_{get,list,tree,create}`
@@ -548,15 +568,15 @@ Claude Desktop の設定または Claude Code のスキル設定で MCP サー�
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 72 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 75 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
 |---|---|---|---|
-| Read-only | 45 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download` 等 | 確認ダイアログなしで自動実行 |
-| Write 非冪等 | 3 | `issue_create`, `issue_comment_add`, `document_create` | 通常の書き込み確認 |
-| Write 冪等 | 6 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read` | 通常の書き込み確認 |
-| Destructive | 2 | `watching_delete`, `issue_attachment_delete` | 強い確認ダイアログを表示 |
+| Read-only | 59 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download`, `issue_related_list` 等 | 確認ダイアログなしで自動実行 |
+| Write 非冪等 | 4 | `issue_create`, `issue_comment_add`, `document_create`, `issue_attachment_upload` | 通常の書き込み確認 |
+| Write 冪等 | 8 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read`, `space_use`, `issue_related_add` | 通常の書き込み確認 |
+| Destructive | 4 | `watching_delete`, `issue_attachment_delete`, `space_disconnect`, `issue_related_delete` | 強い確認ダイアログを表示 |
 
 > **注意**: annotations はクライアントへの**ヒント**であり、サーバー側のアクセス制御ではありません。
 > annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。

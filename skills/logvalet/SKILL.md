@@ -143,3 +143,15 @@ lv watching add PROJ-123     # ウォッチ追加
 lv watching delete <ID>      # ウォッチ解除
 lv watching mark-as-read <ID> # 既読化
 ```
+
+## 関連課題（CLI 直接操作）
+
+課題間の関連付け。専用スキルはなく CLI で直接操作する。Backlog の非公開 API
+（`/api/v2/issues/{issueKey}/relatedIssues`）を利用しており、レスポンス形式や
+挙動は Backlog による公式な保証がない:
+
+```bash
+lv issue related list PROJ-123              # 関連課題一覧
+lv issue related add PROJ-123 456789         # 関連課題を追加（数値の課題 ID）
+lv issue related remove PROJ-123 789012      # 関連課題を削除（関連 ID）
+```
