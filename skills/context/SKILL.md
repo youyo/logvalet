@@ -59,6 +59,7 @@ This returns a rich context object including:
 - issue details (summary, description, status, priority, assignee, dates)
 - comment history
 - related metadata (project, category, milestone, version)
+- related issues (`related_issues`, included by default; pass `--no-include-related-issues` to skip the extra API call)
 - analysis signals (stale indicator, overdue flag, blocker hints)
 
 ### Step 3: Optionally fetch digest for broader context
@@ -119,6 +120,7 @@ Always ask before writing.
 
 - `issue context` returns all signals in one call — prefer it over combining `issue get` + `issue comment list` manually
 - The output is optimized for LLM consumption and agent reasoning
+- `related_issues` is included by default; skip it with `--no-include-related-issues` when you only need the core context and want fewer API calls
 - If the issue key resolves to a 404, check for typos or confirm the project key is correct with `lv project list`
 - Use `--format md` for human-readable output, default JSON for agent pipelines
 - ウォッチ情報は `lv watching list --user-id me -f json` から取得し、対象課題キーが含まれているか確認する

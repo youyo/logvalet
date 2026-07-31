@@ -17,6 +17,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
 		WithNumberParam("comments", false, "Max number of recent comments to include (default 10)"),
 		WithBooleanParam("compact", false, "Omit description and comment bodies (default false)"),
+		WithBooleanParam("include_related_issues", false, "Include related issues (default true)"),
 		WithAnnotation(readOnlyAnnotation("課題コンテキスト取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
@@ -30,6 +31,9 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 		}
 		if compact, ok := boolArg(args, "compact"); ok {
 			opts.Compact = compact
+		}
+		if includeRelatedIssues, ok := boolArg(args, "include_related_issues"); ok {
+			opts.SkipRelatedIssues = !includeRelatedIssues
 		}
 
 		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
@@ -150,6 +154,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	r.RegisterWithSpaces(NewToolDef("logvalet_issue_triage_materials",
 		WithDesc("Get triage materials for an issue (stats, similar issues, history)"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
+		WithBooleanParam("include_related_issues", false, "Include related issues (default true)"),
 		WithAnnotation(readOnlyAnnotation("課題トリアージ材料取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
 		issueKey, ok := stringArg(args, "issue_key")
@@ -157,9 +162,14 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			return nil, fmt.Errorf("issue_key is required")
 		}
 
+		opts := analysis.TriageMaterialsOptions{}
+		if includeRelatedIssues, ok := boolArg(args, "include_related_issues"); ok {
+			opts.SkipRelatedIssues = !includeRelatedIssues
+		}
+
 		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
 		builder := analysis.NewTriageMaterialsBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
-		return builder.Build(ctx, issueKey, analysis.TriageMaterialsOptions{})
+		return builder.Build(ctx, issueKey, opts)
 	})
 
 	// logvalet_digest_weekly
