@@ -119,7 +119,7 @@ end
 | `issue related list <KEY>` | 関連課題一覧（Backlog 非公開 API） |
 | `issue related add <KEY> <TARGET-ISSUE-ID>` | 関連課題の追加（Backlog 非公開 API） |
 | `issue related remove <KEY> <RELATED-ISSUE-ID>` | 関連課題の削除（Backlog 非公開 API） |
-| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル） |
+| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル・関連課題） |
 | `issue stale` | プロジェクトの停滞課題を検出 |
 | `project get <KEY>` | プロジェクトの取得 |
 | `project list` | プロジェクト一覧 |
@@ -161,7 +161,7 @@ Phase 1 で、プロジェクトの洞察と意思決定支援のための AI �
 
 | コマンド | 説明 |
 |---------|------|
-| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル） |
+| `issue context <KEY>` | 課題の判断材料を一括取得（詳細・コメント・分析シグナル・関連課題） |
 | `issue stale -k <PROJECT>` | N日以上更新のない停滞課題を検出 |
 | `project blockers <PROJECT>` | ブロッカー検出（停滞高優先度・未アサイン・期限超過） |
 | `user workload <PROJECT>` | ユーザーごとの未完了課題数・期限超過分布を分析 |
@@ -170,8 +170,11 @@ Phase 1 で、プロジェクトの洞察と意思決定支援のための AI �
 ### 利用例
 
 ```bash
-# 課題のコンテキストを一括取得
+# 課題のコンテキストを一括取得（related_issues もデフォルトで含む）
 logvalet issue context PROJ-123
+
+# 関連課題の取得をスキップ（API 呼び出しを減らす）
+logvalet issue context PROJ-123 --no-include-related-issues
 
 # 7日以上更新のない停滞課題を検出
 logvalet issue stale -k PROJ --days 7
@@ -192,7 +195,7 @@ Phase 2 で、LLM 支援の意思決定に向けた構造化された材料を�
 
 | コマンド | 説明 |
 |---------|------|
-| `issue triage-materials <KEY>` | 課題のトリアージ材料を構造化して取得（属性・履歴・類似課題統計） |
+| `issue triage-materials <KEY>` | 課題のトリアージ材料を構造化して取得（属性・履歴・類似課題統計・関連課題） |
 | `digest weekly -k <PROJECT>` | 週次活動集約（完了・開始・ブロック中の課題） |
 | `digest daily -k <PROJECT>` | 日次活動スナップショット |
 
@@ -203,8 +206,11 @@ logvalet は **deterministic な材料** を提供します。LLM による判�
 ### 利用例
 
 ```bash
-# 課題のトリアージ材料を取得
+# 課題のトリアージ材料を取得（related_issues もデフォルトで含む）
 logvalet issue triage-materials PROJ-123
+
+# 関連課題の取得をスキップ
+logvalet issue triage-materials PROJ-123 --no-include-related-issues
 
 # プロジェクトの週次活動ダイジェスト
 logvalet digest weekly -k PROJ

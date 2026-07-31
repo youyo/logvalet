@@ -1782,7 +1782,7 @@ logvalet_project_health            read-only    MVP
 logvalet_project_blockers          read-only    MVP
 logvalet_issue_list                read-only    MVP
 logvalet_issue_get                 read-only    MVP
-logvalet_issue_context             read-only    MVP
+logvalet_issue_context             read-only    MVP     related_issues 埋め込み(v0.38.0)
 logvalet_issue_stale               read-only    MVP
 logvalet_digest_daily              read-only    MVP
 logvalet_digest_weekly             read-only    MVP
@@ -1805,7 +1805,7 @@ logvalet_team_list                 read-only    Phase2
 logvalet_team_get                  read-only    Phase2
 logvalet_team_project              read-only    Phase2
 logvalet_issue_timeline            read-only    Phase2
-logvalet_issue_triage_materials    read-only    Phase2
+logvalet_issue_triage_materials    read-only    Phase2  related_issues 埋め込み(v0.38.0)
 logvalet_issue_comment_list        read-only    Phase2
 logvalet_issue_attachment_list     read-only    Phase2
 logvalet_issue_attachment_download read-only    Phase2
