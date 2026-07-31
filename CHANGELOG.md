@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.37.0 (2026-07-31)
+
+Backlog 関連課題（related issues）対応（issue #63、ADR:
+[0003](docs/adr/0003-related-issues-unpublished-api-direct-use.md)）。破壊的変更なし。
+
+### Added
+- feat(backlog): Client に `ListRelatedIssues` / `AddRelatedIssue` / `DeleteRelatedIssue` を追加
+  （未公開 API `/api/v2/issues/:issueIdOrKey/relatedIssues` を直接利用。204/空 body 応答にも対応）
+- feat(domain): `RelatedIssue` モデルを追加（Issue + `type`。未知の関係種別も許容する防御的パース）
+- feat(cli): `lv issue related list|add|remove` サブコマンドを追加（add/remove は `--dry-run` 対応）
+- feat(mcp): MCP ツール `logvalet_issue_related_list` / `_add` / `_delete` を追加（計 72→75 ツール）
+- docs: README en/ja・設計仕様書・スキル定義を同期（未公開 API である旨を明記）。MCP ツールの
+  annotation 分類表をコード実数（Read-only 59 / Write 非冪等 4 / Write 冪等 8 / Destructive 4）に是正
+
 ## v0.36.1 (2026-07-31)
 
 v0.36.0 の docs/CLI サーフェス追随漏れを修正（issue #62）。破壊的変更なし。
