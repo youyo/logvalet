@@ -442,6 +442,58 @@ func RegisterIssueTools(r *ToolRegistry) {
 		return client.UpdateIssueComment(ctx, issueKey, int64(commentID), req)
 	})
 
+	// logvalet_issue_related_list
+	r.RegisterWithSpaces(NewToolDef("logvalet_issue_related_list",
+		WithDesc("List related issues for an issue"),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithAnnotation(readOnlyAnnotation("関連課題一覧取得")),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		return client.ListRelatedIssues(ctx, issueKey)
+	})
+
+	// logvalet_issue_related_add
+	// 同一関係の再追加は Backlog 側で冪等に扱われるため IdempotentHint=true。
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_related_add",
+		WithDesc("Add a related issue to an issue. target_issue_id is the numeric issue ID (not the issue key)."),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("target_issue_id", true, "Numeric ID of the issue to relate (not the issue key)"),
+		WithAnnotation(writeAnnotation("関連課題追加", true)),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		targetIssueID, ok := intArg(args, "target_issue_id")
+		if !ok || targetIssueID == 0 {
+			return nil, fmt.Errorf("target_issue_id is required")
+		}
+		return client.AddRelatedIssue(ctx, issueKey, backlog.AddRelatedIssueRequest{
+			TargetIssueID: int64(targetIssueID),
+		})
+	})
+
+	// logvalet_issue_related_delete
+	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_related_delete",
+		WithDesc("Delete a related issue link from an issue. related_issue_id is the relation ID returned by logvalet_issue_related_list."),
+		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
+		WithNumberParam("related_issue_id", true, "Relation ID to delete (from logvalet_issue_related_list)"),
+		WithAnnotation(destructiveAnnotation("関連課題削除")),
+	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
+		issueKey, ok := stringArg(args, "issue_key")
+		if !ok || issueKey == "" {
+			return nil, fmt.Errorf("issue_key is required")
+		}
+		relatedIssueID, ok := intArg(args, "related_issue_id")
+		if !ok || relatedIssueID == 0 {
+			return nil, fmt.Errorf("related_issue_id is required")
+		}
+		return client.DeleteRelatedIssue(ctx, issueKey, int64(relatedIssueID))
+	})
+
 	// logvalet_issue_attachment_list
 	r.RegisterWithSpaces(NewToolDef("logvalet_issue_attachment_list",
 		WithDesc("List attachments for an issue"),
