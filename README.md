@@ -111,7 +111,7 @@ This enables completion for both `logvalet` and `lv`.
 | `issue related list <KEY>` | List related issues (undocumented Backlog API) |
 | `issue related add <KEY> <TARGET-ISSUE-ID>` | Add a related issue (undocumented Backlog API) |
 | `issue related remove <KEY> <RELATED-ISSUE-ID>` | Remove a related issue (undocumented Backlog API) |
-| `issue context <KEY>` | Get full context for a single issue (details, comments, signals) |
+| `issue context <KEY>` | Get full context for a single issue (details, comments, signals, related issues) |
 | `issue stale` | Detect stale issues in a project |
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
@@ -154,7 +154,7 @@ Phase 1 added a set of AI-oriented analysis commands for project insight and dec
 
 | Command | Description |
 |---------|-------------|
-| `issue context <KEY>` | Fetch full context for a single issue: details, comments, and analysis signals |
+| `issue context <KEY>` | Fetch full context for a single issue: details, comments, analysis signals, and related issues |
 | `issue stale -k <PROJECT>` | Detect issues that haven't been updated for N days |
 | `project blockers <PROJECT>` | Detect blockers: stale high-priority, unassigned, or overdue issues |
 | `user workload <PROJECT>` | Analyze per-user open issue counts and overdue distribution |
@@ -163,8 +163,11 @@ Phase 1 added a set of AI-oriented analysis commands for project insight and dec
 ### Examples
 
 ```bash
-# Get full context for an issue
+# Get full context for an issue (includes related_issues by default)
 logvalet issue context PROJ-123
+
+# Skip the related-issues lookup (fewer API calls)
+logvalet issue context PROJ-123 --no-include-related-issues
 
 # Detect issues stale for 7+ days
 logvalet issue stale -k PROJ --days 7
@@ -185,7 +188,7 @@ Phase 2 added workflow-oriented commands that provide structured materials for L
 
 | Command | Description |
 |---------|-------------|
-| `issue triage-materials <KEY>` | Collect structured triage materials (attributes, history, similar-issue stats) for an issue |
+| `issue triage-materials <KEY>` | Collect structured triage materials (attributes, history, similar-issue stats, related issues) for an issue |
 | `digest weekly -k <PROJECT>` | Aggregate weekly activity: completed, started, and blocked issues |
 | `digest daily -k <PROJECT>` | Aggregate daily activity snapshot |
 
@@ -196,8 +199,11 @@ logvalet provides **deterministic materials**. LLM judgment (priority suggestion
 ### Examples
 
 ```bash
-# Get triage materials for an issue
+# Get triage materials for an issue (includes related_issues by default)
 logvalet issue triage-materials PROJ-123
+
+# Skip the related-issues lookup
+logvalet issue triage-materials PROJ-123 --no-include-related-issues
 
 # Weekly activity digest for a project
 logvalet digest weekly -k PROJ

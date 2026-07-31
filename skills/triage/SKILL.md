@@ -54,6 +54,7 @@ This returns a structured set of triage signals including:
 - comment history and update history
 - similar issues with assignee distribution (`similar_issues.assignee_distribution`)
 - per-assignee open issue counts (`project_stats.by_assignee`)
+- related issues (`related_issues`, included by default; pass `--no-include-related-issues` to skip)
 - blocker signals
 
 ### Step 3: Analyze materials and produce proposals
@@ -132,6 +133,7 @@ Always run `--dry-run` first before applying each change.
 ## Notes
 
 - `triage-materials` is the authoritative source — do not fetch separate `issue get` / `user workload` calls; the materials contain everything needed
+- `related_issues` gives explicit duplicate/relation candidates in addition to `similar_issues` — check it first when deciding whether an issue is a duplicate
 - `project_stats.by_assignee` provides current open issue count per user — use it to avoid overloading busy members
 - `similar_issues.assignee_distribution` shows who has handled similar issues — use it for domain familiarity signals
 - If triage materials return an empty `similar_issues` list, rely on `project_stats.by_assignee` alone for assignee proposals
