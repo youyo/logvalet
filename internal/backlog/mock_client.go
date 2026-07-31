@@ -75,6 +75,11 @@ type MockClient struct {
 	DownloadIssueAttachmentFunc        func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
 	DownloadIssueAttachmentBoundedFunc func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error)
 
+	// Related issues
+	ListRelatedIssuesFunc  func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error)
+	AddRelatedIssueFunc    func(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*domain.RelatedIssue, error)
+	DeleteRelatedIssueFunc func(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error)
+
 	// Wiki
 	ListWikisFunc          func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
 	CountWikisFunc         func(ctx context.Context, projectKey string) (int, error)
@@ -442,6 +447,30 @@ func (m *MockClient) DownloadIssueAttachmentBounded(ctx context.Context, issueKe
 		return m.DownloadIssueAttachmentBoundedFunc(ctx, issueKey, attachmentID, maxBytes)
 	}
 	return nil, "", "", ErrNotFound
+}
+
+func (m *MockClient) ListRelatedIssues(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+	m.increment("ListRelatedIssues")
+	if m.ListRelatedIssuesFunc != nil {
+		return m.ListRelatedIssuesFunc(ctx, issueKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddRelatedIssue(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*domain.RelatedIssue, error) {
+	m.increment("AddRelatedIssue")
+	if m.AddRelatedIssueFunc != nil {
+		return m.AddRelatedIssueFunc(ctx, issueKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DeleteRelatedIssue(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error) {
+	m.increment("DeleteRelatedIssue")
+	if m.DeleteRelatedIssueFunc != nil {
+		return m.DeleteRelatedIssueFunc(ctx, issueKey, relatedIssueID)
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockClient) AddStar(ctx context.Context, req AddStarRequest) error {

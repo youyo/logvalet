@@ -108,6 +108,9 @@ This enables completion for both `logvalet` and `lv`.
 | `issue attachment get <KEY> <ID>` | Get attachment info |
 | `issue attachment download <KEY> <ID>` | Download an attachment |
 | `issue attachment delete <KEY> <ID>` | Delete an attachment |
+| `issue related list <KEY>` | List related issues (undocumented Backlog API) |
+| `issue related add <KEY> <TARGET-ISSUE-ID>` | Add a related issue (undocumented Backlog API) |
+| `issue related remove <KEY> <RELATED-ISSUE-ID>` | Remove a related issue (undocumented Backlog API) |
 | `issue context <KEY>` | Get full context for a single issue (details, comments, signals) |
 | `issue stale` | Detect stale issues in a project |
 | `project get <KEY>` | Get a single project |
@@ -431,6 +434,23 @@ logvalet issue attachment delete PROJ-123 12345 --dry-run
 logvalet issue attachment delete PROJ-123 12345
 ```
 
+## Related Issues
+
+Manage related issues. This uses an undocumented Backlog API endpoint (`/api/v2/issues/{issueKey}/relatedIssues`), so the response shape and behavior are not officially guaranteed by Backlog.
+
+```bash
+# List related issues for an issue
+logvalet issue related list PROJ-123
+
+# Add a related issue (target-issue-id is a numeric issue ID, not the issue key)
+logvalet issue related add PROJ-123 456789 --dry-run
+logvalet issue related add PROJ-123 456789
+
+# Remove a related issue (related-issue-id is the relation ID returned by "related list")
+logvalet issue related remove PROJ-123 789012 --dry-run
+logvalet issue related remove PROJ-123 789012
+```
+
 ## Shared Files
 
 Manage shared files in a project:
@@ -515,11 +535,11 @@ logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server exposes **72 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+The MCP server exposes **75 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
 
 Representative tools by area:
 
-- **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`
+- **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`, `logvalet_issue_related_{list,add,delete}` (undocumented Backlog API)
 - **Project**: `logvalet_project_{get,list,blockers,health}`, `logvalet_user_workload`
 - **Digest**: `logvalet_digest`, `logvalet_digest_unified`, `logvalet_digest_{weekly,daily}`, `logvalet_space_digest`, `logvalet_activity_digest`, `logvalet_document_digest`
 - **Document**: `logvalet_document_{get,list,tree,create}`
@@ -541,15 +561,15 @@ The binary download tools `logvalet_issue_attachment_download` and `logvalet_sha
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 72 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 75 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
 |---|---|---|---|
-| Read-only | 45 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download` 等 | 確認ダイアログなしで自動実行 |
-| Write 非冪等 | 3 | `issue_create`, `issue_comment_add`, `document_create` | 通常の書き込み確認 |
-| Write 冪等 | 6 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read` | 通常の書き込み確認 |
-| Destructive | 2 | `watching_delete`, `issue_attachment_delete` | 強い確認ダイアログを表示 |
+| Read-only | 59 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download`, `issue_related_list` 等 | 確認ダイアログなしで自動実行 |
+| Write 非冪等 | 4 | `issue_create`, `issue_comment_add`, `document_create`, `issue_attachment_upload` | 通常の書き込み確認 |
+| Write 冪等 | 8 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read`, `space_use`, `issue_related_add` | 通常の書き込み確認 |
+| Destructive | 4 | `watching_delete`, `issue_attachment_delete`, `space_disconnect`, `issue_related_delete` | 強い確認ダイアログを表示 |
 
 > **注意**: annotations はクライアントへの**ヒント**であり、サーバー側のアクセス制御ではありません。
 > annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。
@@ -908,7 +928,7 @@ lv project list --spaces foo,bar
 
 ### MCP での spaces/all_spaces
 
-MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+MCP サーバーの 75 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
 
 **Read-only fan-out（登録済み全スペースを横断取得）:**
 

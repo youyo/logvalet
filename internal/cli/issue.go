@@ -21,6 +21,7 @@ type IssueCmd struct {
 	Update          IssueUpdateCmd          `cmd:"" help:"update issue"`
 	Comment         IssueCommentCmd         `cmd:"" help:"manage comments"`
 	Attachment      IssueAttachmentCmd      `cmd:"" help:"manage attachments"`
+	Related         IssueRelatedCmd         `cmd:"" help:"manage related issues"`
 	Context         IssueContextCmd         `cmd:"" help:"get issue context for AI analysis"`
 	Stale           IssueStaleCmd           `cmd:"" help:"detect stale issues"`
 	TriageMaterials IssueTriageMaterialsCmd `cmd:"" name:"triage-materials" help:"get triage materials for an issue"`
