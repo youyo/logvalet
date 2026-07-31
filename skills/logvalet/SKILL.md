@@ -82,7 +82,7 @@ stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート 
 
 ## MCP での spaces/all_spaces 使い方
 
-logvalet MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+logvalet MCP サーバーの 75 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
 
 ### Read-only: 登録済み全スペースを横断取得
 
