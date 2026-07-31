@@ -22,6 +22,8 @@ type TriageMaterialsOptions struct {
 	// ClosedStatus は完了とみなすステータス名リスト。
 	// 空の場合は defaultClosedStatus を使用。
 	ClosedStatus []string
+	// SkipRelatedIssues は true の場合、関連課題の取得を行わない。
+	SkipRelatedIssues bool
 }
 
 // TriageMaterials は triage 用材料の全体構造。
@@ -30,6 +32,7 @@ type TriageMaterials struct {
 	History       TriageHistory      `json:"history"`
 	ProjectStats  TriageProjectStats `json:"project_stats"`
 	SimilarIssues TriageSimilar      `json:"similar_issues"`
+	RelatedIssues []RelatedIssueRef  `json:"related_issues"`
 }
 
 // TriageIssue は対象課題の基本属性。
@@ -108,6 +111,7 @@ func (b *TriageMaterialsBuilder) Build(ctx context.Context, issueKey string, opt
 	var (
 		projectIssues []domain.Issue
 		comments      []domain.Comment
+		relatedIssues []RelatedIssueRef
 		mu            sync.Mutex
 		warnings      []domain.Warning
 	)
@@ -170,7 +174,25 @@ func (b *TriageMaterialsBuilder) Build(ctx context.Context, issueKey string, opt
 		return nil
 	})
 
+	// goroutine 3: 関連課題取得（SkipRelatedIssues 指定時はスキップ）
+	if !opt.SkipRelatedIssues {
+		g.Go(func() error {
+			refs, warn := fetchRelatedIssues(gctx, b.client, issueKey)
+			mu.Lock()
+			relatedIssues = refs
+			if warn != nil {
+				warnings = append(warnings, *warn)
+			}
+			mu.Unlock()
+			return nil
+		})
+	}
+
 	_ = g.Wait()
+
+	if relatedIssues == nil {
+		relatedIssues = []RelatedIssueRef{}
+	}
 
 	now := b.now()
 
@@ -185,6 +207,7 @@ func (b *TriageMaterialsBuilder) Build(ctx context.Context, issueKey string, opt
 		History:       history,
 		ProjectStats:  stats,
 		SimilarIssues: similar,
+		RelatedIssues: relatedIssues,
 	}
 
 	return b.newEnvelope("issue_triage_materials", result, warnings), nil
