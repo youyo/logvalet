@@ -19,7 +19,7 @@ type ToolCategorySpec struct {
 // toolCategories は全 75 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
-	// Read-only (34+14=48)
+	// Read-only (59)
 	"logvalet_space_info":             {CategoryReadOnly, "スペース情報取得"},
 	"logvalet_project_list":           {CategoryReadOnly, "プロジェクト一覧取得"},
 	"logvalet_project_get":            {CategoryReadOnly, "プロジェクト詳細取得"},
