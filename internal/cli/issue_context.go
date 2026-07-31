@@ -10,9 +10,10 @@ import (
 // IssueContextCmd は issue context コマンド。
 // 単一 issue の総合コンテキストを AI 分析用に取得する。
 type IssueContextCmd struct {
-	IssueIDOrKey string `arg:"" required:"" help:"issue ID or key (e.g., PROJ-123)"`
-	Comments     int    `help:"max recent comments to include" default:"10"`
-	Compact      bool   `help:"omit description and comment bodies"`
+	IssueIDOrKey         string `arg:"" required:"" help:"issue ID or key (e.g., PROJ-123)"`
+	Comments             int    `help:"max recent comments to include" default:"10"`
+	Compact              bool   `help:"omit description and comment bodies"`
+	IncludeRelatedIssues bool   `help:"include related issues" default:"true" negatable:""`
 }
 
 // Run は issue context コマンドを実行する。
@@ -31,8 +32,9 @@ func (c *IssueContextCmd) Run(g *GlobalFlags) error {
 	)
 
 	envelope, err := builder.Build(ctx, c.IssueIDOrKey, analysis.IssueContextOptions{
-		MaxComments: c.Comments,
-		Compact:     c.Compact,
+		MaxComments:       c.Comments,
+		Compact:           c.Compact,
+		SkipRelatedIssues: !c.IncludeRelatedIssues,
 	})
 	if err != nil {
 		return err

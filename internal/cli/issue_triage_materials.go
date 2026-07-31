@@ -10,7 +10,8 @@ import (
 // IssueTriageMaterialsCmd は issue triage-materials コマンド。
 // 単一 issue のトリアージ材料（統計・類似課題・履歴）を収集して返す。
 type IssueTriageMaterialsCmd struct {
-	IssueKey string `arg:"" required:"" help:"issue key (e.g., PROJ-123)"`
+	IssueKey             string `arg:"" required:"" help:"issue key (e.g., PROJ-123)"`
+	IncludeRelatedIssues bool   `help:"include related issues" default:"true" negatable:""`
 }
 
 // Run は issue triage-materials コマンドを実行する。
@@ -28,7 +29,9 @@ func (c *IssueTriageMaterialsCmd) Run(g *GlobalFlags) error {
 		rc.Config.BaseURL,
 	)
 
-	envelope, err := builder.Build(ctx, c.IssueKey, analysis.TriageMaterialsOptions{})
+	envelope, err := builder.Build(ctx, c.IssueKey, analysis.TriageMaterialsOptions{
+		SkipRelatedIssues: !c.IncludeRelatedIssues,
+	})
 	if err != nil {
 		return err
 	}

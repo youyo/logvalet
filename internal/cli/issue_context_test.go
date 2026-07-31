@@ -49,6 +49,53 @@ func TestIssueContextCmd_KongParse(t *testing.T) {
 	if cmd.Compact {
 		t.Error("Compact デフォルト: 期待 false, 実際 true")
 	}
+	if !cmd.IncludeRelatedIssues {
+		t.Error("IncludeRelatedIssues デフォルト: 期待 true, 実際 false")
+	}
+}
+
+// T5: --no-include-related-issues でフラグが false になる
+func TestIssueContextCmd_KongParse_NoIncludeRelatedIssues(t *testing.T) {
+	var root cli.CLI
+	p, err := kong.New(&root,
+		kong.Name("logvalet"),
+		kong.Writers(bytes.NewBuffer(nil), bytes.NewBuffer(nil)),
+		kong.Exit(func(int) {}),
+	)
+	if err != nil {
+		t.Fatalf("kong.New() エラー: %v", err)
+	}
+	_, err = p.Parse([]string{"issue", "context", "PROJ-123", "--no-include-related-issues"})
+	if err != nil {
+		t.Fatalf("パースエラー: %v", err)
+	}
+
+	cmd := root.Issue.Context
+	if cmd.IncludeRelatedIssues {
+		t.Error("IncludeRelatedIssues: 期待 false (--no-include-related-issues), 実際 true")
+	}
+}
+
+// T6: --include-related-issues で明示的に true になる
+func TestIssueContextCmd_KongParse_IncludeRelatedIssuesExplicit(t *testing.T) {
+	var root cli.CLI
+	p, err := kong.New(&root,
+		kong.Name("logvalet"),
+		kong.Writers(bytes.NewBuffer(nil), bytes.NewBuffer(nil)),
+		kong.Exit(func(int) {}),
+	)
+	if err != nil {
+		t.Fatalf("kong.New() エラー: %v", err)
+	}
+	_, err = p.Parse([]string{"issue", "context", "PROJ-123", "--include-related-issues"})
+	if err != nil {
+		t.Fatalf("パースエラー: %v", err)
+	}
+
+	cmd := root.Issue.Context
+	if !cmd.IncludeRelatedIssues {
+		t.Error("IncludeRelatedIssues: 期待 true (--include-related-issues), 実際 false")
+	}
 }
 
 // T2: フラグ付きパース
