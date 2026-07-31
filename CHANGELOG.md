@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.38.0 (2026-07-31)
+
+関連課題を digest 系サーフェス（issue context / triage-materials）に統合（ADR:
+[0004](docs/adr/0004-related-issues-scope-limited-to-digest-surfaces.md)）。破壊的変更なし。
+
+### Added
+- feat(analysis): `lv issue context` / `lv issue triage-materials` の出力に `related_issues` を追加
+  （軽量射影 `RelatedIssueRef`。取得失敗時は課題本体を失敗させず warnings に degrade）
+- feat(cli): 両コマンドに `--include-related-issues`（default: true、`--no-include-related-issues` で
+  除外可）を追加
+- feat(mcp): `logvalet_issue_context` / `logvalet_issue_triage_materials` に `include_related_issues`
+  パラメータ（boolean、既定 true）を追加
+- 設計方針: 関連課題の統合は抽象度の高い digest 系サーフェスに限定し、API と 1:1 の thin wrapper
+  （`issue get` / `issue related list`）は現状維持（ADR 0004）
+
 ## v0.37.0 (2026-07-31)
 
 Backlog 関連課題（related issues）対応（issue #63、ADR:
