@@ -828,6 +828,10 @@
               "description": "Omit description and comment bodies (default false)",
               "type": "boolean"
             },
+            "include_related_issues": {
+              "description": "Include related issues (default true)",
+              "type": "boolean"
+            },
             "issue_key": {
               "description": "Issue key (e.g. PROJ-123)",
               "type": "string"
@@ -1252,6 +1256,10 @@
           "properties": {
             "all_spaces": {
               "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "include_related_issues": {
+              "description": "Include related issues (default true)",
               "type": "boolean"
             },
             "issue_key": {
