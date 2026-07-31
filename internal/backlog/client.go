@@ -203,6 +203,23 @@ type Client interface {
 	// Backlog API: GET /api/v2/issues/{issueIdOrKey}/attachments/{attachmentId}
 	DownloadIssueAttachmentBounded(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) (content []byte, filename, contentType string, err error)
 
+	// Related issues
+	//
+	// 未公開 API（Backlog 公式ドキュメント未記載）。backlog-js PR #181・
+	// backlog-mcp-server の実装を根拠に実在性を確認済み（logvalet issue #63 参照）。
+
+	// ListRelatedIssues は指定課題の関連課題一覧を返す。
+	// Backlog API (未公開): GET /api/v2/issues/{issueIdOrKey}/relatedIssues
+	ListRelatedIssues(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error)
+
+	// AddRelatedIssue は指定課題に関連課題を追加する。
+	// Backlog API (未公開): POST /api/v2/issues/{issueIdOrKey}/relatedIssues
+	AddRelatedIssue(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*domain.RelatedIssue, error)
+
+	// DeleteRelatedIssue は指定課題の関連課題を削除し、削除された関連課題情報を返す。
+	// Backlog API (未公開): DELETE /api/v2/issues/{issueIdOrKey}/relatedIssues/{relatedIssueId}
+	DeleteRelatedIssue(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error)
+
 	// Wiki
 
 	// ListWikis は指定プロジェクトの Wiki ページ一覧を返す。
