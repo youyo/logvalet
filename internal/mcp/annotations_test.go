@@ -27,7 +27,7 @@ func TestToolCategories_CoversAllRegisteredTools(t *testing.T) {
 	}
 
 	// 件数一致
-	const expectedCount = 72
+	const expectedCount = 75
 	if len(tools) != expectedCount {
 		t.Errorf("ツール数: expected %d, got %d", expectedCount, len(tools))
 	}

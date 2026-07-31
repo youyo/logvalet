@@ -210,7 +210,7 @@ func TestOfficialServer_ToolsList_NoInitializeRequired(t *testing.T) {
 	if parsed.Error != nil {
 		t.Fatalf("unexpected error: %+v", parsed.Error)
 	}
-	const wantCount = 72
+	const wantCount = 75
 	if len(parsed.Result.Tools) != wantCount {
 		t.Errorf("tools count = %d, want %d", len(parsed.Result.Tools), wantCount)
 	}
@@ -250,10 +250,16 @@ func stripOfficialSDKOnlyResultFields(t *testing.T, normalized []byte) []byte {
 }
 
 // O07: tools/list の正規化後のレスポンスが testdata/tools_list_baseline.json
-// (移行前の旧 SDK backend による golden) と一致することを確認する
+// (移行前の旧 SDK backend による golden) と一致することを確認する。
+//
+// baseline はツール追加のたびに再生成が必要な golden。直近の再生成は関連課題ツール
+// (logvalet_issue_related_list/_add/_delete) 追加時に、本テストが書き出す
+// 正規化済み実応答で上書きする形で行った (72 → 75 ツール)。SDK 由来の表現差は
+// stripOfficialSDKOnlyResultFields で除外済みのため、再生成しても「旧 SDK backend
+// 由来の golden」という位置づけは維持される
 // (S09 done_criteria)。SDK 間表現差については stripOfficialSDKOnlyResultFields の
 // コメントを参照。annotations.readOnlyHint/idempotentHint については、logvalet の
-// 全72ツール定義が両フィールドを常に明示設定しているため (tool_categories.go)、
+// 全75ツール定義が両フィールドを常に明示設定しているため (tool_categories.go)、
 // *bool→bool のデフォルト値変換に起因する意図しない差分は観測されていない。
 func TestOfficialServer_ToolsList_MatchesBaseline(t *testing.T) {
 	mock := backlog.NewMockClient()
