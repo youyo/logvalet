@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.38.1 (2026-09-02)
+
+依存モジュールの定期更新のみ（Dependabot #64〜#67）。機能変更・破壊的変更なし。
+
+### Changed
+- chore(deps): 直接依存を更新 — kong v1.16.1 / aws-sdk-go-v2 v1.43.7 系 /
+  golang.org/x/crypto v0.55.0 / modernc.org/sqlite v1.57.0（間接依存も追随）
+
 ## v0.38.0 (2026-07-31)
 
 関連課題を digest 系サーフェス（issue context / triage-materials）に統合（ADR:
