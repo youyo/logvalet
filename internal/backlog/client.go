@@ -73,6 +73,10 @@ type Client interface {
 	// Backlog API: GET /api/v2/projects
 	ListProjects(ctx context.Context) ([]domain.Project, error)
 
+	// CreateProject は新しいプロジェクトを作成する。
+	// Backlog API: POST /api/v2/projects
+	CreateProject(ctx context.Context, req CreateProjectRequest) (*domain.Project, error)
+
 	// ListProjectActivities は指定プロジェクトのアクティビティ一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/activities
 	ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error)
@@ -118,6 +122,14 @@ type Client interface {
 	// ListProjectCategories は指定プロジェクトのカテゴリ一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/categories
 	ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error)
+
+	// AddCategory は指定プロジェクトにカテゴリを追加する。
+	// Backlog API: POST /api/v2/projects/{projectKey}/categories
+	AddCategory(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error)
+
+	// UpdateCategory は指定プロジェクトのカテゴリを更新する。
+	// Backlog API: PATCH /api/v2/projects/{projectKey}/categories/{categoryID}
+	UpdateCategory(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error)
 
 	// ListProjectVersions は指定プロジェクトのバージョン一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/versions

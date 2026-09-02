@@ -69,6 +69,111 @@ func TestMockClientGetIssue(t *testing.T) {
 	})
 }
 
+func TestMockClientCreateProject(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.Project{ID: 1, ProjectKey: "PROJ", Name: "Project"}
+		mock := backlog.NewMockClient()
+		mock.CreateProjectFunc = func(ctx context.Context, req backlog.CreateProjectRequest) (*domain.Project, error) {
+			if req.Name != "Project" || req.Key != "PROJ" {
+				t.Errorf("request = %+v, want project name/key", req)
+			}
+			return want, nil
+		}
+
+		got, err := mock.CreateProject(context.Background(), backlog.CreateProjectRequest{Name: "Project", Key: "PROJ"})
+		if err != nil {
+			t.Fatalf("CreateProject() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("CreateProject() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("CreateProject") != 1 {
+			t.Errorf("GetCallCount(CreateProject) = %d, want 1", mock.GetCallCount("CreateProject"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.CreateProject(context.Background(), backlog.CreateProjectRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("CreateProject() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("CreateProject") != 1 {
+			t.Errorf("GetCallCount(CreateProject) = %d, want 1", mock.GetCallCount("CreateProject"))
+		}
+	})
+}
+
+func TestMockClientAddCategory(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.Category{ID: 10, Name: "Backend"}
+		mock := backlog.NewMockClient()
+		mock.AddCategoryFunc = func(ctx context.Context, projectKey string, req backlog.AddCategoryRequest) (*domain.Category, error) {
+			if projectKey != "PROJ" || req.Name != "Backend" {
+				t.Errorf("arguments = %q, %+v, want PROJ and Backend", projectKey, req)
+			}
+			return want, nil
+		}
+
+		got, err := mock.AddCategory(context.Background(), "PROJ", backlog.AddCategoryRequest{Name: "Backend"})
+		if err != nil {
+			t.Fatalf("AddCategory() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("AddCategory() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("AddCategory") != 1 {
+			t.Errorf("GetCallCount(AddCategory) = %d, want 1", mock.GetCallCount("AddCategory"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.AddCategory(context.Background(), "PROJ", backlog.AddCategoryRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("AddCategory() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("AddCategory") != 1 {
+			t.Errorf("GetCallCount(AddCategory) = %d, want 1", mock.GetCallCount("AddCategory"))
+		}
+	})
+}
+
+func TestMockClientUpdateCategory(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.Category{ID: 42, Name: "Platform"}
+		mock := backlog.NewMockClient()
+		mock.UpdateCategoryFunc = func(ctx context.Context, projectKey string, categoryID int, req backlog.UpdateCategoryRequest) (*domain.Category, error) {
+			if projectKey != "PROJ" || categoryID != 42 || req.Name != "Platform" {
+				t.Errorf("arguments = %q, %d, %+v, want PROJ, 42, and Platform", projectKey, categoryID, req)
+			}
+			return want, nil
+		}
+
+		got, err := mock.UpdateCategory(context.Background(), "PROJ", 42, backlog.UpdateCategoryRequest{Name: "Platform"})
+		if err != nil {
+			t.Fatalf("UpdateCategory() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("UpdateCategory() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("UpdateCategory") != 1 {
+			t.Errorf("GetCallCount(UpdateCategory) = %d, want 1", mock.GetCallCount("UpdateCategory"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.UpdateCategory(context.Background(), "PROJ", 42, backlog.UpdateCategoryRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("UpdateCategory() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("UpdateCategory") != 1 {
+			t.Errorf("GetCallCount(UpdateCategory) = %d, want 1", mock.GetCallCount("UpdateCategory"))
+		}
+	})
+}
+
 func TestMockClientListIssues(t *testing.T) {
 	t.Run("returns issues from func", func(t *testing.T) {
 		mock := backlog.NewMockClient()

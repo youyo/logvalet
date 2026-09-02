@@ -33,6 +33,7 @@ type MockClient struct {
 	// Projects
 	GetProjectFunc            func(ctx context.Context, projectKey string) (*domain.Project, error)
 	ListProjectsFunc          func(ctx context.Context) ([]domain.Project, error)
+	CreateProjectFunc         func(ctx context.Context, req CreateProjectRequest) (*domain.Project, error)
 	ListProjectActivitiesFunc func(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Space activities
@@ -49,6 +50,8 @@ type MockClient struct {
 	// Project meta
 	ListProjectStatusesFunc     func(ctx context.Context, projectKey string) ([]domain.Status, error)
 	ListProjectCategoriesFunc   func(ctx context.Context, projectKey string) ([]domain.Category, error)
+	AddCategoryFunc             func(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error)
+	UpdateCategoryFunc          func(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error)
 	ListProjectVersionsFunc     func(ctx context.Context, projectKey string) ([]domain.Version, error)
 	ListProjectCustomFieldsFunc func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
 	ListProjectIssueTypesFunc   func(ctx context.Context, projectKey string) ([]domain.IssueType, error)
@@ -233,6 +236,14 @@ func (m *MockClient) ListProjects(ctx context.Context) ([]domain.Project, error)
 	return nil, ErrNotFound
 }
 
+func (m *MockClient) CreateProject(ctx context.Context, req CreateProjectRequest) (*domain.Project, error) {
+	m.increment("CreateProject")
+	if m.CreateProjectFunc != nil {
+		return m.CreateProjectFunc(ctx, req)
+	}
+	return nil, ErrNotFound
+}
+
 func (m *MockClient) ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error) {
 	m.increment("ListProjectActivities")
 	if m.ListProjectActivitiesFunc != nil {
@@ -309,6 +320,22 @@ func (m *MockClient) ListProjectCategories(ctx context.Context, projectKey strin
 	m.increment("ListProjectCategories")
 	if m.ListProjectCategoriesFunc != nil {
 		return m.ListProjectCategoriesFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddCategory(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error) {
+	m.increment("AddCategory")
+	if m.AddCategoryFunc != nil {
+		return m.AddCategoryFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateCategory(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error) {
+	m.increment("UpdateCategory")
+	if m.UpdateCategoryFunc != nil {
+		return m.UpdateCategoryFunc(ctx, projectKey, categoryID, req)
 	}
 	return nil, ErrNotFound
 }

@@ -23,6 +23,29 @@ type CreateIssueRequest struct {
 	AttachmentIDs   []int64 // UploadAttachment で取得した添付 ID
 }
 
+// CreateProjectRequest は CreateProject リクエストのパラメータ。
+// bool はポインタ（nil = 未指定。API の既定に委ねる）。
+type CreateProjectRequest struct {
+	Name                              string // 必須
+	Key                               string // 必須。大文字英数字と _ のみ
+	ChartEnabled                      *bool
+	SubtaskingEnabled                 *bool // nil のときは true を送る
+	GrandchildIssueEnabled            *bool
+	ProjectLeaderCanEditProjectLeader *bool
+	UseDevAttributes                  *bool
+	TextFormattingRule                string // "backlog" | "markdown"。空なら送らない
+}
+
+// AddCategoryRequest はカテゴリ追加のパラメータ。
+type AddCategoryRequest struct {
+	Name string // 必須
+}
+
+// UpdateCategoryRequest はカテゴリ更新のパラメータ。
+type UpdateCategoryRequest struct {
+	Name string // 必須
+}
+
 // UpdateIssueRequest は UpdateIssue リクエストのパラメータ。
 // 全フィールドはポインタ型（nil = 変更しない）。
 type UpdateIssueRequest struct {
