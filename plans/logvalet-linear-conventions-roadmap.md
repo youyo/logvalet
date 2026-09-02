@@ -3,7 +3,7 @@ title: logvalet Linear Conventions Roadmap
 project: logvalet
 author: planning-agent
 created: 2026-09-02
-status: Draft
+status: Done (v0.39.0)
 ---
 
 # logvalet Linear Conventions Roadmap
@@ -194,6 +194,18 @@ engagements:
 - `apply` は名前で既存リソースを照合し、存在すればスキップ、差分があれば更新、なければ作成する
 - `lead` は表示名で書き、apply 時にプロジェクトメンバー一覧から ID に解決する。同名が複数いれば exit 2
 - 課題と案件の紐づけは親子課題機能を使う（運用上すでに有効）。`--create` 時は subtaskingEnabled を有効にして作成する
+
+## 進捗
+
+LC01〜LC08 はすべて実装済み（v0.39.0, 2026-09-03）。実装時に確定した事項:
+
+- LC01 の `AddCustomField` は不採用。conventions スキーマがカスタム属性を持たないため、
+  必要になった時点で別マイルストーンとして切る。代わりに Update 系
+  （`UpdateCategory` / `UpdateIssueType` / `UpdateStatus`）と `ListProjectUsers` を追加した
+- LC03 と LC04 は 1 つの計画書（`plans/logvalet-lc03-apply-plan.md`）にまとめた。
+  dry-run と apply が同じ Plan を共有する設計のため
+- 色 allowlist・カスタム状態の上限 8 個・`POST /api/v2/projects` のパラメータは
+  Backlog API ドキュメントで確定済み（本書「Backlog 側の制約」を参照）
 
 ## マイルストーン
 

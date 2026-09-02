@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.39.0 (2026-09-03)
+
+運用規約（conventions）機能を追加。Linear の「曖昧さを許さない構造」を Backlog の語彙に
+翻訳した規約を、宣言的ファイルから冪等に適用し、その規約を AI に読ませる（ADR:
+[0005](docs/adr/0005-conventions-source-of-truth-in-rule-issue.md) /
+[0006](docs/adr/0006-linear-project-mapping-to-category-and-parent-issue.md)、
+導入ガイド: [docs/conventions-guide.md](docs/conventions-guide.md)）。
+
+規約を導入していないプロジェクトの挙動は変わらない。
+
+### Added
+- feat(cli): `lv project conventions init` — 全項目にコメント付きの `conventions.yaml`
+  スケルトンを生成（`--from-project KEY` で既存プロジェクトのカテゴリ・種別・状態を起点にする）
+- feat(cli): `lv project conventions validate` — オフラインで 25 ルールを検証。
+  error は常に exit 2、warning は `--strict` のときだけ exit 2
+- feat(cli): `lv project conventions show` — 規約課題から運用規約と用語集を読み出す
+- feat(cli): `lv project apply` — 規約を Backlog へ冪等に差分適用。`--dry-run` は
+  書き込みを一切せず差分計画を表示、`--create` はプロジェクトごと作成
+- feat(cli/mcp): `issue create` / `issue update` に `--engagement`（MCP は `engagement`）を追加。
+  案件名 1 つで案件カテゴリと案件親課題の両方を設定する
+- feat(mcp): `logvalet_project_conventions` ツールを追加（読み出しのみ。ツール総数 75 → 76）
+- feat(analysis): `lv project health` の出力に `ambiguities` を追加。案件不明の課題・
+  Lead 不在の案件・クローズ候補など 7 種を検知し `health_score` の減点要因にする
+  （1 件 2 点、上限 20 点）
+- feat(backlog): 書き込み API を追加 — `CreateProject` / `AddCategory` / `UpdateCategory` /
+  `AddIssueType` / `UpdateIssueType` / `AddStatus` / `UpdateStatus`、および `ListProjectUsers`
+- docs: 導入ガイド（新規 / 既存プロジェクト）、README の Operating Conventions 節、
+  スキル（`logvalet` / `issue-create` / `health`）への規約参照
+
+### Changed
+- `ListProjectIssueTypes` の戻り値を `[]domain.IDName` → `[]domain.IssueType` に変更。
+  MCP `logvalet_meta_issue_types` の出力に `color` / `templateSummary` /
+  `templateDescription` が増える（既存キーは不変で後方互換）
+
+### 設計方針
+- 規約の正本は Backlog 上の**規約課題**（種別「規約」の課題 1 件）。MCP サーバーは
+  stateless で複数ユーザーから使われるため、ローカルの `conventions.yaml` は
+  apply の入力に留める
+- `apply` は MCP に出さない。一括更新には人の承認を挟む
+- `apply` はトランザクションではない。部分失敗は exit 8 で報告し、ロールバックせず
+  再実行で回復させる。同名リソースが複数あるときは書き込み前に停止する
+- Lead 未設定の案件は親課題を作らずスキップする（カテゴリは作る）
+
 ## v0.38.1 (2026-09-02)
 
 依存モジュールの定期更新のみ（Dependabot #64〜#67）。機能変更・破壊的変更なし。
