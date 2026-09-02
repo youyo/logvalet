@@ -358,6 +358,15 @@ func resolveNameOrID(input string, items []domain.IDName) (int, error) {
 	}
 }
 
+// issueTypesAsIDNames は課題種別スライスを resolveNameOrID に渡せる形へ写す。
+func issueTypesAsIDNames(items []domain.IssueType) []domain.IDName {
+	result := make([]domain.IDName, len(items))
+	for i, item := range items {
+		result[i] = domain.IDName{ID: item.ID, Name: item.Name}
+	}
+	return result
+}
+
 // resolveNamesOrIDs は複数入力を一括変換する。
 func resolveNamesOrIDs(inputs []string, items []domain.IDName) ([]int, error) {
 	ids := make([]int, 0, len(inputs))

@@ -13,6 +13,32 @@ var testIDNames = []domain.IDName{
 	{ID: 3, Name: "Task"},
 }
 
+func TestIssueTypesAsIDNames(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		got := issueTypesAsIDNames([]domain.IssueType{})
+		if len(got) != 0 {
+			t.Fatalf("len(result) = %d, want 0", len(got))
+		}
+	})
+
+	t.Run("preserves IDs and names", func(t *testing.T) {
+		items := []domain.IssueType{
+			{ID: 10, Name: "Bug", Color: "#990000"},
+			{ID: 20, Name: "Task", TemplateSummary: "Subject"},
+		}
+		got := issueTypesAsIDNames(items)
+		want := []domain.IDName{{ID: 10, Name: "Bug"}, {ID: 20, Name: "Task"}}
+		if len(got) != len(want) {
+			t.Fatalf("len(result) = %d, want %d", len(got), len(want))
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("result[%d] = %+v, want %+v", i, got[i], want[i])
+			}
+		}
+	})
+}
+
 func TestResolveNameOrID_byName(t *testing.T) {
 	id, err := resolveNameOrID("課題", testIDNames)
 	if err != nil {

@@ -816,12 +816,12 @@ func (c *HTTPClient) ListProjectCustomFields(ctx context.Context, projectKey str
 
 // ListProjectIssueTypes は指定プロジェクトの課題種別一覧を返す。
 // GET /api/v2/projects/{projectKey}/issueTypes
-func (c *HTTPClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error) {
+func (c *HTTPClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IssueType, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/issueTypes", nil)
 	if err != nil {
 		return nil, err
 	}
-	var issueTypes []domain.IDName
+	var issueTypes []domain.IssueType
 	if err := c.do(req, &issueTypes); err != nil {
 		return nil, err
 	}

@@ -129,7 +129,7 @@ type Client interface {
 
 	// ListProjectIssueTypes は指定プロジェクトの課題種別一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/issueTypes
-	ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error)
+	ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IssueType, error)
 
 	// ListPriorities は優先度一覧を返す。
 	// Backlog API: GET /api/v2/priorities

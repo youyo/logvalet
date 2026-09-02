@@ -464,13 +464,21 @@ func TestHTTPClientImplementsClient(t *testing.T) {
 }
 
 func TestHTTPClientListProjectIssueTypes(t *testing.T) {
-	t.Run("calls correct endpoint and returns IDName list", func(t *testing.T) {
+	t.Run("calls correct endpoint and returns issue type details", func(t *testing.T) {
 		var gotPath string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotPath = r.URL.Path
 			issueTypes := []map[string]interface{}{
-				{"id": 1, "name": "課題"},
-				{"id": 2, "name": "バグ"},
+				{
+					"id":                  1,
+					"projectId":           42,
+					"name":                "課題",
+					"color":               "#990000",
+					"displayOrder":        0,
+					"templateSummary":     "Subject",
+					"templateDescription": "Description",
+				},
+				{"id": 2, "projectId": 42, "name": "バグ", "displayOrder": 1},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(issueTypes)
@@ -488,8 +496,14 @@ func TestHTTPClientListProjectIssueTypes(t *testing.T) {
 		if len(result) != 2 {
 			t.Fatalf("len(result) = %d, want 2", len(result))
 		}
-		if result[0].ID != 1 || result[0].Name != "課題" {
-			t.Errorf("result[0] = %+v, want {ID:1, Name:課題}", result[0])
+		if result[0].ID != 1 || result[0].ProjectID != 42 || result[0].Name != "課題" {
+			t.Errorf("result[0] = %+v, want ID=1, ProjectID=42, Name=課題", result[0])
+		}
+		if result[0].Color != "#990000" || result[0].DisplayOrder != 0 {
+			t.Errorf("result[0] details = %+v, want Color=#990000, DisplayOrder=0", result[0])
+		}
+		if result[0].TemplateSummary != "Subject" || result[0].TemplateDescription != "Description" {
+			t.Errorf("result[0] templates = %+v, want Subject/Description", result[0])
 		}
 	})
 }

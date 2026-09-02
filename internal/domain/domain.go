@@ -106,19 +106,19 @@ type NormalizedActivity struct {
 
 // Document は Backlog のドキュメントモデル。
 type Document struct {
-	ID          string       `json:"id"`
-	ProjectID   int          `json:"projectId"`
-	Title       string       `json:"title"`
-	Plain       string           `json:"plain,omitempty"`
-	JSON        json.RawMessage  `json:"json,omitempty"`
-	StatusID    int          `json:"statusId,omitempty"`
-	Emoji       string       `json:"emoji,omitempty"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	Tags        []Tag        `json:"tags,omitempty"`
-	CreatedUser *User        `json:"createdUser,omitempty"`
-	Created     *time.Time   `json:"created,omitempty"`
-	UpdatedUser *User        `json:"updatedUser,omitempty"`
-	Updated     *time.Time   `json:"updated,omitempty"`
+	ID          string          `json:"id"`
+	ProjectID   int             `json:"projectId"`
+	Title       string          `json:"title"`
+	Plain       string          `json:"plain,omitempty"`
+	JSON        json.RawMessage `json:"json,omitempty"`
+	StatusID    int             `json:"statusId,omitempty"`
+	Emoji       string          `json:"emoji,omitempty"`
+	Attachments []Attachment    `json:"attachments,omitempty"`
+	Tags        []Tag           `json:"tags,omitempty"`
+	CreatedUser *User           `json:"createdUser,omitempty"`
+	Created     *time.Time      `json:"created,omitempty"`
+	UpdatedUser *User           `json:"updatedUser,omitempty"`
+	Updated     *time.Time      `json:"updated,omitempty"`
 }
 
 // Tag はドキュメントのタグ。
@@ -156,6 +156,17 @@ type Status struct {
 	Name         string `json:"name"`
 	Color        string `json:"color,omitempty"`
 	DisplayOrder int    `json:"displayOrder"`
+}
+
+// IssueType は課題種別情報。
+type IssueType struct {
+	ID                  int    `json:"id"`
+	ProjectID           int    `json:"projectId"`
+	Name                string `json:"name"`
+	Color               string `json:"color,omitempty"`
+	DisplayOrder        int    `json:"displayOrder"`
+	TemplateSummary     string `json:"templateSummary,omitempty"`
+	TemplateDescription string `json:"templateDescription,omitempty"`
 }
 
 // Category はカテゴリ情報。
@@ -263,14 +274,14 @@ type ErrorEnvelope struct {
 // Watching は Backlog のウォッチ情報。
 // Backlog API: GET /api/v2/watchings/{watchingId} に準拠。
 type Watching struct {
-	ID                    int64      `json:"id"`
-	ResourceAlreadyRead   bool       `json:"resourceAlreadyRead"`
-	Note                  string     `json:"note,omitempty"`
-	Type                  string     `json:"type"`
-	Issue                 *Issue     `json:"issue,omitempty"`
-	LastContentUpdated    *time.Time `json:"lastContentUpdated,omitempty"`
-	Created               *time.Time `json:"created,omitempty"`
-	Updated               *time.Time `json:"updated,omitempty"`
+	ID                  int64      `json:"id"`
+	ResourceAlreadyRead bool       `json:"resourceAlreadyRead"`
+	Note                string     `json:"note,omitempty"`
+	Type                string     `json:"type"`
+	Issue               *Issue     `json:"issue,omitempty"`
+	LastContentUpdated  *time.Time `json:"lastContentUpdated,omitempty"`
+	Created             *time.Time `json:"created,omitempty"`
+	Updated             *time.Time `json:"updated,omitempty"`
 }
 
 // WatchingCount はウォッチ件数。

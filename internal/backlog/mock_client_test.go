@@ -85,6 +85,33 @@ func TestMockClientListIssues(t *testing.T) {
 	})
 }
 
+func TestMockClientListProjectIssueTypes(t *testing.T) {
+	want := []domain.IssueType{{
+		ID:                  1,
+		ProjectID:           42,
+		Name:                "課題",
+		Color:               "#990000",
+		DisplayOrder:        0,
+		TemplateSummary:     "Subject",
+		TemplateDescription: "Description",
+	}}
+	mock := backlog.NewMockClient()
+	mock.ListProjectIssueTypesFunc = func(ctx context.Context, projectKey string) ([]domain.IssueType, error) {
+		return want, nil
+	}
+
+	got, err := mock.ListProjectIssueTypes(context.Background(), "PROJ")
+	if err != nil {
+		t.Fatalf("ListProjectIssueTypes() error = %v", err)
+	}
+	if len(got) != 1 || got[0] != want[0] {
+		t.Errorf("ListProjectIssueTypes() = %+v, want %+v", got, want)
+	}
+	if mock.GetCallCount("ListProjectIssueTypes") != 1 {
+		t.Errorf("GetCallCount(ListProjectIssueTypes) = %d, want 1", mock.GetCallCount("ListProjectIssueTypes"))
+	}
+}
+
 func TestMockClientCallCountThreadSafe(t *testing.T) {
 	mock := backlog.NewMockClient()
 	mock.GetMyselfFunc = func(ctx context.Context) (*domain.User, error) {

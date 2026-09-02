@@ -243,7 +243,7 @@ func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client,
 		}
 		issueTypeID = issueTypes[0].ID
 	} else {
-		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypes)
+		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypesAsIDNames(issueTypes))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}
@@ -489,7 +489,7 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		if err != nil {
 			return nil, fmt.Errorf("failed to get issue types: %w", err)
 		}
-		id, err := resolveNameOrID(*c.IssueType, issueTypes)
+		id, err := resolveNameOrID(*c.IssueType, issueTypesAsIDNames(issueTypes))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}

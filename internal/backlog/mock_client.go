@@ -31,28 +31,28 @@ type MockClient struct {
 	UpdateIssueCommentFunc func(ctx context.Context, issueKey string, commentID int64, req UpdateCommentRequest) (*domain.Comment, error)
 
 	// Projects
-	GetProjectFunc           func(ctx context.Context, projectKey string) (*domain.Project, error)
-	ListProjectsFunc         func(ctx context.Context) ([]domain.Project, error)
+	GetProjectFunc            func(ctx context.Context, projectKey string) (*domain.Project, error)
+	ListProjectsFunc          func(ctx context.Context) ([]domain.Project, error)
 	ListProjectActivitiesFunc func(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Space activities
 	ListSpaceActivitiesFunc func(ctx context.Context, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Documents
-	GetDocumentFunc            func(ctx context.Context, documentID string) (*domain.Document, error)
-	ListDocumentsFunc          func(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
-	GetDocumentTreeFunc        func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
-	CreateDocumentFunc         func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
+	GetDocumentFunc             func(ctx context.Context, documentID string) (*domain.Document, error)
+	ListDocumentsFunc           func(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
+	GetDocumentTreeFunc         func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
+	CreateDocumentFunc          func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
 	ListDocumentAttachmentsFunc func(ctx context.Context, documentID string) ([]domain.Attachment, error)
-	SearchDocumentsFunc        func(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
+	SearchDocumentsFunc         func(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
 
 	// Project meta
-	ListProjectStatusesFunc      func(ctx context.Context, projectKey string) ([]domain.Status, error)
-	ListProjectCategoriesFunc    func(ctx context.Context, projectKey string) ([]domain.Category, error)
-	ListProjectVersionsFunc      func(ctx context.Context, projectKey string) ([]domain.Version, error)
-	ListProjectCustomFieldsFunc  func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
-	ListProjectIssueTypesFunc    func(ctx context.Context, projectKey string) ([]domain.IDName, error)
-	ListPrioritiesFunc           func(ctx context.Context) ([]domain.IDName, error)
+	ListProjectStatusesFunc     func(ctx context.Context, projectKey string) ([]domain.Status, error)
+	ListProjectCategoriesFunc   func(ctx context.Context, projectKey string) ([]domain.Category, error)
+	ListProjectVersionsFunc     func(ctx context.Context, projectKey string) ([]domain.Version, error)
+	ListProjectCustomFieldsFunc func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
+	ListProjectIssueTypesFunc   func(ctx context.Context, projectKey string) ([]domain.IssueType, error)
+	ListPrioritiesFunc          func(ctx context.Context) ([]domain.IDName, error)
 
 	// Teams
 	ListTeamsFunc        func(ctx context.Context, opt ListTeamsOptions) ([]domain.TeamWithMembers, error)
@@ -81,12 +81,12 @@ type MockClient struct {
 	DeleteRelatedIssueFunc func(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error)
 
 	// Wiki
-	ListWikisFunc          func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
-	CountWikisFunc         func(ctx context.Context, projectKey string) (int, error)
-	ListWikiTagsFunc       func(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
-	GetWikiFunc            func(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
-	GetWikiHistoryFunc     func(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
-	GetWikiStarsFunc       func(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
+	ListWikisFunc           func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
+	CountWikisFunc          func(ctx context.Context, projectKey string) (int, error)
+	ListWikiTagsFunc        func(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
+	GetWikiFunc             func(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
+	GetWikiHistoryFunc      func(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
+	GetWikiStarsFunc        func(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
 	ListWikiAttachmentsFunc func(ctx context.Context, wikiID int64) ([]domain.Attachment, error)
 	ListWikiSharedFilesFunc func(ctx context.Context, wikiID int64) ([]domain.SharedFile, error)
 
@@ -94,12 +94,12 @@ type MockClient struct {
 	AddStarFunc func(ctx context.Context, req AddStarRequest) error
 
 	// Watchings
-	ListWatchingsFunc     func(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
-	CountWatchingsFunc    func(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
-	GetWatchingFunc       func(ctx context.Context, watchingID int64) (*domain.Watching, error)
-	AddWatchingFunc       func(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
-	UpdateWatchingFunc    func(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
-	DeleteWatchingFunc    func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	ListWatchingsFunc      func(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
+	CountWatchingsFunc     func(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
+	GetWatchingFunc        func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	AddWatchingFunc        func(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
+	UpdateWatchingFunc     func(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
+	DeleteWatchingFunc     func(ctx context.Context, watchingID int64) (*domain.Watching, error)
 	MarkWatchingAsReadFunc func(ctx context.Context, watchingID int64) error
 
 	mu         sync.Mutex
@@ -329,7 +329,7 @@ func (m *MockClient) ListProjectCustomFields(ctx context.Context, projectKey str
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error) {
+func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IssueType, error) {
 	m.increment("ListProjectIssueTypes")
 	if m.ListProjectIssueTypesFunc != nil {
 		return m.ListProjectIssueTypesFunc(ctx, projectKey)
