@@ -66,6 +66,9 @@ logvalet は LLM-first CLI なので、4 が最も直接的に効く。規約を
 - 未確認: カスタム状態の追加可否。LC03 の dry-run 検証時に sandbox で 1 件 POST して確定する
 - 制約: 優先度はカスタマイズ不可。プロジェクト作成はスペース管理者権限が必要
 - 制約: カテゴリは複数選択可なので「1 案件に属する」は API で強制できず、検知（LC06）で補う
+- 制約: 課題種別・状態の色は Backlog が固定した allowlist からしか選べない。任意の
+  `#rrggbb` は 400 になる。LC02 の `conventions.StatusColors` / `IssueTypeColors` で
+  検証する（下記スケルトン例の色は LC02 実装時に一次情報で確定し直す）
 
 ## 適用範囲
 
@@ -194,12 +197,28 @@ engagements:
 | LC02 | conventions スキーマ・ローダー・validate・init（スケルトン生成、`--from-project`） | なし | M |
 | LC03 | `project apply --dry-run`（差分計画の生成と表示） | LC01, LC02 | M |
 | LC04 | `project apply` 本体（冪等適用、golden test） | LC03 | M |
+
+LC04 は次を計画に含める（LC01 レビューでの申し送り）。
+
+- 既存 Backlog 側に同名のカテゴリ・種別・状態が 2 件以上あるときは、誤更新を避けるため
+  mutation 前に失敗させる（exit 2）
+- プロジェクト作成 → 種別・カテゴリ・状態 → 規約課題 → 案件親課題はトランザクションに
+  ならない。処理順・作成済みリソースの記録・再実行時の冪等性・部分失敗の exit code
+  （`app.ExitPartialFailure` = 8）を定義する
+- apply は `validate --strict` 相当で動く。Lead 空欄の案件は親課題を作らずスキップし、
+  dry-run にスキップ理由として出す（ADR 0006 の「Lead は 1 人」を破らないため）
 | LC05 | `project conventions show` CLI + MCP ツール（`glossary` を含む） | LC02 | S |
 | LC06 | analysis 層に曖昧さ検知を追加し `project health` に統合 | なし | M |
 | LC07 | `issue create / update` に `--engagement` 追加と規約違反の警告 | LC05 | S |
 | LC08 | スキル `logvalet` への規約参照の追記、docs（導入ガイド + 用語集）、E2E、リリース | LC04, LC06, LC07 | S |
 
-LC01 と LC02 と LC06 は独立で並行可能。LC05 と LC06 は apply がなくても価値が出る。
+依存関係（LC01/LC02 計画時のレビューで訂正）:
+
+- LC01 と LC02 本体（スキーマ・validate・埋め込みスケルトン・ローダー）は並行可能
+- LC02 の `--from-project` は LC01 の `domain.IssueType`（`template_summary` /
+  `template_description` を持つ）に依存する
+- LC06 は LC02 のスキーマ・ローダーに依存する（Initiative 照合・規約課題除外のため）
+- LC05 と LC06 は apply がなくても価値が出る
 
 ### 規約の保存場所（読み出しの正本）
 
