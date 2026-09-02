@@ -116,7 +116,11 @@ This enables completion for both `logvalet` and `lv`.
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
 | `project blockers <KEY>` | Detect project blockers (stale, unassigned, overdue) |
-| `project health <KEY>` | Integrated project health view |
+| `project health <KEY>` | Integrated project health view (includes convention ambiguities) |
+| `project conventions init` | Generate a conventions.yaml skeleton (`--from-project` seeds it from an existing project) |
+| `project conventions validate` | Validate a conventions.yaml (`--strict` treats warnings as errors) |
+| `project conventions show` | Show the conventions adopted by a project, with a glossary |
+| `project apply` | Apply conventions to a project idempotently (`--dry-run` to preview) |
 | `user workload <KEY>` | Analyze user workload distribution |
 | `activity list` | List activity events |
 | `user list` | List space users |
@@ -181,6 +185,42 @@ logvalet user workload PROJ --exclude-status "完了,却下"
 # Full project health report
 logvalet project health PROJ --days 7
 ```
+
+## Operating Conventions
+
+Translate Linear's structural constraints into Backlog's vocabulary, apply them
+idempotently, and hand the same rules to your AI agents.
+
+| Command | Description |
+|---------|-------------|
+| `project conventions init [--from-project KEY]` | Generate a commented `conventions.yaml` skeleton |
+| `project conventions validate --file FILE [--strict]` | Validate the file offline; exits 2 on violations |
+| `project conventions show --project KEY` | Read the conventions from the project's rule issue, with a glossary |
+| `project apply --file FILE [--dry-run] [--create]` | Apply the conventions to a project idempotently |
+| `issue create --engagement NAME` | Set both the engagement category and the parent issue in one flag |
+
+The source of truth is a **rule issue** in Backlog (one issue of type `規約`), not a
+local file — the MCP server is stateless and shared across users. `project apply`
+is CLI-only by design; bulk updates go through human approval.
+
+```bash
+# New project
+logvalet project conventions init --out conventions.yaml
+logvalet project conventions validate --file conventions.yaml
+logvalet project apply --file conventions.yaml --dry-run
+logvalet project apply --file conventions.yaml
+
+# Existing project: take stock, then seed the skeleton from what is already there
+logvalet project health EXISTING_PROJ
+logvalet project conventions init --from-project EXISTING_PROJ --out conventions.yaml
+
+# Day to day
+logvalet issue create --project-key PROJ --summary "..." --engagement "顧客A 基盤更改"
+logvalet project health PROJ    # ambiguities: issues with no engagement, leads left blank, ...
+```
+
+See [docs/conventions-guide.md](docs/conventions-guide.md) for the full guide,
+including what each field is actually asking you to decide.
 
 ## AI Workflow Commands (Phase 2)
 

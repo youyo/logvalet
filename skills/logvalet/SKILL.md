@@ -26,6 +26,39 @@ Backlog credential は Bearer passthrough とする。HTTP mode は space store 
 ローカルの SQLite または `tokens.json` のみを使い、DynamoDB は使わない。
 stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート HTTP (`mcp`) は `--auth-mode` で認証方式を指定して使い分ける。
 
+## 運用規約（conventions）を先に読む
+
+プロジェクトに運用規約が導入されている場合、**作業を始める前に規約を読むこと。**
+規約は「案件（engagement）とは何か」「優先度の低が何を意味するか」といった
+組織の言葉の定義そのものであり、それを知らずに提案すると規約に反した助言になる。
+
+```
+logvalet_project_conventions(project_key="PROJ")
+```
+
+返り値の `adopted` が false なら規約未導入なので、従来どおり進めてよい。
+true なら `conventions` と `glossary` が返るので、次を前提にする。
+
+- 課題は**案件カテゴリをちょうど 1 つ**持ち、案件親課題の子課題にする
+- 案件の Lead は 1 人。決まっていない案件は始めない
+- 優先度の 高・中・低 の意味は `conventions.priority` に書かれている。
+  一般論ではなくこの定義で判断する
+- 案件は必ずいずれかの Initiative に属する
+
+課題を起票するときは `engagement` パラメータを使う。案件名 1 つで
+案件カテゴリと親課題の両方が設定される。
+
+```
+logvalet_issue_create(project_key="PROJ", summary="...", engagement="顧客A 基盤更改", ...)
+```
+
+`/logvalet:health` の `ambiguities` は「規約に照らして決まっていないこと」で、
+案件不明の課題・Lead 不在の案件・クローズ候補などが挙がる。
+規約導入済みプロジェクトのレビューでは必ず確認する。
+
+規約の変更（apply）は書き込みを伴うため MCP からは行えない。
+CLI の `logvalet project apply` を人が実行する。
+
 ## スキル一覧
 
 ### 📥 情報収集（現状把握）
@@ -64,7 +97,8 @@ stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート 
 2. `/logvalet:my-next` → 今日・明日の具体的なタスク
 
 ### 📋 プロジェクトレビュー
-1. `/logvalet:health PROJECT` → 全体の健全性スコア
+0. `logvalet_project_conventions` → 運用規約と用語を確認（導入済みなら必須）
+1. `/logvalet:health PROJECT` → 全体の健全性スコア（`ambiguities` を含む）
 2. `/logvalet:risk PROJECT` → リスク評価と推奨アクション
 3. `/logvalet:intelligence PROJECT` → アクティビティの偏り・異常
 4. `/logvalet:report PROJECT` → 共有用レポート生成

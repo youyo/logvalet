@@ -132,6 +132,19 @@ Combine results into a structured health report:
 
 ---
 
+### 規約に照らした曖昧さ (N件)
+
+<`ambiguities.adopted` が false のときはこの節ごと省略する>
+
+<種類ごとに件数と対象を挙げる。案件不明の課題（no_engagement）、
+Lead 不在の案件（missing_lead）、期限のない案件親課題（missing_due_date）、
+クローズ候補（close_candidate）など>
+
+「決まっていないこと」の一覧なので、埋めるべき空欄として提示する。
+件数が多いときは種類ごとの件数を先に出し、対象は上位のみ挙げる。
+
+---
+
 **サマリー:**
 - 停滞課題: N件
 - ブロッカー候補: N件
