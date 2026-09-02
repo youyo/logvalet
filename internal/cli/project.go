@@ -16,6 +16,7 @@ type ProjectCmd struct {
 	Blockers    ProjectBlockersCmd    `cmd:"" help:"detect project blockers"`
 	Health      ProjectHealthCmd      `cmd:"" help:"show project health summary"`
 	Conventions ProjectConventionsCmd `cmd:"" help:"manage project conventions"`
+	Apply       ProjectApplyCmd       `cmd:"" help:"apply conventions to a project"`
 }
 
 // ProjectGetCmd は project get コマンド。
