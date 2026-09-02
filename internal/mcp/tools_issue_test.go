@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/conventions"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
@@ -374,6 +375,128 @@ func TestIssueList_ReturnsJSON(t *testing.T) {
 }
 
 // ===== A1: issue_create 追加パラメータテスト (Red Phase) =====
+
+func TestIssueCreateUpdateSchema_HasOptionalEngagement(t *testing.T) {
+	server := newTestServer(t, backlog.NewMockClient(), mcpinternal.ServerConfig{})
+	for _, name := range []string{"logvalet_issue_create", "logvalet_issue_update"} {
+		t.Run(name, func(t *testing.T) {
+			props := toolProperties(t, server.GetTool(name))
+			engagement, ok := props["engagement"].(map[string]any)
+			if !ok {
+				t.Fatalf("engagement schema = %#v, want optional string property", props["engagement"])
+			}
+			if engagement["type"] != "string" {
+				t.Errorf("engagement type = %v, want string", engagement["type"])
+			}
+		})
+	}
+}
+
+func engagementTestClient(t *testing.T) *backlog.MockClient {
+	t.Helper()
+	const engagementName = "顧客A 基盤更改"
+	description := conventions.BuildRuleIssueDescription([]byte(`schema_version: 1
+project:
+  key: TEST
+  name: Test
+engagements:
+  - name: 顧客A 基盤更改
+`))
+	client := backlog.NewMockClient()
+	client.GetProjectFunc = func(context.Context, string) (*domain.Project, error) {
+		return &domain.Project{ID: 100, ProjectKey: "TEST"}, nil
+	}
+	client.ListProjectIssueTypesFunc = func(context.Context, string) ([]domain.IssueType, error) {
+		return []domain.IssueType{{ID: 1, Name: conventions.IssueTypeRule}}, nil
+	}
+	client.ListProjectCategoriesFunc = func(context.Context, string) ([]domain.Category, error) {
+		return []domain.Category{{ID: 20, Name: engagementName}}, nil
+	}
+	client.ListIssuesFunc = func(context.Context, backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{
+			{ID: 1, IssueKey: "TEST-1", IssueType: &domain.IDName{Name: conventions.IssueTypeRule}, Description: description},
+			{ID: 101, IssueKey: "TEST-2", Summary: "[案件] " + engagementName, IssueType: &domain.IDName{Name: conventions.IssueTypeEngagement}},
+		}, nil
+	}
+	return client
+}
+
+func TestIssueCreate_WithEngagement(t *testing.T) {
+	client := engagementTestClient(t)
+	var captured backlog.CreateIssueRequest
+	client.CreateIssueFunc = func(_ context.Context, req backlog.CreateIssueRequest) (*domain.Issue, error) {
+		captured = req
+		return &domain.Issue{ID: 200, IssueKey: "TEST-200"}, nil
+	}
+
+	server := newTestServer(t, client, mcpinternal.ServerConfig{})
+	result := callTool(t, server, "logvalet_issue_create", map[string]any{
+		"project_key": "TEST", "summary": "child", "issue_type_id": 2, "engagement": "顧客A 基盤更改",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(captured.CategoryIDs) != 1 || captured.CategoryIDs[0] != 20 {
+		t.Errorf("CategoryIDs = %v, want [20]", captured.CategoryIDs)
+	}
+	if captured.ParentIssueID != 101 {
+		t.Errorf("ParentIssueID = %d, want 101", captured.ParentIssueID)
+	}
+}
+
+func TestIssueUpdate_WithEngagementAndNumericIssueID(t *testing.T) {
+	client := engagementTestClient(t)
+	client.GetIssueFunc = func(context.Context, string) (*domain.Issue, error) {
+		return &domain.Issue{ID: 200, IssueKey: "TEST-200"}, nil
+	}
+	var captured backlog.UpdateIssueRequest
+	var capturedIssueKey string
+	client.UpdateIssueFunc = func(_ context.Context, issueKey string, req backlog.UpdateIssueRequest) (*domain.Issue, error) {
+		capturedIssueKey, captured = issueKey, req
+		return &domain.Issue{ID: 200, IssueKey: "TEST-200"}, nil
+	}
+
+	server := newTestServer(t, client, mcpinternal.ServerConfig{})
+	result := callTool(t, server, "logvalet_issue_update", map[string]any{
+		"issue_key": "200", "engagement": "顧客A 基盤更改",
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if capturedIssueKey != "200" {
+		t.Errorf("UpdateIssue issue key = %q, want 200", capturedIssueKey)
+	}
+	if captured.CategoryIDs == nil || len(captured.CategoryIDs) != 1 || captured.CategoryIDs[0] != 20 {
+		t.Errorf("CategoryIDs = %v, want [20]", captured.CategoryIDs)
+	}
+	if captured.ParentIssueID == nil || *captured.ParentIssueID != 101 {
+		t.Errorf("ParentIssueID = %v, want 101", captured.ParentIssueID)
+	}
+}
+
+func TestIssueCreate_ExplicitCategoryTakesPrecedenceOverEngagement(t *testing.T) {
+	client := engagementTestClient(t)
+	var captured backlog.CreateIssueRequest
+	client.CreateIssueFunc = func(_ context.Context, req backlog.CreateIssueRequest) (*domain.Issue, error) {
+		captured = req
+		return &domain.Issue{ID: 200, IssueKey: "TEST-200"}, nil
+	}
+
+	server := newTestServer(t, client, mcpinternal.ServerConfig{})
+	result := callTool(t, server, "logvalet_issue_create", map[string]any{
+		"project_key": "TEST", "summary": "child", "issue_type_id": 2,
+		"engagement": "顧客A 基盤更改", "category_ids": "30,40", "parent_issue_id": 300,
+	})
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	if len(captured.CategoryIDs) != 2 || captured.CategoryIDs[0] != 30 || captured.CategoryIDs[1] != 40 {
+		t.Errorf("CategoryIDs = %v, want [30 40]", captured.CategoryIDs)
+	}
+	if captured.ParentIssueID != 300 {
+		t.Errorf("ParentIssueID = %d, want 300", captured.ParentIssueID)
+	}
+}
 
 // TestIssueCreate_WithParentIssueID はリクエスト内で ParentIssueID が設定されることを確認する。
 func TestIssueCreate_WithParentIssueID(t *testing.T) {

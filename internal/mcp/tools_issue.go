@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/conventions"
 )
 
 // maxUploadInlineDecodedBytes は file_content_base64 経由のインラインアップロードで許容する
@@ -174,6 +175,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		WithNumberParam("assignee_id", false, "Assignee user ID"),
 		WithNumberParam("parent_issue_id", false, "Parent issue ID for creating a child issue"),
 		WithStringParam("category_ids", false, "Comma-separated category IDs (e.g. \"10,20\")"),
+		WithStringParam("engagement", false, "Engagement name; sets both the engagement category and the parent issue"),
 		WithStringParam("version_ids", false, "Comma-separated version IDs"),
 		WithStringParam("milestone_ids", false, "Comma-separated milestone IDs"),
 		WithStringParam("notified_user_ids", false, "Comma-separated user IDs to notify"),
@@ -213,15 +215,33 @@ func RegisterIssueTools(r *ToolRegistry) {
 		if assigneeID, ok := intArg(args, "assignee_id"); ok {
 			req.AssigneeID = assigneeID
 		}
+		parentIssueIDSpecified := false
 		if parentIssueID, ok := intArg(args, "parent_issue_id"); ok {
 			req.ParentIssueID = parentIssueID
+			parentIssueIDSpecified = true
 		}
-		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok && categoryIDsStr != "" {
-			ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
-			if err != nil {
-				return nil, err
+		categoryIDsSpecified := false
+		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok {
+			categoryIDsSpecified = true
+			if categoryIDsStr != "" {
+				ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
+				if err != nil {
+					return nil, err
+				}
+				req.CategoryIDs = ids
 			}
-			req.CategoryIDs = ids
+		}
+		if engagementName, ok := stringArg(args, "engagement"); ok {
+			engagement, err := conventions.ResolveEngagement(ctx, client, projectKey, engagementName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve engagement: %w", err)
+			}
+			if !categoryIDsSpecified {
+				req.CategoryIDs = []int{engagement.CategoryID}
+			}
+			if !parentIssueIDSpecified && engagement.ParentIssueID != 0 {
+				req.ParentIssueID = engagement.ParentIssueID
+			}
 		}
 		if versionIDsStr, ok := stringArg(args, "version_ids"); ok && versionIDsStr != "" {
 			ids, err := parseCSVIntList(versionIDsStr, "version_ids")
@@ -273,6 +293,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		WithNumberParam("issue_type_id", false, "Issue type ID"),
 		WithNumberParam("parent_issue_id", false, "Parent issue ID (0 to remove parent)"),
 		WithStringParam("category_ids", false, "Comma-separated category IDs (e.g. \"10,20\")"),
+		WithStringParam("engagement", false, "Engagement name; sets both the engagement category and the parent issue"),
 		WithStringParam("version_ids", false, "Comma-separated version IDs"),
 		WithStringParam("milestone_ids", false, "Comma-separated milestone IDs"),
 		WithStringParam("notified_user_ids", false, "Comma-separated user IDs to notify"),
@@ -284,6 +305,16 @@ func RegisterIssueTools(r *ToolRegistry) {
 		issueKey, ok := stringArg(args, "issue_key")
 		if !ok || issueKey == "" {
 			return nil, fmt.Errorf("issue_key is required")
+		}
+
+		engagementName, hasEngagement := stringArg(args, "engagement")
+		projectKey := ""
+		if hasEngagement {
+			var err error
+			projectKey, err = resolveIssueProjectKeyForMCP(ctx, client, issueKey)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		req := backlog.UpdateIssueRequest{}
@@ -305,15 +336,34 @@ func RegisterIssueTools(r *ToolRegistry) {
 		if issueTypeID, ok := intArg(args, "issue_type_id"); ok {
 			req.IssueTypeID = &issueTypeID
 		}
+		parentIssueIDSpecified := false
 		if parentIssueID, ok := intArg(args, "parent_issue_id"); ok {
 			req.ParentIssueID = &parentIssueID
+			parentIssueIDSpecified = true
 		}
-		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok && categoryIDsStr != "" {
-			ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
-			if err != nil {
-				return nil, err
+		categoryIDsSpecified := false
+		if categoryIDsStr, ok := stringArg(args, "category_ids"); ok {
+			categoryIDsSpecified = true
+			if categoryIDsStr != "" {
+				ids, err := parseCSVIntList(categoryIDsStr, "category_ids")
+				if err != nil {
+					return nil, err
+				}
+				req.CategoryIDs = ids
 			}
-			req.CategoryIDs = ids
+		}
+		if hasEngagement {
+			engagement, err := conventions.ResolveEngagement(ctx, client, projectKey, engagementName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve engagement: %w", err)
+			}
+			if !categoryIDsSpecified {
+				req.CategoryIDs = []int{engagement.CategoryID}
+			}
+			if !parentIssueIDSpecified && engagement.ParentIssueID != 0 {
+				parentIssueID := engagement.ParentIssueID
+				req.ParentIssueID = &parentIssueID
+			}
 		}
 		if versionIDsStr, ok := stringArg(args, "version_ids"); ok && versionIDsStr != "" {
 			ids, err := parseCSVIntList(versionIDsStr, "version_ids")
@@ -628,6 +678,29 @@ func RegisterIssueTools(r *ToolRegistry) {
 			"size_bytes":     len(content),
 		}, nil
 	})
+}
+
+func resolveIssueProjectKeyForMCP(ctx context.Context, client backlog.Client, issueIDOrKey string) (string, error) {
+	if _, err := strconv.Atoi(issueIDOrKey); err != nil {
+		return extractProjectKeyForMCP(issueIDOrKey), nil
+	}
+
+	issue, err := client.GetIssue(ctx, issueIDOrKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve issue ID %q: %w", issueIDOrKey, err)
+	}
+	if issue == nil || issue.IssueKey == "" {
+		return "", fmt.Errorf("failed to resolve issue ID %q: issue key is missing", issueIDOrKey)
+	}
+	return extractProjectKeyForMCP(issue.IssueKey), nil
+}
+
+func extractProjectKeyForMCP(issueKey string) string {
+	idx := strings.LastIndex(issueKey, "-")
+	if idx <= 0 {
+		return issueKey
+	}
+	return issueKey[:idx]
 }
 
 // uploadSinglePath は単一ファイルパスを開いてアップロードし、添付 ID を返す。

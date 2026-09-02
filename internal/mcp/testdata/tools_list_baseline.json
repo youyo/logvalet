@@ -878,6 +878,10 @@
               "description": "Due date in YYYY-MM-DD format",
               "type": "string"
             },
+            "engagement": {
+              "description": "Engagement name; sets both the engagement category and the parent issue",
+              "type": "string"
+            },
             "issue_type_id": {
               "description": "Issue type ID",
               "type": "number"
@@ -1310,6 +1314,10 @@
             },
             "due_date": {
               "description": "Due date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "engagement": {
+              "description": "Engagement name; sets both the engagement category and the parent issue",
               "type": "string"
             },
             "issue_key": {
