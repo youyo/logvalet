@@ -237,7 +237,7 @@ func TestNormalizeToolsListResponse_SortsRequiredArray(t *testing.T) {
 }
 
 // TestNormalizeToolsListResponse_BaselineToolCount は baseline に含まれるツール数が
-// 移行前の登録ツール総数 (75) と一致することを確認する。
+// 移行前の登録ツール総数 (76) と一致することを確認する。
 // この数は server_test.go の TestNewServerWithFactory_RegistersAllTools が期待する
 // expectedCount と同期させる必要がある。
 func TestNormalizeToolsListResponse_BaselineToolCount(t *testing.T) {
@@ -253,7 +253,7 @@ func TestNormalizeToolsListResponse_BaselineToolCount(t *testing.T) {
 	if err := json.Unmarshal(baseline, &parsed); err != nil {
 		t.Fatalf("failed to parse baseline: %v", err)
 	}
-	const wantCount = 75
+	const wantCount = 76
 	if len(parsed.Result.Tools) != wantCount {
 		t.Errorf("baseline tool count = %d, want %d", len(parsed.Result.Tools), wantCount)
 	}

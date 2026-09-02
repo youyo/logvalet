@@ -210,7 +210,7 @@ func TestOfficialServer_ToolsList_NoInitializeRequired(t *testing.T) {
 	if parsed.Error != nil {
 		t.Fatalf("unexpected error: %+v", parsed.Error)
 	}
-	const wantCount = 75
+	const wantCount = 76
 	if len(parsed.Result.Tools) != wantCount {
 		t.Errorf("tools count = %d, want %d", len(parsed.Result.Tools), wantCount)
 	}

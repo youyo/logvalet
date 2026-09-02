@@ -102,6 +102,7 @@ func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterTeamTools(reg)
 	RegisterSpaceTools(reg, cfg)
 	RegisterMetaTools(reg)
+	RegisterConventionsTools(reg)
 	RegisterSharedFileTools(reg)
 	RegisterStarTools(reg)
 	RegisterWatchingTools(reg)

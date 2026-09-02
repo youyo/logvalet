@@ -15,6 +15,7 @@ import (
 type ProjectConventionsCmd struct {
 	Init     ProjectConventionsInitCmd     `cmd:"" help:"generate a conventions.yaml skeleton"`
 	Validate ProjectConventionsValidateCmd `cmd:"" help:"validate a conventions.yaml"`
+	Show     ProjectConventionsShowCmd     `cmd:"" help:"show the conventions adopted by a project"`
 }
 
 // ProjectConventionsInitCmd は conventions.yaml のスケルトンを生成するコマンド。
@@ -27,6 +28,12 @@ type ProjectConventionsInitCmd struct {
 type ProjectConventionsValidateCmd struct {
 	File   string `required:"" help:"path to conventions.yaml" type:"path"`
 	Strict bool   `help:"treat warnings as errors"`
+}
+
+// ProjectConventionsShowCmd は project conventions show コマンド。
+type ProjectConventionsShowCmd struct {
+	Project string `required:"" help:"project key"`
+	File    string `help:"read from a local conventions.yaml instead of the rule issue" type:"path"`
 }
 
 // Run は conventions.yaml のスケルトンを生成する。
@@ -126,4 +133,33 @@ func writeConventionsValidationSummary(violations []conventions.Violation) {
 		}
 	}
 	fmt.Fprintf(os.Stderr, "%d 件の違反（error %d、warning %d）\n", len(violations), errorCount, warningCount)
+}
+
+// Run はプロジェクトが採用している運用規約を表示する。
+func (c *ProjectConventionsShowCmd) Run(g *GlobalFlags) error {
+	rc, err := buildRunContext(g)
+	if err != nil {
+		return err
+	}
+
+	var result *conventions.ShowResult
+	if c.File != "" {
+		loaded, loadErr := conventions.LoadFile(c.File)
+		if loadErr != nil {
+			return loadErr
+		}
+		result = &conventions.ShowResult{
+			ProjectKey:  c.Project,
+			Adopted:     true,
+			Conventions: loaded,
+			Glossary:    conventions.Glossary(),
+		}
+	} else {
+		result, err = conventions.Show(context.Background(), rc.Client, c.Project)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rc.Renderer.Render(os.Stdout, result)
 }

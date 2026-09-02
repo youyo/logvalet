@@ -1617,6 +1617,39 @@
           "idempotentHint": true,
           "openWorldHint": true,
           "readOnlyHint": true,
+          "title": "運用規約取得"
+        },
+        "description": "Show the operating conventions adopted by a project (rule issue), with a glossary",
+        "inputSchema": {
+          "properties": {
+            "all_spaces": {
+              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
+              "type": "boolean"
+            },
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            },
+            "spaces": {
+              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_project_conventions"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
           "title": "プロジェクト詳細取得"
         },
         "description": "Get project details by project key",

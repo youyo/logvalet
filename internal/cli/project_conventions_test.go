@@ -116,3 +116,49 @@ func TestProjectConventionsValidate_KongParse_GlobalFormatAndFile(t *testing.T) 
 		t.Errorf("File: 期待 %q, 実際 %q", wantPath, root.Project.Conventions.Validate.File)
 	}
 }
+
+func TestProjectConventionsShow_KongParse_ProjectRequired(t *testing.T) {
+	var root cli.CLI
+	p := newProjectConventionsParser(t, &root)
+
+	if _, err := p.Parse([]string{"project", "conventions", "show", "--project", "PROJ"}); err != nil {
+		t.Fatalf("パースエラー: %v", err)
+	}
+
+	cmd := root.Project.Conventions.Show
+	if cmd.Project != "PROJ" {
+		t.Errorf("Project: 期待 %q, 実際 %q", "PROJ", cmd.Project)
+	}
+	if cmd.File != "" {
+		t.Errorf("File デフォルト: 期待 \"\", 実際 %q", cmd.File)
+	}
+}
+
+func TestProjectConventionsShow_KongParse_WithFile(t *testing.T) {
+	var root cli.CLI
+	p := newProjectConventionsParser(t, &root)
+
+	if _, err := p.Parse([]string{
+		"project", "conventions", "show", "--project", "PROJ", "--file", "conventions.yaml",
+	}); err != nil {
+		t.Fatalf("パースエラー: %v", err)
+	}
+
+	wantPath, err := filepath.Abs("conventions.yaml")
+	if err != nil {
+		t.Fatalf("filepath.Abs() エラー: %v", err)
+	}
+	cmd := root.Project.Conventions.Show
+	if cmd.Project != "PROJ" || cmd.File != wantPath {
+		t.Errorf("Show = (%q, %q), want (%q, %q)", cmd.Project, cmd.File, "PROJ", wantPath)
+	}
+}
+
+func TestProjectConventionsShow_KongParse_MissingProject(t *testing.T) {
+	var root cli.CLI
+	p := newProjectConventionsParser(t, &root)
+
+	if _, err := p.Parse([]string{"project", "conventions", "show"}); err == nil {
+		t.Error("--project なしでエラーが返されなかった")
+	}
+}

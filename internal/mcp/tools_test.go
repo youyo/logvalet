@@ -21,7 +21,7 @@ func TestNewServer_RegistersAllTools(t *testing.T) {
 	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
 
 	tools := s.toolNames()
-	expectedCount := 75
+	expectedCount := 76
 	if len(tools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(tools))
 		for name := range tools {
