@@ -810,6 +810,46 @@ func (c *HTTPClient) ListProjectStatuses(ctx context.Context, projectKey string)
 	return statuses, nil
 }
 
+// AddStatus は指定プロジェクトに状態を追加する。
+// POST /api/v2/projects/{projectKey}/statuses
+func (c *HTTPClient) AddStatus(ctx context.Context, projectKey string, reqBody AddStatusRequest) (*domain.Status, error) {
+	q := url.Values{}
+	q.Set("name", reqBody.Name)
+	q.Set("color", reqBody.Color)
+	path := "/api/v2/projects/" + url.PathEscape(projectKey) + "/statuses"
+	req, err := c.newBodyRequest(ctx, http.MethodPost, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var status domain.Status
+	if err := c.do(req, &status); err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+// UpdateStatus は指定プロジェクトの状態を更新する。
+// PATCH /api/v2/projects/{projectKey}/statuses/{statusID}
+func (c *HTTPClient) UpdateStatus(ctx context.Context, projectKey string, statusID int, reqBody UpdateStatusRequest) (*domain.Status, error) {
+	q := url.Values{}
+	if reqBody.Name != nil {
+		q.Set("name", *reqBody.Name)
+	}
+	if reqBody.Color != nil {
+		q.Set("color", *reqBody.Color)
+	}
+	path := fmt.Sprintf("/api/v2/projects/%s/statuses/%d", url.PathEscape(projectKey), statusID)
+	req, err := c.newBodyRequest(ctx, http.MethodPatch, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var status domain.Status
+	if err := c.do(req, &status); err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
 // ListProjectCategories は指定プロジェクトのカテゴリ一覧を返す。
 // GET /api/v2/projects/{projectKey}/categories
 func (c *HTTPClient) ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error) {
@@ -898,6 +938,58 @@ func (c *HTTPClient) ListProjectIssueTypes(ctx context.Context, projectKey strin
 		return nil, err
 	}
 	return issueTypes, nil
+}
+
+// AddIssueType は指定プロジェクトに課題種別を追加する。
+// POST /api/v2/projects/{projectKey}/issueTypes
+func (c *HTTPClient) AddIssueType(ctx context.Context, projectKey string, reqBody AddIssueTypeRequest) (*domain.IssueType, error) {
+	q := url.Values{}
+	q.Set("name", reqBody.Name)
+	q.Set("color", reqBody.Color)
+	if reqBody.TemplateSummary != "" {
+		q.Set("templateSummary", reqBody.TemplateSummary)
+	}
+	if reqBody.TemplateDescription != "" {
+		q.Set("templateDescription", reqBody.TemplateDescription)
+	}
+	path := "/api/v2/projects/" + url.PathEscape(projectKey) + "/issueTypes"
+	req, err := c.newBodyRequest(ctx, http.MethodPost, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var issueType domain.IssueType
+	if err := c.do(req, &issueType); err != nil {
+		return nil, err
+	}
+	return &issueType, nil
+}
+
+// UpdateIssueType は指定プロジェクトの課題種別を更新する。
+// PATCH /api/v2/projects/{projectKey}/issueTypes/{issueTypeID}
+func (c *HTTPClient) UpdateIssueType(ctx context.Context, projectKey string, issueTypeID int, reqBody UpdateIssueTypeRequest) (*domain.IssueType, error) {
+	q := url.Values{}
+	if reqBody.Name != nil {
+		q.Set("name", *reqBody.Name)
+	}
+	if reqBody.Color != nil {
+		q.Set("color", *reqBody.Color)
+	}
+	if reqBody.TemplateSummary != nil {
+		q.Set("templateSummary", *reqBody.TemplateSummary)
+	}
+	if reqBody.TemplateDescription != nil {
+		q.Set("templateDescription", *reqBody.TemplateDescription)
+	}
+	path := fmt.Sprintf("/api/v2/projects/%s/issueTypes/%d", url.PathEscape(projectKey), issueTypeID)
+	req, err := c.newBodyRequest(ctx, http.MethodPatch, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var issueType domain.IssueType
+	if err := c.do(req, &issueType); err != nil {
+		return nil, err
+	}
+	return &issueType, nil
 }
 
 // ListPriorities は優先度一覧を返す。

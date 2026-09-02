@@ -119,6 +119,14 @@ type Client interface {
 	// Backlog API: GET /api/v2/projects/{projectKey}/statuses
 	ListProjectStatuses(ctx context.Context, projectKey string) ([]domain.Status, error)
 
+	// AddStatus は指定プロジェクトに状態を追加する。
+	// Backlog API: POST /api/v2/projects/{projectKey}/statuses
+	AddStatus(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error)
+
+	// UpdateStatus は指定プロジェクトの状態を更新する。
+	// Backlog API: PATCH /api/v2/projects/{projectKey}/statuses/{statusID}
+	UpdateStatus(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error)
+
 	// ListProjectCategories は指定プロジェクトのカテゴリ一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/categories
 	ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error)
@@ -142,6 +150,14 @@ type Client interface {
 	// ListProjectIssueTypes は指定プロジェクトの課題種別一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/issueTypes
 	ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IssueType, error)
+
+	// AddIssueType は指定プロジェクトに課題種別を追加する。
+	// Backlog API: POST /api/v2/projects/{projectKey}/issueTypes
+	AddIssueType(ctx context.Context, projectKey string, req AddIssueTypeRequest) (*domain.IssueType, error)
+
+	// UpdateIssueType は指定プロジェクトの課題種別を更新する。
+	// Backlog API: PATCH /api/v2/projects/{projectKey}/issueTypes/{issueTypeID}
+	UpdateIssueType(ctx context.Context, projectKey string, issueTypeID int, req UpdateIssueTypeRequest) (*domain.IssueType, error)
 
 	// ListPriorities は優先度一覧を返す。
 	// Backlog API: GET /api/v2/priorities

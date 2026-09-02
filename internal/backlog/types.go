@@ -46,6 +46,36 @@ type UpdateCategoryRequest struct {
 	Name string // 必須
 }
 
+// AddIssueTypeRequest は課題種別追加のパラメータ。
+type AddIssueTypeRequest struct {
+	Name                string // 必須
+	Color               string // 必須。Backlog が許可する色コードのみ
+	TemplateSummary     string
+	TemplateDescription string
+}
+
+// UpdateIssueTypeRequest は課題種別更新のパラメータ。
+// 全フィールドはポインタ型（nil = 変更しない）。
+type UpdateIssueTypeRequest struct {
+	Name                *string
+	Color               *string
+	TemplateSummary     *string
+	TemplateDescription *string
+}
+
+// AddStatusRequest は状態追加のパラメータ。
+type AddStatusRequest struct {
+	Name  string // 必須
+	Color string // 必須。状態用の許可色コードのみ
+}
+
+// UpdateStatusRequest は状態更新のパラメータ。
+// 全フィールドはポインタ型（nil = 変更しない）。
+type UpdateStatusRequest struct {
+	Name  *string
+	Color *string
+}
+
 // UpdateIssueRequest は UpdateIssue リクエストのパラメータ。
 // 全フィールドはポインタ型（nil = 変更しない）。
 type UpdateIssueRequest struct {

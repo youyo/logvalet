@@ -111,8 +111,11 @@ CLAUDE.md の「JSON キーは snake_case」は logvalet 自身が組み立て�
 400 は不正な色・名前・上限超過、403 は権限・プラン制限と原因が異なり、
 一括して「スキップ可能」と扱うと規約不備を成功扱いにしてしまう。
 
-`AddStatus` / `UpdateStatus` は既存の `do` が返す `ErrValidation`（400）/
-`ErrForbidden`（403）/ `ErrRateLimited`（429）をそのまま返す。
+`AddStatus` / `UpdateStatus` は既存の `do` が返す typed error をそのまま返す。
+既存の変換規則は **404 → `ErrNotFound`、401 → `ErrUnauthorized`、403 → `ErrForbidden`、
+422 → `ErrValidation`、429 → `ErrRateLimited`、その他（400 を含む）→ `ErrAPI`**
+（`internal/backlog/http_client.go:249-263`）。400 を `ErrValidation` に付け替えるような
+既存挙動の変更は行わない（LC01 のスコープ外）。
 `BacklogError` は Backlog の `errors[].code` を保持しているので、
 「カスタム状態が使えないプランならスキップ」の判定に必要な code の絞り込みは
 LC03 の sandbox 検証で実値を確定してから apply 側に置く。
@@ -263,8 +266,8 @@ type UpdateStatusRequest struct {
 - `CreateProject`: `SubtaskingEnabled` が nil でも `subtaskingEnabled=true` がボディに乗ること、
   他の nil bool がボディに現れないこと、`TextFormattingRule` が空なら送らないこと
 - `UpdateIssueType` / `UpdateStatus` / `UpdateCategory`: nil フィールドがボディに現れないこと
-- `AddStatus`: 400 で `errors.Is(err, ErrValidation)`、403 で `errors.Is(err, ErrForbidden)`
-  になり、`BacklogError` の `Code` が保持されること
+- `AddStatus`: 400 で `errors.Is(err, ErrAPI)`、403 で `errors.Is(err, ErrForbidden)`
+  になり、`BacklogError.Code` に Backlog の `errors[].code` が保持されること
 - `ListProjectIssueTypes`: `templateSummary` / `templateDescription` / `color` を含む JSON を
   デコードでき `domain.IssueType` に載ること（戻り値変更の回帰テスト）
 

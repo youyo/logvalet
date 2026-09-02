@@ -49,12 +49,16 @@ type MockClient struct {
 
 	// Project meta
 	ListProjectStatusesFunc     func(ctx context.Context, projectKey string) ([]domain.Status, error)
+	AddStatusFunc               func(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error)
+	UpdateStatusFunc            func(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error)
 	ListProjectCategoriesFunc   func(ctx context.Context, projectKey string) ([]domain.Category, error)
 	AddCategoryFunc             func(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error)
 	UpdateCategoryFunc          func(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error)
 	ListProjectVersionsFunc     func(ctx context.Context, projectKey string) ([]domain.Version, error)
 	ListProjectCustomFieldsFunc func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
 	ListProjectIssueTypesFunc   func(ctx context.Context, projectKey string) ([]domain.IssueType, error)
+	AddIssueTypeFunc            func(ctx context.Context, projectKey string, req AddIssueTypeRequest) (*domain.IssueType, error)
+	UpdateIssueTypeFunc         func(ctx context.Context, projectKey string, issueTypeID int, req UpdateIssueTypeRequest) (*domain.IssueType, error)
 	ListPrioritiesFunc          func(ctx context.Context) ([]domain.IDName, error)
 
 	// Teams
@@ -316,6 +320,22 @@ func (m *MockClient) ListProjectStatuses(ctx context.Context, projectKey string)
 	return nil, ErrNotFound
 }
 
+func (m *MockClient) AddStatus(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error) {
+	m.increment("AddStatus")
+	if m.AddStatusFunc != nil {
+		return m.AddStatusFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateStatus(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error) {
+	m.increment("UpdateStatus")
+	if m.UpdateStatusFunc != nil {
+		return m.UpdateStatusFunc(ctx, projectKey, statusID, req)
+	}
+	return nil, ErrNotFound
+}
+
 func (m *MockClient) ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error) {
 	m.increment("ListProjectCategories")
 	if m.ListProjectCategoriesFunc != nil {
@@ -360,6 +380,22 @@ func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey strin
 	m.increment("ListProjectIssueTypes")
 	if m.ListProjectIssueTypesFunc != nil {
 		return m.ListProjectIssueTypesFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddIssueType(ctx context.Context, projectKey string, req AddIssueTypeRequest) (*domain.IssueType, error) {
+	m.increment("AddIssueType")
+	if m.AddIssueTypeFunc != nil {
+		return m.AddIssueTypeFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateIssueType(ctx context.Context, projectKey string, issueTypeID int, req UpdateIssueTypeRequest) (*domain.IssueType, error) {
+	m.increment("UpdateIssueType")
+	if m.UpdateIssueTypeFunc != nil {
+		return m.UpdateIssueTypeFunc(ctx, projectKey, issueTypeID, req)
 	}
 	return nil, ErrNotFound
 }

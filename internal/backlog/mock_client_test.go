@@ -174,6 +174,148 @@ func TestMockClientUpdateCategory(t *testing.T) {
 	})
 }
 
+func TestMockClientAddIssueType(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.IssueType{ID: 1, Name: "Bug", Color: "#990000"}
+		mock := backlog.NewMockClient()
+		mock.AddIssueTypeFunc = func(ctx context.Context, projectKey string, req backlog.AddIssueTypeRequest) (*domain.IssueType, error) {
+			if projectKey != "PROJ" || req.Name != "Bug" || req.Color != "#990000" {
+				t.Errorf("arguments = %q, %+v, want PROJ, Bug, and #990000", projectKey, req)
+			}
+			return want, nil
+		}
+
+		got, err := mock.AddIssueType(context.Background(), "PROJ", backlog.AddIssueTypeRequest{Name: "Bug", Color: "#990000"})
+		if err != nil {
+			t.Fatalf("AddIssueType() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("AddIssueType() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("AddIssueType") != 1 {
+			t.Errorf("GetCallCount(AddIssueType) = %d, want 1", mock.GetCallCount("AddIssueType"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.AddIssueType(context.Background(), "PROJ", backlog.AddIssueTypeRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("AddIssueType() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("AddIssueType") != 1 {
+			t.Errorf("GetCallCount(AddIssueType) = %d, want 1", mock.GetCallCount("AddIssueType"))
+		}
+	})
+}
+
+func TestMockClientUpdateIssueType(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.IssueType{ID: 42, Name: "Bug"}
+		mock := backlog.NewMockClient()
+		mock.UpdateIssueTypeFunc = func(ctx context.Context, projectKey string, issueTypeID int, req backlog.UpdateIssueTypeRequest) (*domain.IssueType, error) {
+			if projectKey != "PROJ" || issueTypeID != 42 || req.Name == nil || *req.Name != "Bug" {
+				t.Errorf("arguments = %q, %d, %+v, want PROJ, 42, and Bug", projectKey, issueTypeID, req)
+			}
+			return want, nil
+		}
+		name := "Bug"
+
+		got, err := mock.UpdateIssueType(context.Background(), "PROJ", 42, backlog.UpdateIssueTypeRequest{Name: &name})
+		if err != nil {
+			t.Fatalf("UpdateIssueType() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("UpdateIssueType() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("UpdateIssueType") != 1 {
+			t.Errorf("GetCallCount(UpdateIssueType) = %d, want 1", mock.GetCallCount("UpdateIssueType"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.UpdateIssueType(context.Background(), "PROJ", 42, backlog.UpdateIssueTypeRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("UpdateIssueType() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("UpdateIssueType") != 1 {
+			t.Errorf("GetCallCount(UpdateIssueType) = %d, want 1", mock.GetCallCount("UpdateIssueType"))
+		}
+	})
+}
+
+func TestMockClientAddStatus(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.Status{ID: 101, Name: "Review", Color: "#e87758"}
+		mock := backlog.NewMockClient()
+		mock.AddStatusFunc = func(ctx context.Context, projectKey string, req backlog.AddStatusRequest) (*domain.Status, error) {
+			if projectKey != "PROJ" || req.Name != "Review" || req.Color != "#e87758" {
+				t.Errorf("arguments = %q, %+v, want PROJ, Review, and #e87758", projectKey, req)
+			}
+			return want, nil
+		}
+
+		got, err := mock.AddStatus(context.Background(), "PROJ", backlog.AddStatusRequest{Name: "Review", Color: "#e87758"})
+		if err != nil {
+			t.Fatalf("AddStatus() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("AddStatus() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("AddStatus") != 1 {
+			t.Errorf("GetCallCount(AddStatus) = %d, want 1", mock.GetCallCount("AddStatus"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.AddStatus(context.Background(), "PROJ", backlog.AddStatusRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("AddStatus() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("AddStatus") != 1 {
+			t.Errorf("GetCallCount(AddStatus) = %d, want 1", mock.GetCallCount("AddStatus"))
+		}
+	})
+}
+
+func TestMockClientUpdateStatus(t *testing.T) {
+	t.Run("returns value from func and increments call count", func(t *testing.T) {
+		want := &domain.Status{ID: 101, Name: "Review"}
+		mock := backlog.NewMockClient()
+		mock.UpdateStatusFunc = func(ctx context.Context, projectKey string, statusID int, req backlog.UpdateStatusRequest) (*domain.Status, error) {
+			if projectKey != "PROJ" || statusID != 101 || req.Name == nil || *req.Name != "Review" {
+				t.Errorf("arguments = %q, %d, %+v, want PROJ, 101, and Review", projectKey, statusID, req)
+			}
+			return want, nil
+		}
+		name := "Review"
+
+		got, err := mock.UpdateStatus(context.Background(), "PROJ", 101, backlog.UpdateStatusRequest{Name: &name})
+		if err != nil {
+			t.Fatalf("UpdateStatus() error = %v", err)
+		}
+		if got != want {
+			t.Errorf("UpdateStatus() = %+v, want %+v", got, want)
+		}
+		if mock.GetCallCount("UpdateStatus") != 1 {
+			t.Errorf("GetCallCount(UpdateStatus) = %d, want 1", mock.GetCallCount("UpdateStatus"))
+		}
+	})
+
+	t.Run("returns ErrNotFound and increments when func is not set", func(t *testing.T) {
+		mock := backlog.NewMockClient()
+		_, err := mock.UpdateStatus(context.Background(), "PROJ", 101, backlog.UpdateStatusRequest{})
+		if !errors.Is(err, backlog.ErrNotFound) {
+			t.Errorf("UpdateStatus() error = %v, want ErrNotFound", err)
+		}
+		if mock.GetCallCount("UpdateStatus") != 1 {
+			t.Errorf("GetCallCount(UpdateStatus) = %d, want 1", mock.GetCallCount("UpdateStatus"))
+		}
+	})
+}
+
 func TestMockClientListIssues(t *testing.T) {
 	t.Run("returns issues from func", func(t *testing.T) {
 		mock := backlog.NewMockClient()
