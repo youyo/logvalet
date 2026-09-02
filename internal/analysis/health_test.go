@@ -51,9 +51,9 @@ func TestProjectHealthBuilder_Build_Normal(t *testing.T) {
 	userA := &domain.User{ID: 10, Name: "A"}
 
 	issues := []domain.Issue{
-		helperHealthIssue("PROJ-1", 1, 10, "処理中", "", userA, nil, now),      // stale + blocker(long_in_progress)
-		helperHealthIssue("PROJ-2", 1, 1, "未対応", "", nil, nil, now),         // 正常
-		helperHealthIssue("PROJ-3", 1, 1, "未対応", "", userA, &pastDue, now),  // overdue → blocker HIGH
+		helperHealthIssue("PROJ-1", 1, 10, "処理中", "", userA, nil, now),     // stale + blocker(long_in_progress)
+		helperHealthIssue("PROJ-2", 1, 1, "未対応", "", nil, nil, now),        // 正常
+		helperHealthIssue("PROJ-3", 1, 1, "未対応", "", userA, &pastDue, now), // overdue → blocker HIGH
 	}
 
 	mc := backlog.NewMockClient()
@@ -100,6 +100,93 @@ func TestProjectHealthBuilder_Build_Normal(t *testing.T) {
 
 	if len(env.Warnings) != 0 {
 		t.Errorf("Warnings = %v, want empty", env.Warnings)
+	}
+}
+
+func TestProjectHealthBuilder_Build_Ambiguities(t *testing.T) {
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+	user := &domain.User{ID: 10, Name: "担当者"}
+	parent := ambiguityParentIssue("PROJ-2", "Engagement A", user, timePtr(now.Add(24*time.Hour)))
+	parent.Status = &domain.IDName{Name: "未対応"}
+	parent.Updated = &now
+	rule := ambiguityRuleIssue(ambiguityTestConventions)
+	rule.Assignee = user
+	rule.Status = &domain.IDName{Name: "未対応"}
+	rule.Priority = &domain.IDName{Name: "中"}
+	rule.Updated = &now
+	issue := ambiguityIssue("PROJ-10", now)
+
+	mc := backlog.NewMockClient()
+	mc.GetProjectFunc = func(context.Context, string) (*domain.Project, error) {
+		return &domain.Project{ID: 1, ProjectKey: "PROJ", Name: "テストプロジェクト"}, nil
+	}
+	mc.ListIssuesFunc = func(context.Context, backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{rule, parent, issue}, nil
+	}
+
+	builder := NewProjectHealthBuilder(mc, "default", "space", "https://space.backlog.com",
+		WithClock(func() time.Time { return now }),
+	)
+	env, err := builder.Build(context.Background(), "PROJ", ProjectHealthConfig{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+	result := env.Analysis.(*ProjectHealthResult)
+
+	if !result.Ambiguities.Adopted {
+		t.Fatal("Ambiguities.Adopted = false, want true")
+	}
+	if result.Ambiguities.TotalCount != 1 || len(result.Ambiguities.Ambiguities) != 1 {
+		t.Fatalf("Ambiguities = %#v, want one ambiguity", result.Ambiguities)
+	}
+	if result.Ambiguities.Ambiguities[0].Kind != AmbiguityNoEngagement {
+		t.Errorf("ambiguity kind = %q, want %q", result.Ambiguities.Ambiguities[0].Kind, AmbiguityNoEngagement)
+	}
+	if result.HealthScore != 98 {
+		t.Errorf("HealthScore = %d, want 98 (one ambiguity = -2)", result.HealthScore)
+	}
+	if len(result.LLMHints.OpenQuestions) != 1 {
+		t.Errorf("OpenQuestions = %v, want one ambiguity hint", result.LLMHints.OpenQuestions)
+	}
+}
+
+func TestProjectHealthBuilder_Build_AmbiguityFailureWarning(t *testing.T) {
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+	mc := backlog.NewMockClient()
+	mc.GetProjectFunc = func(context.Context, string) (*domain.Project, error) {
+		return &domain.Project{ID: 1, ProjectKey: "PROJ", Name: "テストプロジェクト"}, nil
+	}
+	mc.ListIssuesFunc = func(context.Context, backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mc.ListProjectIssueTypesFunc = func(context.Context, string) ([]domain.IssueType, error) {
+		return nil, errors.New("issue types unavailable")
+	}
+
+	builder := NewProjectHealthBuilder(mc, "default", "space", "https://space.backlog.com",
+		WithClock(func() time.Time { return now }),
+	)
+	env, err := builder.Build(context.Background(), "PROJ", ProjectHealthConfig{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+	result := env.Analysis.(*ProjectHealthResult)
+	if result.Ambiguities.TotalCount != 0 || len(result.Ambiguities.Ambiguities) != 0 {
+		t.Fatalf("Ambiguities = %#v, want empty result", result.Ambiguities)
+	}
+	if result.HealthScore != 100 {
+		t.Errorf("HealthScore = %d, want 100", result.HealthScore)
+	}
+
+	found := false
+	for _, warning := range env.Warnings {
+		if warning.Code == "ambiguity_detect_failed" && warning.Component == "ambiguity" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Warnings = %v, want ambiguity_detect_failed/ambiguity", env.Warnings)
 	}
 }
 
@@ -436,6 +523,7 @@ func TestCalcHealthScore(t *testing.T) {
 		overloaded    int
 		unassigned    int
 		total         int
+		ambiguities   int
 		want          int
 	}{
 		{
@@ -477,14 +565,19 @@ func TestCalcHealthScore(t *testing.T) {
 			total:      10,
 			want:       100, // 20% 以下は減点なし
 		},
+		{
+			name:        "曖昧さの減点上限",
+			ambiguities: 20,
+			want:        80, // 20件でも 2点×10件を超えない
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := calcHealthScore(tt.staleCount, tt.blockerHigh, tt.blockerMedium, tt.overloaded, tt.unassigned, tt.total)
+			got := calcHealthScore(tt.staleCount, tt.blockerHigh, tt.blockerMedium, tt.overloaded, tt.unassigned, tt.total, tt.ambiguities)
 			if got != tt.want {
-				t.Errorf("calcHealthScore(%d, %d, %d, %d, %d, %d) = %d, want %d",
-					tt.staleCount, tt.blockerHigh, tt.blockerMedium, tt.overloaded, tt.unassigned, tt.total, got, tt.want)
+				t.Errorf("calcHealthScore(%d, %d, %d, %d, %d, %d, %d) = %d, want %d",
+					tt.staleCount, tt.blockerHigh, tt.blockerMedium, tt.overloaded, tt.unassigned, tt.total, tt.ambiguities, got, tt.want)
 			}
 		})
 	}

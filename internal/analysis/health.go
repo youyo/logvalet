@@ -17,6 +17,8 @@ const (
 	PenaltyBlockerMedium     = 5  // blocker MEDIUM 1件ごと
 	PenaltyPerOverloaded     = 8  // overloaded メンバー 1人ごと
 	PenaltyUnassignedRatio   = 10 // unassigned 課題が total の 20% 超
+	PenaltyPerAmbiguity      = 2  // 曖昧さ 1件ごと
+	MaxAmbiguityPenalty      = 20 // 曖昧さによる減点上限
 	UnassignedRatioThreshold = 20 // unassigned ratio のしきい値（%）
 )
 
@@ -55,6 +57,7 @@ type ProjectHealthResult struct {
 	StaleSummary    StaleSummary          `json:"stale_summary"`
 	BlockerSummary  BlockerSummary        `json:"blocker_summary"`
 	WorkloadSummary WorkloadSummary       `json:"workload_summary"`
+	Ambiguities     AmbiguityResult       `json:"ambiguities"`
 	HealthScore     int                   `json:"health_score"`
 	HealthLevel     string                `json:"health_level"` // "healthy" | "warning" | "critical"
 	LLMHints        digest.DigestLLMHints `json:"llm_hints"`
@@ -79,14 +82,16 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 	staleDetector := NewStaleIssueDetector(b.client, b.profile, b.space, b.baseURL, clockOpt)
 	blockerDetector := NewBlockerDetector(b.client, b.profile, b.space, b.baseURL, clockOpt)
 	workloadCalc := NewWorkloadCalculator(b.client, b.profile, b.space, b.baseURL, clockOpt)
+	ambiguityDetector := NewAmbiguityDetector(b.client, b.profile, b.space, b.baseURL, clockOpt)
 
 	var (
-		staleEnv    *AnalysisEnvelope
-		blockerEnv  *AnalysisEnvelope
-		workloadEnv *AnalysisEnvelope
-		allWarnings []domain.Warning
-		mu          sync.Mutex
-		wg          sync.WaitGroup
+		staleEnv     *AnalysisEnvelope
+		blockerEnv   *AnalysisEnvelope
+		workloadEnv  *AnalysisEnvelope
+		ambiguityEnv *AnalysisEnvelope
+		allWarnings  []domain.Warning
+		mu           sync.Mutex
+		wg           sync.WaitGroup
 	)
 
 	wg.Add(1)
@@ -146,6 +151,24 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		allWarnings = append(allWarnings, env.Warnings...)
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ambiguities, err := ambiguityDetector.Detect(ctx, projectKey)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			allWarnings = append(allWarnings, domain.Warning{
+				Code:      "ambiguity_detect_failed",
+				Message:   fmt.Sprintf("ambiguity detection failed: %v", err),
+				Component: "ambiguity",
+				Retryable: true,
+			})
+			return
+		}
+		ambiguityEnv = b.newEnvelope("ambiguities", ambiguities, nil)
+	}()
+
 	wg.Wait()
 
 	fetchFailureCount := 0
@@ -161,9 +184,10 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 			StaleSummary:    StaleSummary{},
 			BlockerSummary:  BlockerSummary{},
 			WorkloadSummary: WorkloadSummary{},
+			Ambiguities:     emptyAmbiguityResult(),
 			HealthScore:     0,
 			HealthLevel:     "critical",
-			LLMHints:        buildHealthLLMHints(projectKey, StaleSummary{}, BlockerSummary{}, WorkloadSummary{}),
+			LLMHints:        buildHealthLLMHints(projectKey, StaleSummary{}, BlockerSummary{}, WorkloadSummary{}, emptyAmbiguityResult()),
 		}
 		return b.newEnvelope("project_health", result, allWarnings), nil
 	}
@@ -171,6 +195,7 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 	staleSummary := aggregateStaleSummary(staleEnv)
 	blockerSummary := aggregateBlockerSummary(blockerEnv)
 	workloadSummary := aggregateWorkloadSummary(workloadEnv)
+	ambiguityResult := aggregateAmbiguityResult(ambiguityEnv)
 
 	score := calcHealthScore(
 		staleSummary.TotalCount,
@@ -179,6 +204,7 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		workloadSummary.OverloadedCount,
 		workloadSummary.UnassignedCount,
 		workloadSummary.TotalIssues,
+		ambiguityResult.TotalCount,
 	)
 	level := calcHealthLevel(score)
 
@@ -187,9 +213,10 @@ func (b *ProjectHealthBuilder) Build(ctx context.Context, projectKey string, con
 		StaleSummary:    staleSummary,
 		BlockerSummary:  blockerSummary,
 		WorkloadSummary: workloadSummary,
+		Ambiguities:     ambiguityResult,
 		HealthScore:     score,
 		HealthLevel:     level,
-		LLMHints:        buildHealthLLMHints(projectKey, staleSummary, blockerSummary, workloadSummary),
+		LLMHints:        buildHealthLLMHints(projectKey, staleSummary, blockerSummary, workloadSummary, ambiguityResult),
 	}
 
 	return b.newEnvelope("project_health", result, allWarnings), nil
@@ -268,8 +295,27 @@ func aggregateWorkloadSummary(env *AnalysisEnvelope) WorkloadSummary {
 	}
 }
 
+func emptyAmbiguityResult() AmbiguityResult {
+	return AmbiguityResult{Ambiguities: []Ambiguity{}}
+}
+
+func aggregateAmbiguityResult(env *AnalysisEnvelope) AmbiguityResult {
+	if env == nil {
+		return emptyAmbiguityResult()
+	}
+	ambiguityResult, ok := env.Analysis.(*AmbiguityResult)
+	if !ok || ambiguityResult == nil {
+		return emptyAmbiguityResult()
+	}
+	result := *ambiguityResult
+	if result.Ambiguities == nil {
+		result.Ambiguities = []Ambiguity{}
+	}
+	return result
+}
+
 // calcHealthScore はサマリーから health_score を計算する（減点方式、下限0）。
-func calcHealthScore(staleCount, blockerHigh, blockerMedium, overloadedCount, unassignedCount, totalIssues int) int {
+func calcHealthScore(staleCount, blockerHigh, blockerMedium, overloadedCount, unassignedCount, totalIssues, ambiguityCount int) int {
 	score := 100
 	score -= staleCount * PenaltyPerStale
 	score -= blockerHigh * PenaltyBlockerHigh
@@ -281,6 +327,11 @@ func calcHealthScore(staleCount, blockerHigh, blockerMedium, overloadedCount, un
 			score -= PenaltyUnassignedRatio
 		}
 	}
+	ambiguityPenalty := ambiguityCount * PenaltyPerAmbiguity
+	if ambiguityPenalty > MaxAmbiguityPenalty {
+		ambiguityPenalty = MaxAmbiguityPenalty
+	}
+	score -= ambiguityPenalty
 	if score < 0 {
 		score = 0
 	}
@@ -300,7 +351,7 @@ func calcHealthLevel(score int) string {
 }
 
 // buildHealthLLMHints は project health 結果から LLMHints を生成する。
-func buildHealthLLMHints(projectKey string, stale StaleSummary, blocker BlockerSummary, workload WorkloadSummary) digest.DigestLLMHints {
+func buildHealthLLMHints(projectKey string, stale StaleSummary, blocker BlockerSummary, workload WorkloadSummary, ambiguity AmbiguityResult) digest.DigestLLMHints {
 	primaryEntities := []string{fmt.Sprintf("project:%s", projectKey)}
 
 	openQuestions := []string{}
@@ -315,6 +366,10 @@ func buildHealthLLMHints(projectKey string, stale StaleSummary, blocker BlockerS
 	if workload.OverloadedCount > 0 {
 		openQuestions = append(openQuestions,
 			fmt.Sprintf("%d人のメンバーが過負荷状態です", workload.OverloadedCount))
+	}
+	if ambiguity.TotalCount > 0 {
+		openQuestions = append(openQuestions,
+			fmt.Sprintf("%d件の曖昧さがあります", ambiguity.TotalCount))
 	}
 
 	return digest.DigestLLMHints{
