@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 
 	"github.com/youyo/logvalet/internal/domain"
@@ -12,6 +13,13 @@ import (
 type ExitCoder interface {
 	error
 	ExitCode() int
+}
+
+// QuietExiter は envelope を出力せず exit code だけを返すエラー用インターフェース。
+// 結果 JSON を自前で stdout に書き終えたコマンドが使う。
+type QuietExiter interface {
+	error
+	QuietExit() bool
 }
 
 // ErrorCoder はエラーコード文字列を持つエラー用インターフェース。
@@ -89,8 +97,15 @@ func NewErrorEnvelope(code, message string, retryable bool) *domain.ErrorEnvelop
 func HandleError(w io.Writer, err error, defaultExitCode int) int {
 	// exit code の決定
 	exitCode := defaultExitCode
-	if ec, ok := err.(ExitCoder); ok {
+	var ec ExitCoder
+	if errors.As(err, &ec) {
 		exitCode = ec.ExitCode()
+	}
+	var qe QuietExiter
+	if errors.As(err, &qe) && qe.QuietExit() {
+		// Kong の Context.Run はコマンドエラーを errors.Join で返すため、
+		// ラップされた ExitCoder もここでは errors.As で解決する。
+		return exitCode
 	}
 
 	// error code 文字列の決定
