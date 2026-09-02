@@ -34,15 +34,19 @@ go vet ./...
 ```
 cmd/logvalet/    — エントリポイント
 internal/
+  analysis/      — 分析（stale / blocker / workload / health / 曖昧さ検知）
   app/           — アプリケーション共通（exit code 等）
   backlog/       — Backlog API クライアント
   cli/           — Kong コマンド定義
   config/        — config.toml ローダー
+  conventions/   — 運用規約（スキーマ / 検証 / 差分計画 / 適用）
   credentials/   — tokens.json / OAuth
   digest/        — Digest ビルダー
   domain/        — ドメインモデル
+  e2e/           — 実 API を使う E2E（build tag: e2e）
   mcp/           — MCP サーバー + ToolRegistry
   render/        — 出力フォーマッタ（JSON/YAML/MD/Text）
+  space/         — マルチスペース（registry / resolver / store）
   version/       — バージョン情報（GoReleaser ldflags）
   util/          — 汎用ヘルパー
 docs/specs/      — 設計仕様書
@@ -55,6 +59,8 @@ skills/          — Claude Code スキル定義
 詳細な設計仕様は以下を参照:
 - `docs/specs/logvalet_full_design_spec_with_architecture.md` — 完全な設計仕様書
 - `docs/specs/logvalet_SKILL.md` — スキル定義
+- `docs/conventions-guide.md` — 運用規約（conventions）導入ガイド
+- `docs/adr/` — 設計判断の記録（ADR）
 
 ## ロードマップ
 
@@ -70,6 +76,9 @@ v3 で以下のスキルが利用可能:
 - `logvalet-my-week` — 週次サマリー・タスク管理
 - `logvalet-my-next` — 次のタスク・優先順位
 - `logvalet-issue-create` — 課題作成ワークフロー
+
+規約導入済みプロジェクトでは、作業前に `logvalet_project_conventions` で
+運用規約と用語集を読む（`skills/logvalet/SKILL.md` 参照）。
 
 インストール: `npx skills add youyo/logvalet`
 

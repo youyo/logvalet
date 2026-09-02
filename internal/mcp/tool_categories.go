@@ -16,10 +16,10 @@ type ToolCategorySpec struct {
 	Title    string // 日本語 UI タイトル（MCP クライアントが表示する）
 }
 
-// toolCategories は全 75 MCP ツールの annotation カテゴリと日本語 title を宣言する。
+// toolCategories は全 76 MCP ツールの annotation カテゴリと日本語 title を宣言する。
 // 実ツール登録との一致は annotations_test.go / TestToolCategories_CoversAllRegisteredTools が保証する。
 var toolCategories = map[string]ToolCategorySpec{
-	// Read-only (59)
+	// Read-only (60)
 	"logvalet_space_info":             {CategoryReadOnly, "スペース情報取得"},
 	"logvalet_project_list":           {CategoryReadOnly, "プロジェクト一覧取得"},
 	"logvalet_project_get":            {CategoryReadOnly, "プロジェクト詳細取得"},
@@ -78,6 +78,8 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_wiki_stars":           {CategoryReadOnly, "Wiki スター一覧取得"},
 	"logvalet_wiki_attachment_list": {CategoryReadOnly, "Wiki 添付ファイル一覧取得"},
 	"logvalet_wiki_sharedfile_list": {CategoryReadOnly, "Wiki 共有ファイル一覧取得"},
+	// Conventions (1)
+	"logvalet_project_conventions": {CategoryReadOnly, "運用規約取得"},
 	// Space 管理 (5) — RegisterSpaceRegistryTools が常時登録
 	"logvalet_space_list":        {CategoryReadOnly, "スペース一覧取得"},
 	"logvalet_space_use":         {CategoryWriteIdempotent, "デフォルトスペース設定"},
@@ -91,7 +93,7 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_document_create":         {CategoryWriteNonIdempotent, "ドキュメント作成"},
 	"logvalet_issue_attachment_upload": {CategoryWriteNonIdempotent, "添付ファイルアップロード"},
 
-	// Write idempotent (7)
+	// Write idempotent (8) — logvalet_space_use は Space 管理節に記載
 	"logvalet_issue_update":          {CategoryWriteIdempotent, "課題更新"},
 	"logvalet_issue_comment_update":  {CategoryWriteIdempotent, "課題コメント更新"},
 	"logvalet_star_add":              {CategoryWriteIdempotent, "スター追加"},
@@ -100,7 +102,7 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_watching_mark_as_read": {CategoryWriteIdempotent, "ウォッチ既読化"},
 	"logvalet_issue_related_add":     {CategoryWriteIdempotent, "関連課題追加"},
 
-	// Destructive (3)
+	// Destructive (4) — logvalet_space_disconnect は Space 管理節に記載
 	"logvalet_watching_delete":         {CategoryDestructive, "ウォッチ削除"},
 	"logvalet_issue_attachment_delete": {CategoryDestructive, "添付ファイル削除"},
 	"logvalet_issue_related_delete":    {CategoryDestructive, "関連課題削除"},

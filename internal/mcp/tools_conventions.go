@@ -8,13 +8,6 @@ import (
 	"github.com/youyo/logvalet/internal/conventions"
 )
 
-func init() {
-	toolCategories["logvalet_project_conventions"] = ToolCategorySpec{
-		Category: CategoryReadOnly,
-		Title:    "運用規約取得",
-	}
-}
-
 // RegisterConventionsTools は運用規約関連の MCP tools を ToolRegistry に登録する。
 func RegisterConventionsTools(r *ToolRegistry) {
 	// logvalet_project_conventions

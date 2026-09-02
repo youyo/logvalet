@@ -581,12 +581,13 @@ logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server exposes **75 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+The MCP server exposes **76 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
 
 Representative tools by area:
 
 - **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`, `logvalet_issue_related_{list,add,delete}` (undocumented Backlog API)
 - **Project**: `logvalet_project_{get,list,blockers,health}`, `logvalet_user_workload`
+- **Conventions**: `logvalet_project_conventions` (read-only; `project apply` is CLI-only by design)
 - **Digest**: `logvalet_digest`, `logvalet_digest_unified`, `logvalet_digest_{weekly,daily}`, `logvalet_space_digest`, `logvalet_activity_digest`, `logvalet_document_digest`
 - **Document**: `logvalet_document_{get,list,tree,create}`
 - **Meta**: `logvalet_meta_{statuses,categories,issue_types,version,custom_field}`
@@ -607,12 +608,12 @@ The binary download tools `logvalet_issue_attachment_download` and `logvalet_sha
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 75 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 76 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
 |---|---|---|---|
-| Read-only | 59 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download`, `issue_related_list` 等 | 確認ダイアログなしで自動実行 |
+| Read-only | 60 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download`, `issue_related_list`, `project_conventions` 等 | 確認ダイアログなしで自動実行 |
 | Write 非冪等 | 4 | `issue_create`, `issue_comment_add`, `document_create`, `issue_attachment_upload` | 通常の書き込み確認 |
 | Write 冪等 | 8 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read`, `space_use`, `issue_related_add` | 通常の書き込み確認 |
 | Destructive | 4 | `watching_delete`, `issue_attachment_delete`, `space_disconnect`, `issue_related_delete` | 強い確認ダイアログを表示 |
@@ -974,7 +975,7 @@ lv project list --spaces foo,bar
 
 ### MCP での spaces/all_spaces
 
-MCP サーバーの 75 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
+MCP サーバーの 76 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
 
 **Read-only fan-out（登録済み全スペースを横断取得）:**
 
