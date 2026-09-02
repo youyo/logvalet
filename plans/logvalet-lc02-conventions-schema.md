@@ -190,6 +190,7 @@ type Violation struct {
 | 22 | `due_date` < `start_date` | error |
 | 23 | `priority.high` / `normal` / `low` のいずれかが空 | warning |
 | 24 | `close_policy.low_untouched_days` が非 nil かつ 0 以下 | error |
+| 25 | `statuses` が 9 件以上（Backlog のカスタム状態上限は 8 個） | error |
 
 補足:
 
@@ -211,10 +212,24 @@ Backlog は課題種別・状態それぞれで指定できる色を固定して
 `init` → `validate` は通るのに apply が 400 になる。`color.go` に allowlist を持ち、
 ルール 8 / 12 で照合する。
 
-**実装時に [Add Status API](https://developer.nulab.com/docs/backlog/api/2/add-status/) と
-[Add Issue Type API](https://developer.nulab.com/docs/backlog/api/2/add-issue-type/) の
-一次情報から値を確定すること。**（ロードマップのスケルトン例にある状態色 `#ea8462` は
-状態用 allowlist に無い可能性が高い。確定した値でスケルトンとロードマップを両方直す。）
+確定値（Backlog API ドキュメント, 2026-09-03 確認）:
+
+```go
+// StatusColors は状態に指定できる色。
+var StatusColors = []string{
+	"#ea2c00", "#e87758", "#e07b9a", "#868cb7", "#3b9dbd",
+	"#4caf93", "#b0be3c", "#eda62a", "#f42858", "#393939",
+}
+
+// IssueTypeColors は課題種別に指定できる色。
+var IssueTypeColors = []string{
+	"#e30000", "#990000", "#934981", "#814fbc", "#2779ca",
+	"#007e9a", "#7ea800", "#ff9200", "#ff3265", "#666665",
+}
+```
+
+ロードマップのスケルトン例にあった状態色 `#ea8462` は allowlist 外だったため
+`#e87758` に修正済み。
 
 allowlist は exported にし（`conventions.StatusColors` / `conventions.IssueTypeColors`）、
 LC03 の dry-run とエラーメッセージが同じ一覧を出せるようにする。
@@ -372,8 +387,7 @@ func yamlScalar(s string, indent int) string
 - `validate` の exit code が error / warning / `--strict` で仕様どおり分岐し、
   stdout に JSON が 1 つだけ出る
 - `LoadFromIssueDescription` が規約課題フォーマットをパースできる
-- 色 allowlist が Backlog API ドキュメントの値と一致し、ロードマップのスケルトン例も
-  その値に修正されている
+- 色 allowlist が上記の確定値と一致している
 
 ---
 

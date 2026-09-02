@@ -146,6 +146,7 @@ type CreateProjectRequest struct {
 	ChartEnabled                      *bool
 	SubtaskingEnabled                 *bool // nil のときは true を送る
 	ProjectLeaderCanEditProjectLeader *bool
+	GrandchildIssueEnabled            *bool // subtaskingEnabled が true のときのみ有効
 	UseDevAttributes                  *bool // 優先度・バージョン・マイルストーンの有効化
 	TextFormattingRule                string // "backlog" | "markdown"。空なら送らない
 }
@@ -206,10 +207,31 @@ type UpdateStatusRequest struct {
 | `UpdateStatus(ctx, projectKey, statusID int, req UpdateStatusRequest)` | `PATCH /api/v2/projects/{key}/statuses/{id}` | `*domain.Status` |
 | `ListProjectIssueTypes(ctx, projectKey)` | `GET /api/v2/projects/{key}/issueTypes` | `[]domain.IssueType`（**戻り値変更**） |
 
-実装前に各エンドポイントのパラメータ名を
-[Backlog API ドキュメント](https://developer.nulab.com/docs/backlog/) で確認する。
-特に `POST /api/v2/projects` の必須パラメータと、状態・種別の許可色リストは
-実装時に一次情報にあたること（LC02 の色 allowlist と共有する）。
+### 確定済み API 仕様（Backlog API ドキュメント, 2026-09-03 確認）
+
+すべて `Content-Type: application/x-www-form-urlencoded`。
+
+- `POST /api/v2/projects` — 必須は `name` / `key`（key は A-Z, 0-9, `_` のみ）。
+  任意: `chartEnabled` `useResolvedForChart` `subtaskingEnabled`
+  `grandchildIssueEnabled` `projectLeaderCanEditProjectLeader` `useWiki` `useDocument`
+  `useFileSharing` `useWikiTreeView` `useSubversion` `useGit`
+  `useOriginalImageSizeAtWiki` `textFormattingRule`（"backlog" | "markdown"）
+  `useDevAttributes`。**Administrator 権限が必要**
+- `POST|PATCH /api/v2/projects/{key}/categories[/{id}]` — `name`（追加時は必須）。
+  全権限で可
+- `POST|PATCH /api/v2/projects/{key}/issueTypes[/{id}]` — `name` / `color`
+  （追加時は必須）、`templateSummary` / `templateDescription`。全権限で可。
+  レスポンスは `{id, projectId, name, color, displayOrder, templateSummary,
+  templateDescription}`
+- `POST|PATCH /api/v2/projects/{key}/statuses[/{id}]` — `name` / `color`
+  （追加時は必須）。**Administrator 権限が必要**。既定 4 状態のほかに
+  **最大 8 個**まで
+- 色は固定 allowlist のみ（LC02 の `conventions.StatusColors` /
+  `IssueTypeColors` と同じ値）
+  - 状態: `#ea2c00` `#e87758` `#e07b9a` `#868cb7` `#3b9dbd` `#4caf93` `#b0be3c`
+    `#eda62a` `#f42858` `#393939`
+  - 種別: `#e30000` `#990000` `#934981` `#814fbc` `#2779ca` `#007e9a` `#7ea800`
+    `#ff9200` `#ff3265` `#666665`
 
 ---
 
