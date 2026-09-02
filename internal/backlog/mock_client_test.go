@@ -721,3 +721,21 @@ func TestMockClientMarkWatchingAsRead(t *testing.T) {
 		}
 	})
 }
+
+func TestMockClientListProjectUsers(t *testing.T) {
+	m := backlog.NewMockClient()
+	if _, err := m.ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{}); !errors.Is(err, backlog.ErrNotFound) {
+		t.Errorf("Func 未設定時の error = %v, want ErrNotFound", err)
+	}
+
+	m.ListProjectUsersFunc = func(ctx context.Context, projectKey string, opt backlog.ListProjectUsersOptions) ([]domain.User, error) {
+		return []domain.User{{ID: 1, Name: "山田 太郎"}}, nil
+	}
+	users, err := m.ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{})
+	if err != nil || len(users) != 1 {
+		t.Fatalf("users = %#v, err = %v", users, err)
+	}
+	if got := m.GetCallCount("ListProjectUsers"); got != 2 {
+		t.Errorf("GetCallCount = %d, want 2", got)
+	}
+}

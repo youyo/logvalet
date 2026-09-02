@@ -850,6 +850,24 @@ func (c *HTTPClient) UpdateStatus(ctx context.Context, projectKey string, status
 	return &status, nil
 }
 
+// ListProjectUsers は指定プロジェクトのメンバー一覧を返す。
+// GET /api/v2/projects/{projectKey}/users
+func (c *HTTPClient) ListProjectUsers(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error) {
+	q := url.Values{}
+	if opt.ExcludeGroupMembers {
+		q.Set("excludeGroupMembers", "true")
+	}
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v2/projects/"+url.PathEscape(projectKey)+"/users", q)
+	if err != nil {
+		return nil, err
+	}
+	var users []domain.User
+	if err := c.do(req, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // ListProjectCategories は指定プロジェクトのカテゴリ一覧を返す。
 // GET /api/v2/projects/{projectKey}/categories
 func (c *HTTPClient) ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error) {

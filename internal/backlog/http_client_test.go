@@ -2546,3 +2546,55 @@ func newAPIKeyClientWithKey(t *testing.T, baseURL, apiKey string) *backlog.HTTPC
 		Credential: cred,
 	})
 }
+
+func TestHTTPClientListProjectUsers(t *testing.T) {
+	t.Run("正しいパスを呼びユーザー一覧を返す", func(t *testing.T) {
+		var gotPath, gotQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"id":1,"userId":"yamada","name":"山田 太郎"},{"id":2,"userId":"suzuki","name":"鈴木 花子"}]`))
+		}))
+		defer srv.Close()
+
+		users, err := newOAuthClient(t, srv.URL).ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{})
+		if err != nil {
+			t.Fatalf("ListProjectUsers() error = %v", err)
+		}
+		if gotPath != "/api/v2/projects/PROJ/users" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ/users")
+		}
+		if gotQuery != "" {
+			t.Errorf("query = %q, want empty（ExcludeGroupMembers 未指定時は送らない）", gotQuery)
+		}
+		if len(users) != 2 || users[0].Name != "山田 太郎" || users[1].ID != 2 {
+			t.Errorf("users = %#v", users)
+		}
+	})
+
+	t.Run("ExcludeGroupMembers はクエリに乗る", func(t *testing.T) {
+		var gotQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		_, err := newOAuthClient(t, srv.URL).ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{ExcludeGroupMembers: true})
+		if err != nil {
+			t.Fatalf("ListProjectUsers() error = %v", err)
+		}
+		if gotQuery != "excludeGroupMembers=true" {
+			t.Errorf("query = %q, want %q", gotQuery, "excludeGroupMembers=true")
+		}
+	})
+}
+
+func TestHTTPClientListProjectUsersErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{})
+		return err
+	})
+}

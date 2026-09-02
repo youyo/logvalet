@@ -51,6 +51,7 @@ type MockClient struct {
 	ListProjectStatusesFunc     func(ctx context.Context, projectKey string) ([]domain.Status, error)
 	AddStatusFunc               func(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error)
 	UpdateStatusFunc            func(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error)
+	ListProjectUsersFunc        func(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error)
 	ListProjectCategoriesFunc   func(ctx context.Context, projectKey string) ([]domain.Category, error)
 	AddCategoryFunc             func(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error)
 	UpdateCategoryFunc          func(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error)
@@ -332,6 +333,14 @@ func (m *MockClient) UpdateStatus(ctx context.Context, projectKey string, status
 	m.increment("UpdateStatus")
 	if m.UpdateStatusFunc != nil {
 		return m.UpdateStatusFunc(ctx, projectKey, statusID, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListProjectUsers(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error) {
+	m.increment("ListProjectUsers")
+	if m.ListProjectUsersFunc != nil {
+		return m.ListProjectUsersFunc(ctx, projectKey, opt)
 	}
 	return nil, ErrNotFound
 }

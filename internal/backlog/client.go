@@ -77,6 +77,10 @@ type Client interface {
 	// Backlog API: POST /api/v2/projects
 	CreateProject(ctx context.Context, req CreateProjectRequest) (*domain.Project, error)
 
+	// ListProjectUsers は指定プロジェクトのメンバー一覧を返す。
+	// Backlog API: GET /api/v2/projects/{projectKey}/users
+	ListProjectUsers(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error)
+
 	// ListProjectActivities は指定プロジェクトのアクティビティ一覧を返す。
 	// Backlog API: GET /api/v2/projects/{projectKey}/activities
 	ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error)
