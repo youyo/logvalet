@@ -1,5 +1,7 @@
 # logvalet Multi-Space 対応 実装ロードマップ
 
+> 2026-09-11: multi-space 機能は Portals 採用に伴い撤去（feat/remove-multi-space）。以下は履歴として残す。
+
 > v0.21.0 以降、複数 Backlog スペース横断操作を実現するための実装計画。
 > spec: `docs/specs/logvalet_multi_space_spec.md`
 > 批評レポート: `docs/specs/logvalet_multi_space_spec_review.md`
