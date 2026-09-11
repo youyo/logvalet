@@ -499,23 +499,23 @@ logvalet watching mark-as-read 2997876
 
 ## MCP Server
 
-logvalet can run as a Model Context Protocol (MCP) server. Choose one of these two commands first:
+logvalet can run as a Model Context Protocol (MCP) server. Choose one of these two commands:
 
-- Local clients: `logvalet mcp-stdio` uses no MCP authentication and uses the selected CLI Backlog credentials directly. It supports the common `--profile`, `--api-key`, and `--space` flags.
-- Remote HTTP: `logvalet mcp` serves Streamable HTTP and uses `--auth-mode=none|apikey`; configure an explicit space store as described in [Authentication](#authentication).
+- `logvalet mcp-stdio` serves stdio for local clients and uses the selected CLI Backlog credentials directly. It supports the common `--profile`, `--api-key`, and `--space` flags.
+- `logvalet mcp` serves Streamable HTTP for remote clients and forwards the caller's Backlog credential. See [Access paths](#access-paths).
 
 ```bash
-# Local MCP over stdio (no MCP auth; uses CLI credentials)
+# Local MCP over stdio (uses CLI credentials)
 logvalet mcp-stdio --profile default
 
-# Remote MCP over HTTP
-logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
+# Remote MCP over HTTP (Backlog credential comes from each request)
+logvalet mcp
 
 # Specify custom host and port
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server exposes **72 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+The MCP server exposes **67 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
 
 Representative tools by area:
 
@@ -541,7 +541,7 @@ The binary download tools `logvalet_issue_attachment_download` and `logvalet_sha
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 72 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 67 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
@@ -655,162 +655,96 @@ v0.16.0 unifies MCP tool parameter naming and typing with the CLI. MCP clients t
 
 > **Migration note**: MCP clients send parameter names as JSON keys. Because the MCP framework silently ignores unknown parameters, sending the old names will not raise an explicit error — the parameter will simply be dropped. Update integration code before upgrading to v0.16.0.
 
-### Supported Modes
+### Access paths
 
-logvalet uses API-key credentials for local CLI/stdio operation. Remote HTTP
-MCP authentication is delegated to AgentCore Gateway and is either `none` or
-`apikey`.
+logvalet is used through three paths. The difference that matters is where the
+Backlog credential comes from.
 
-| # | Client | Backlog auth | Gateway auth | Status |
-|---|--------|--------------|--------------------|--------|
-| 1 | CLI | API key | — | ✅ supported |
-| 2 | MCP stdio | API key | — | ✅ supported |
-| 3 | MCP HTTP | Gateway passthrough | none | ✅ supported |
-| 4 | MCP HTTP | Gateway passthrough | apikey | ✅ supported |
+| Path | Command | Who calls it | Backlog credential |
+|---|---|---|---|
+| CLI | `logvalet ...` | the local user, interactively | API key or access token from config/env/flags |
+| Local MCP | `logvalet mcp-stdio` | an MCP client on the same machine | same as CLI (server-side credential) |
+| Remote MCP | `logvalet mcp` | a remote MCP client over HTTP | `Authorization: Bearer <token>` on each request |
 
-Examples below show each supported mode twice: (A) environment variables only, (B) CLI flags only (with the minimum env vars when flags are not available).
+`LOGVALET_API_KEY` and `--api-key` apply to the CLI and stdio paths only. The
+remote HTTP path never uses a server-side Backlog credential.
 
-#### Mode 1: CLI + API key
+### Two layers of authentication
 
-(A) Environment variables:
+Keep these two questions separate. They are answered by different components.
 
-```bash
-export LOGVALET_API_KEY=your-api-key-here
-export LOGVALET_SPACE=example-space
+1. **Who may call the MCP server?** For CLI and stdio this is whoever can run
+   the binary, so it is the operating system's concern. For remote HTTP,
+   logvalet itself does not authenticate the caller at all. See
+   [Protecting the remote MCP server](#protecting-the-remote-mcp-server).
+2. **Whose Backlog permissions apply?** Always the identity behind the Backlog
+   credential. For CLI and stdio that is the configured API key or access
+   token. For remote HTTP it is the bearer token on the request, which logvalet
+   forwards to the Backlog API unchanged. logvalet neither stores nor refreshes
+   it.
 
-logvalet issue get EXAMPLE-1
-```
+A request to the remote HTTP path without a valid `Authorization: Bearer`
+header cannot read or write anything. The server returns a `401` error
+envelope, and a token Backlog rejects surfaces as a tool error.
 
-(B) CLI flags:
+### Protecting the remote MCP server
 
-```bash
-logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
-```
+The supported configuration is to run `logvalet mcp` behind
+[Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals/).
+Portals authenticates each user through your identity provider, then injects
+that user's Backlog OAuth access token as the `Authorization: Bearer`
+credential. Each Backlog space gets its own registered MCP server.
 
-#### Mode 2: MCP stdio + API key
+You can expose the endpoint directly, and a caller still cannot do anything
+without a valid Backlog token. Running without a front layer is nonetheless
+discouraged: per-user access control, audit logging, and the tool allow list
+are Portals features, and logvalet provides none of them on its own.
 
-(A) Environment variables:
+For the step-by-step setup, see
+[plans/mcp-portals-poc-handbook.md](plans/mcp-portals-poc-handbook.md). The
+request contract for the HTTP endpoint is documented in
+[docs/specs/remote-mcp-request-contract.md](docs/specs/remote-mcp-request-contract.md).
 
-```bash
-export LOGVALET_API_KEY=your-api-key-here
-export LOGVALET_SPACE=example-space
+### Configuration reference
 
-logvalet mcp-stdio
-```
+CLI and stdio paths:
 
-(B) CLI flags:
-
-```bash
-logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
-```
-
-These are local CLI/stdio credentials. Remote HTTP uses the AgentCore Gateway
-passthrough contract described in Mode 4 below.
-`LOGVALET_API_KEY` and `--api-key` are only for these local CLI/stdio modes.
-
-#### Mode 3: MCP HTTP + AgentCore Gateway (none)
-
-(A) Environment variables:
-
-```bash
-export LOGVALET_SPACE=example-space
-export LOGVALET_MCP_AUTH_MODE=none
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-
-logvalet mcp
-```
-
-(B) CLI flags:
-
-```bash
-logvalet mcp \
-  --space=example-space \
-  --auth-mode=none
-```
-
-Modes 3 and 4 are HTTP modes and use an explicit SpaceStore; they do not use
-CLI/stdio-local Backlog credentials. Mode 3 permits the trusted `none` Gateway
-mode, while Mode 4 additionally checks the shared Gateway API key.
-
-#### Mode 4: MCP HTTP + AgentCore Gateway
-
-(A) Environment variables:
-
-```bash
-export LOGVALET_SPACE=example-space
-
-export LOGVALET_MCP_AUTH_MODE=apikey
-export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-
-logvalet mcp
-```
-
-(B) CLI flags:
-
-```bash
-logvalet mcp \
-  --space=example-space \
-  --auth-mode=apikey \
-  --auth-api-key=shared-gateway-key
-```
-
-Remote HTTP receives the Backlog `Authorization: Bearer` credential through
-AgentCore Gateway passthrough.
-
-#### Remote HTTP MCP contract
-
-The Gateway owns end-user authentication. Configure the HTTP server with
-`none` or `apikey`; in the latter mode it sends `X-Logvalet-Api-Key` and may
-send `X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject`. Backlog
-credentials are Bearer passthrough. HTTP mode requires an explicit space store
-and rejects `memory`; local token storage is CLI/stdio-only (`sqlite` or
-`tokens.json`). See [gateway-request-contract.md](docs/specs/gateway-request-contract.md).
-
-### Authentication
-
-Remote HTTP MCP uses `none` or `apikey` behind AgentCore Gateway. The Gateway
-shared key is `X-Logvalet-Api-Key`; identity metadata uses
-`X-Logvalet-Identity-Issuer` and `X-Logvalet-Identity-Subject`. Backlog
-credentials are passed through as Bearer credentials. These are two orthogonal
-axes: `auth-mode` controls MCP gateway authentication, while Backlog Bearer
-passthrough is always enabled for HTTP and is not an `auth-mode` option. See
-[MCP Server](#mcp-server) for the command split.
-
-### Backlog credentials
-
-The legacy remote browser callback and per-user OAuth procedure is retired.
-Remote HTTP receives Backlog Bearer passthrough from AgentCore Gateway and
-uses the request contract documented in
-[docs/specs/gateway-request-contract.md](docs/specs/gateway-request-contract.md).
-
-For remote HTTP, configure `none` or `apikey` and an explicit space store;
-`memory` is invalid. CLI and `mcp-stdio` use local credentials only
-(`sqlite` or `tokens.json`). See [AgentCore deployment](docs/agentcore-deployment.md)
-for deployment details.
-
-### Space store environment variables
-
-HTTP mode cannot use `memory`; it requires an explicit `LOGVALET_SPACE_STORE_TYPE`. Both `sqlite` and `dynamodb` are supported. The default is `sqlite` for local use.
-
-| Variable | Default | Description |
+| Variable | Flag | Description |
 |---|---|---|
-| `LOGVALET_SPACE_STORE_TYPE` | `sqlite` | Store type: `sqlite` or `dynamodb`; HTTP requires explicit selection and rejects `memory` |
-| `LOGVALET_SPACE_STORE_PATH` | platform default | SQLite database path |
-| `LOGVALET_SPACE_STORE_DYNAMODB_TABLE` | — | DynamoDB table name when using `dynamodb` |
-| `LOGVALET_SPACE_STORE_DYNAMODB_REGION` | — | AWS region when using `dynamodb` |
+| `LOGVALET_API_KEY` | `--api-key` | Backlog API key |
+| `LOGVALET_ACCESS_TOKEN` | `--access-token` | Backlog access token (mutually exclusive with the API key) |
+| `LOGVALET_BASE_URL` | `--base-url` | Backlog base URL |
+| `LOGVALET_SPACE` | `--space` / `-s` | Backlog space name |
+| `LOGVALET_PROFILE` | `--profile` / `-p` | config profile to use |
+| `LOGVALET_CONFIG` | `--config` / `-c` | config file path |
+
+Remote HTTP path:
+
+| Variable | Flag | Description |
+|---|---|---|
+| `LOGVALET_BASE_URL` | `--base-url` | Backlog base URL the forwarded token applies to |
+| - | `--host` | listen host (default `127.0.0.1`) |
+| - | `--port` | listen port (default `8080`) |
+
+Endpoints: `POST /mcp` (Streamable HTTP, bearer required) and `GET /healthz`
+(no credential required).
+
+Examples:
 
 ```bash
-# Local CLI / stdio
-logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
-logvalet mcp-stdio --profile default
+# CLI
+logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 
-# Remote HTTP behind AgentCore Gateway
-export LOGVALET_MCP_AUTH_MODE=apikey
-export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-logvalet mcp
+# Local MCP over stdio
+logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
+
+# Remote MCP over HTTP
+logvalet mcp --base-url=https://example-space.backlog.com
 ```
+
+> Caller-side authentication options (`--auth-mode`, `--auth-api-key`, the
+> `X-Logvalet-*` headers) and the built-in OAuth callback were removed in
+> v0.40. See the CHANGELOG for the full list.
 
 ### Task Runner (mise)
 
@@ -821,7 +755,6 @@ mise run test:integration   # Run integration tests
 mise run vet                # Run go vet
 mise run lint               # Run vet + test
 mise run mcp:start          # Start MCP server (local)
-mise run mcp:start-auth     # Start MCP server with auth
 mise run docker:build       # Build Docker image
 ```
 
@@ -872,87 +805,6 @@ The CLI binary must still be installed separately (see [Installation](#installat
 ### Migration from previous installs
 
 If you previously installed via `npx skills add youyo/logvalet` or `/plugin install logvalet@<old-source>`, uninstall the old version first and then re-install via the `claude-plugins` marketplace as shown above. Skills are no longer distributed from this repository directly — this repository now focuses on the CLI binary and MCP server implementation.
-
-## Multi-Space Support
-
-logvalet supports managing multiple Backlog spaces from a single CLI or MCP session.
-
-### Register spaces
-
-```bash
-# OAuth (opens browser)
-lv spaces connect --base-url https://foo.backlog.com --alias foo
-
-# API key
-lv spaces add --alias bar --base-url https://bar.backlog.com --auth-type api_key --auth-profile bar
-
-# List registered spaces
-lv spaces list
-
-# Set default space
-lv spaces use foo
-```
-
-### Cross-space operations
-
-```bash
-# Specify spaces explicitly
-lv issue list --spaces foo,bar
-
-# Target all registered spaces
-lv issue list --all-spaces
-
-# Project list across spaces
-lv project list --spaces foo,bar
-```
-
-### MCP での spaces/all_spaces
-
-MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
-
-**Read-only fan-out（登録済み全スペースを横断取得）:**
-
-```json
-{
-  "tool": "logvalet_issue_list",
-  "arguments": {
-    "project_id": 1,
-    "all_spaces": true
-  }
-}
-```
-
-**特定スペース指定:**
-
-```json
-{
-  "tool": "logvalet_issue_list",
-  "arguments": {
-    "project_id": 1,
-    "spaces": ["foo", "bar"]
-  }
-}
-```
-
-**Write（単一スペースへの課題作成）:**
-
-```json
-{
-  "tool": "logvalet_issue_create",
-  "arguments": {
-    "spaces": ["foo"],
-    "project_id": 1,
-    "summary": "課題タイトル"
-  }
-}
-```
-
-### Notes
-
-- Read-only commands (`issue list`, `project list`, etc.) support `--spaces` and `--all-spaces`.
-- Write operations (issue create/update) do not support multi-space targeting — always specify a single space via `spaces`.
-- When no space is specified, the default space (set via `lv spaces use`) is used.
-- In partial failure scenarios (e.g., one space returns 401), successful results from other spaces are still returned; exit code is 8.
 
 ## License
 

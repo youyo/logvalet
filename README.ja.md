@@ -506,23 +506,23 @@ logvalet watching mark-as-read 2997876
 
 ## MCP サーバー
 
-logvalet は Model Context Protocol (MCP) サーバーとして実行できます。まず次の2コマンドから用途に合う方を選びます:
+logvalet は Model Context Protocol (MCP) サーバーとして実行できます。次の2コマンドから用途に合う方を選びます:
 
-- ローカルクライアント: `logvalet mcp-stdio` は MCP 認証なしで、選択した CLI の Backlog 資格情報をそのまま使用します。共通フラグ `--profile`、`--api-key`、`--space` に対応します。
-- リモート HTTP: `logvalet mcp` は Streamable HTTP を提供し、`--auth-mode=none|apikey` を使います。明示的な space store の設定は [認証](#認証) を参照してください。
+- `logvalet mcp-stdio` はローカルクライアント向けに stdio を提供し、選択した CLI の Backlog 資格情報をそのまま使用します。共通フラグ `--profile`、`--api-key`、`--space` に対応します。
+- `logvalet mcp` はリモートクライアント向けに Streamable HTTP を提供し、呼び出し元の Backlog 資格情報を転送します。詳細は [利用経路](#利用経路) を参照してください。
 
 ```bash
-# ローカル MCP（stdio、MCP 認証なし・CLI 資格情報を使用）
+# ローカル MCP（stdio、CLI 資格情報を使用）
 logvalet mcp-stdio --profile default
 
-# リモート MCP（HTTP）
-logvalet mcp --auth-mode=apikey --auth-api-key=YOUR_GATEWAY_KEY
+# リモート MCP（HTTP、Backlog 資格情報はリクエストごとに受け取る）
+logvalet mcp
 
 # カスタムホストとポート指定
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-MCP サーバーは **72 個のツール** を提供し、CLI の全サブコマンドに対応する MCP ツールが存在します。CLI と同等のオプションをサポートしており、パラメータ名は `snake_case` に変換されて JSON Schema として型付けされます。
+MCP サーバーは **67 個のツール** を提供し、CLI の全サブコマンドに対応する MCP ツールが存在します。CLI と同等のオプションをサポートしており、パラメータ名は `snake_case` に変換されて JSON Schema として型付けされます。
 
 領域別の代表的なツール:
 
@@ -548,7 +548,7 @@ Claude Desktop の設定または Claude Code のスキル設定で MCP サー�
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 72 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 67 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
@@ -656,139 +656,94 @@ v0.16.0 では MCP ツールのパラメータ命名・型を CLI と揃える�
 
 > **移行上の注意**: MCP クライアントはパラメータ名を JSON キーとして送信します。MCP フレームワークは未知のパラメータを暗黙的に無視するため、旧パラメータ名を送っても明示的エラーにはならず、単にパラメータが欠落した呼び出しとして扱われます。v0.16.0 へ上げる前に統合コードを更新してください。
 
-### サポートされる動作モード
+### 利用経路
 
-logvalet は CLI/stdio ではローカルの API key 認証を使用します。リモート HTTP MCP の認証は AgentCore Gateway に委譲され、`none` または `apikey` のいずれかです。
+logvalet の利用経路は3つあります。重要な違いは Backlog 資格情報がどこから来るかです。
 
-| # | クライアント | Backlog 認証 | Gateway 認証 | 状態 |
-|---|------------|-------------|-------------|------|
-| 1 | CLI | API key | — | ✅ サポート |
-| 2 | MCP stdio | API key | — | ✅ サポート |
-| 3 | MCP HTTP | Gateway passthrough | none | ✅ サポート |
-| 4 | MCP HTTP | Gateway passthrough | apikey | ✅ サポート |
+| 経路 | コマンド | 誰が呼ぶか | Backlog 資格情報 |
+|---|---|---|---|
+| CLI | `logvalet ...` | ローカル利用者が対話的に | 設定・env・フラグの API キーまたはアクセストークン |
+| ローカル MCP | `logvalet mcp-stdio` | 同一マシン上の MCP クライアント | CLI と同じ（サーバー側の資格情報） |
+| リモート MCP | `logvalet mcp` | HTTP 経由のリモート MCP クライアント | リクエストごとの `Authorization: Bearer <token>` |
 
-以下の例では各モードについて、(A) 環境変数のみ・(B) CLI 引数のみ（フラグに対応しない設定は必要最小限の環境変数）の 2 通りで記載しています。
+`LOGVALET_API_KEY` と `--api-key` は CLI・stdio 経路専用です。リモート HTTP 経路は
+サーバー側の Backlog 資格情報を一切使いません。
 
-#### Mode 1: CLI + API key
+### 認証の2層
 
-(A) 環境変数:
+次の2つの問いは別の層であり、答える主体も異なります。混同しないでください。
 
-```bash
-export LOGVALET_API_KEY=your-api-key-here
-export LOGVALET_SPACE=example-space
+1. **誰が MCP サーバーを呼べるか**。CLI と stdio ではバイナリを実行できる人であり、
+   OS の管轄です。リモート HTTP では logvalet 自身は呼び出し元を一切認証しません。
+   [リモート MCP サーバーの保護](#リモート-mcp-サーバーの保護) を参照してください。
+2. **誰の Backlog 権限で API を叩くか**。常に Backlog 資格情報の背後にある本人です。
+   CLI と stdio では設定した API キーまたはアクセストークン、リモート HTTP では
+   リクエストに載った Bearer トークンで、logvalet はそれを Backlog API へそのまま
+   転送します。logvalet はトークンを保存もリフレッシュもしません。
 
-logvalet issue get EXAMPLE-1
-```
+有効な `Authorization: Bearer` ヘッダーが無いリモート HTTP リクエストは、読み取りも
+書き込みも一切できません。サーバーは `401` のエラーエンベロープを返し、Backlog が
+拒否したトークンは tool error として表面化します。
 
-(B) CLI 引数:
+### リモート MCP サーバーの保護
 
-```bash
-logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
-```
+サポート対象の構成は、`logvalet mcp` を
+[Cloudflare MCP Server Portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals/)
+の背後に置くことです。Portals が ID プロバイダーで利用者ごとに認証し、その利用者の
+Backlog OAuth アクセストークンを `Authorization: Bearer` として注入します。
+Backlog スペースごとに MCP サーバーを個別に登録します。
 
-#### Mode 2: MCP stdio + API key
+エンドポイントを直接公開することもでき、その場合も有効な Backlog トークン無しには
+何もできません。それでも前段なしの公開は推奨しません。利用者ごとのアクセス制御・
+監査ログ・tool 許可リストはいずれも Portals 側の機能であり、logvalet 単体では
+提供しないためです。
 
-(A) 環境変数:
+手順の詳細は
+[plans/mcp-portals-poc-handbook.md](plans/mcp-portals-poc-handbook.md)、
+HTTP エンドポイントのリクエスト契約は
+[docs/specs/remote-mcp-request-contract.md](docs/specs/remote-mcp-request-contract.md)
+を参照してください。
 
-```bash
-export LOGVALET_API_KEY=your-api-key-here
-export LOGVALET_SPACE=example-space
+### 設定リファレンス
 
-logvalet mcp-stdio
-```
+CLI・stdio 経路:
 
-(B) CLI 引数:
-
-```bash
-logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
-```
-
-これらはローカル CLI/stdio 用の認証情報です。リモート HTTP は下記 Mode 4 で説明する AgentCore Gateway passthrough 契約を使用します。
-`LOGVALET_API_KEY` / `--api-key` はこれらローカル CLI/stdio モード専用です。
-
-#### Mode 3: MCP HTTP + AgentCore Gateway (none)
-
-(A) 環境変数:
-
-```bash
-export LOGVALET_SPACE=example-space
-export LOGVALET_MCP_AUTH_MODE=none
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-
-logvalet mcp
-```
-
-(B) CLI 引数:
-
-```bash
-logvalet mcp \
-  --space=example-space \
-  --auth-mode=none
-```
-
-Mode 3・4 は HTTP モードであり、明示的な SpaceStore を使用します。CLI/stdio 用のローカル Backlog 認証情報は使用しません。Mode 3 は信頼済みの `none` Gateway モードを許可し、Mode 4 はさらに共有 Gateway API key を検証します。
-
-#### Mode 4: MCP HTTP + AgentCore Gateway
-
-(A) 環境変数:
-
-```bash
-export LOGVALET_SPACE=example-space
-
-export LOGVALET_MCP_AUTH_MODE=apikey
-export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-
-logvalet mcp
-```
-
-(B) CLI 引数:
-
-```bash
-logvalet mcp \
-  --space=example-space \
-  --auth-mode=apikey \
-  --auth-api-key=shared-gateway-key
-```
-
-リモート HTTP は AgentCore Gateway passthrough 経由で Backlog `Authorization: Bearer` 認証情報を受け取ります。
-
-#### リモート HTTP MCP 契約
-
-Gateway がエンドユーザー認証を担います。HTTP サーバーは `none` または `apikey` で設定し、後者では `X-Logvalet-Api-Key` を送信し、`X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` を送信する場合があります。Backlog 認証情報は Bearer passthrough です。HTTP モードは明示的な space store を必須とし `memory` を拒否します。ローカルトークンストレージは CLI/stdio 専用です（`sqlite` または `tokens.json`）。詳細は [gateway-request-contract.md](docs/specs/gateway-request-contract.md) を参照してください。
-
-### 認証
-
-リモート HTTP MCP は AgentCore Gateway 配下で `none` または `apikey` を使用します。Gateway 共有キーは `X-Logvalet-Api-Key`、identity メタデータは `X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` です。Backlog 認証情報は Bearer 認証情報として passthrough されます。これは直交する2軸です。`auth-mode` は MCP Gateway 認証を制御し、Backlog Bearer passthrough は HTTP で常時有効な固定動作であり、`auth-mode` の選択肢ではありません。[MCP サーバー](#mcp-サーバー)も参照してください。
-
-### Backlog 認証情報
-
-旧来のリモートブラウザコールバックとユーザーごとの OAuth 手順は廃止されました。リモート HTTP は AgentCore Gateway から Backlog Bearer passthrough を受け取り、[docs/specs/gateway-request-contract.md](docs/specs/gateway-request-contract.md) に記載のリクエスト契約を使用します。
-
-リモート HTTP では `none` または `apikey` と明示的な space store を設定してください。`memory` は無効です。CLI と `mcp-stdio` はローカル認証情報のみを使用します（`sqlite` または `tokens.json`）。デプロイ詳細は [AgentCore デプロイガイド](docs/agentcore-deployment.md) を参照してください。
-
-### Space store 環境変数
-
-HTTP モードでは `memory` を使用できず、`LOGVALET_SPACE_STORE_TYPE` の明示指定が必要です。`sqlite` と `dynamodb` の両方に対応し、ローカル利用時の既定値は `sqlite` です。
-
-| 変数 | 既定値 | 説明 |
+| 変数 | フラグ | 説明 |
 |---|---|---|
-| `LOGVALET_SPACE_STORE_TYPE` | `sqlite` | `sqlite` または `dynamodb`。HTTP では明示指定必須で `memory` は拒否 |
-| `LOGVALET_SPACE_STORE_PATH` | プラットフォーム既定 | SQLite データベースのパス |
-| `LOGVALET_SPACE_STORE_DYNAMODB_TABLE` | — | `dynamodb` 使用時のテーブル名 |
-| `LOGVALET_SPACE_STORE_DYNAMODB_REGION` | — | `dynamodb` 使用時の AWS リージョン |
+| `LOGVALET_API_KEY` | `--api-key` | Backlog API キー |
+| `LOGVALET_ACCESS_TOKEN` | `--access-token` | Backlog アクセストークン（API キーと排他） |
+| `LOGVALET_BASE_URL` | `--base-url` | Backlog ベース URL |
+| `LOGVALET_SPACE` | `--space` / `-s` | Backlog スペース名 |
+| `LOGVALET_PROFILE` | `--profile` / `-p` | 使用する設定プロファイル |
+| `LOGVALET_CONFIG` | `--config` / `-c` | 設定ファイルのパス |
+
+リモート HTTP 経路:
+
+| 変数 | フラグ | 説明 |
+|---|---|---|
+| `LOGVALET_BASE_URL` | `--base-url` | 転送するトークンが対象とする Backlog ベース URL |
+| - | `--host` | listen ホスト（既定 `127.0.0.1`） |
+| - | `--port` | listen ポート（既定 `8080`） |
+
+エンドポイントは `POST /mcp`（Streamable HTTP、Bearer 必須）と
+`GET /healthz`（資格情報不要）です。
+
+例:
 
 ```bash
-# ローカル CLI / stdio
-logvalet configure --init-profile default --init-space YOUR_SPACE --init-api-key YOUR_API_KEY
-logvalet mcp-stdio --profile default
+# CLI
+logvalet --api-key=your-api-key-here --space=example-space issue get EXAMPLE-1
 
-# AgentCore Gateway 配下のリモート HTTP
-export LOGVALET_MCP_AUTH_MODE=apikey
-export LOGVALET_MCP_API_KEY=shared-gateway-key
-export LOGVALET_SPACE_STORE_TYPE=sqlite
-logvalet mcp
+# ローカル MCP（stdio）
+logvalet mcp-stdio --api-key=your-api-key-here --space=example-space
+
+# リモート MCP（HTTP）
+logvalet mcp --base-url=https://example-space.backlog.com
 ```
+
+> 呼び出し元の認証オプション（`--auth-mode`、`--auth-api-key`、`X-Logvalet-*`
+> ヘッダー）と内蔵 OAuth コールバックは v0.40 で廃止しました。一覧は CHANGELOG を
+> 参照してください。
 
 ### タスクランナー（mise）
 
@@ -799,7 +754,6 @@ mise run test:integration   # 統合テスト実行
 mise run vet                # go vet 実行
 mise run lint               # vet + test 実行
 mise run mcp:start          # MCP サーバー起動（ローカル）
-mise run mcp:start-auth     # MCP サーバー起動（認証あり）
 mise run docker:build       # Docker イメージビルド
 ```
 
