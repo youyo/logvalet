@@ -24,7 +24,7 @@ const maxUploadInlineDecodedBytes = 4 * 1024 * 1024
 // logvalet_issue_get, list, create, update, comment 系, attachment 系 を含む。
 func RegisterIssueTools(r *ToolRegistry) {
 	// logvalet_issue_get
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_get",
+	r.Register(NewToolDef("logvalet_issue_get",
 		WithDesc("Get issue details by issue key"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithAnnotation(readOnlyAnnotation("課題詳細取得")),
@@ -37,7 +37,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_list",
+	r.Register(NewToolDef("logvalet_issue_list",
 		WithDesc("List issues with optional filters, including parent issue filtering"),
 		WithStringParam("project_key", false, "Filter by single project key (legacy; use project_keys for multiple)"),
 		WithStringParam("project_keys", false, "Comma-separated project keys (e.g. PROJ1,PROJ2)"),
@@ -164,7 +164,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_create
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_create",
+	r.Register(NewToolDef("logvalet_issue_create",
 		WithDesc("Create a new issue"),
 		WithStringParam("project_key", true, "Project key"),
 		WithStringParam("summary", true, "Issue summary"),
@@ -262,7 +262,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 		return client.CreateIssue(ctx, req)
 	})
 	// logvalet_issue_update
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_update",
+	r.Register(NewToolDef("logvalet_issue_update",
 		WithDesc("Update an existing issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithStringParam("summary", false, "New summary"),
@@ -362,7 +362,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_comment_list",
+	r.Register(NewToolDef("logvalet_issue_comment_list",
 		WithDesc("List comments for an issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithNumberParam("count", false, "Max number of comments"),
@@ -384,7 +384,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_add
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_comment_add",
+	r.Register(NewToolDef("logvalet_issue_comment_add",
 		WithDesc("Add a comment to an issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithStringParam("content", false, "Comment content (alias: body)"),
@@ -415,7 +415,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_comment_update
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_comment_update",
+	r.Register(NewToolDef("logvalet_issue_comment_update",
 		WithDesc("Update a comment on an issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithNumberParam("comment_id", true, "Comment ID"),
@@ -443,7 +443,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_attachment_list",
+	r.Register(NewToolDef("logvalet_issue_attachment_list",
 		WithDesc("List attachments for an issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithAnnotation(readOnlyAnnotation("課題添付ファイル一覧取得")),
@@ -456,7 +456,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_delete: B12
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_attachment_delete",
+	r.Register(NewToolDef("logvalet_issue_attachment_delete",
 		WithDesc("Delete an attachment from an issue"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithNumberParam("attachment_id", true, "Attachment ID"),
@@ -474,7 +474,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_upload
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_issue_attachment_upload",
+	r.Register(NewToolDef("logvalet_issue_attachment_upload",
 		WithDesc("Upload file(s) and attach them to an issue. Specify EITHER file_paths (absolute paths accessible to the server) OR file_name + file_content_base64 (inline base64 content, decoded size <= 4MB). mime_type is currently advisory and not forwarded to Backlog."),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithStringParam("file_paths", false, "Comma-separated absolute file paths to upload (path-based mode). Mutually exclusive with file_content_base64."),
@@ -550,7 +550,7 @@ func RegisterIssueTools(r *ToolRegistry) {
 	})
 
 	// logvalet_issue_attachment_download: B13
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_attachment_download",
+	r.Register(NewToolDef("logvalet_issue_attachment_download",
 		WithDesc("Download an attachment from an issue (max 20MB, returned as base64)"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJECT-123)"),
 		WithNumberParam("attachment_id", true, "Attachment ID"),

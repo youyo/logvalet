@@ -12,7 +12,7 @@ import (
 // RegisterAnalysisTools は分析系の MCP tools を ToolRegistry に登録する。
 func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_issue_context
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_context",
+	r.Register(NewToolDef("logvalet_issue_context",
 		WithDesc("Get structured issue context with signals and LLM hints for analysis"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
 		WithNumberParam("comments", false, "Max number of recent comments to include (default 10)"),
@@ -32,13 +32,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.Compact = compact
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewIssueContextBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, opts)
 	})
 
 	// logvalet_project_blockers
-	r.RegisterWithSpaces(NewToolDef("logvalet_project_blockers",
+	r.Register(NewToolDef("logvalet_project_blockers",
 		WithDesc("Detect project blocker issues (high priority unassigned, long in-progress, overdue)"),
 		WithStringParam("project_keys", true, "Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
 		WithNumberParam("days", false, "Days threshold for in-progress stagnation (default 14)"),
@@ -64,13 +64,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			blockerCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		detector := analysis.NewBlockerDetector(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return detector.Detect(ctx, projectKeys, blockerCfg)
 	})
 
 	// logvalet_issue_stale
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_stale",
+	r.Register(NewToolDef("logvalet_issue_stale",
 		WithDesc("Detect stale issues in specified projects"),
 		WithStringParam("project_keys", true, "Comma-separated project keys (e.g. 'PROJ1,PROJ2')"),
 		WithNumberParam("days", false, "Days threshold for stale detection (default 7)"),
@@ -92,13 +92,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			staleCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		detector := analysis.NewStaleIssueDetector(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return detector.Detect(ctx, projectKeys, staleCfg)
 	})
 
 	// logvalet_project_health
-	r.RegisterWithSpaces(NewToolDef("logvalet_project_health",
+	r.Register(NewToolDef("logvalet_project_health",
 		WithDesc("Get project health summary (stale, blockers, workload, score)"),
 		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
 		WithNumberParam("days", false, "Days threshold for stale/blocker detection (default 7)"),
@@ -141,13 +141,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			},
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewProjectHealthBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, healthCfg)
 	})
 
 	// logvalet_issue_triage_materials
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_triage_materials",
+	r.Register(NewToolDef("logvalet_issue_triage_materials",
 		WithDesc("Get triage materials for an issue (stats, similar issues, history)"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
 		WithAnnotation(readOnlyAnnotation("課題トリアージ材料取得")),
@@ -157,13 +157,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			return nil, fmt.Errorf("issue_key is required")
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewTriageMaterialsBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, analysis.TriageMaterialsOptions{})
 	})
 
 	// logvalet_digest_weekly
-	r.RegisterWithSpaces(NewToolDef("logvalet_digest_weekly",
+	r.Register(NewToolDef("logvalet_digest_weekly",
 		WithDesc("Generate weekly periodic digest for a project (completed/started/blocked)"),
 		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
 		WithStringParam("since", false, "Start date in YYYY-MM-DD format (default: 7 days ago)"),
@@ -189,13 +189,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			}
 			opts.Until = &t
 		}
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, opts)
 	})
 
 	// logvalet_digest_daily
-	r.RegisterWithSpaces(NewToolDef("logvalet_digest_daily",
+	r.Register(NewToolDef("logvalet_digest_daily",
 		WithDesc("Generate daily periodic digest for a project (completed/started/blocked)"),
 		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
 		WithStringParam("since", false, "Start date in YYYY-MM-DD format (default: 1 day ago)"),
@@ -221,13 +221,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			}
 			opts.Until = &t
 		}
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewPeriodicDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, projectKey, opts)
 	})
 
 	// logvalet_activity_stats
-	r.RegisterWithSpaces(NewToolDef("logvalet_activity_stats",
+	r.Register(NewToolDef("logvalet_activity_stats",
 		WithDesc("Get activity statistics (by type, actor, date, hour, patterns)"),
 		WithStringParam("scope", false, "Activity scope: project, user, or space (default: space)"),
 		WithStringParam("project_key", false, "Project key (required when scope=project)"),
@@ -276,13 +276,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.TopN = topN
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewActivityStatsBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opts)
 	})
 
 	// logvalet_issue_timeline
-	r.RegisterWithSpaces(NewToolDef("logvalet_issue_timeline",
+	r.Register(NewToolDef("logvalet_issue_timeline",
 		WithDesc("Get comment and update timeline for an issue (structured chronological events)"),
 		WithStringParam("issue_key", true, "Issue key (e.g. PROJ-123)"),
 		WithNumberParam("max_comments", false, "Max number of comments to include (0 = all, default 0)"),
@@ -328,13 +328,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.Until = &t
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewCommentTimelineBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, issueKey, opts)
 	})
 
 	// logvalet_user_workload
-	r.RegisterWithSpaces(NewToolDef("logvalet_user_workload",
+	r.Register(NewToolDef("logvalet_user_workload",
 		WithDesc("Calculate user workload distribution for a project"),
 		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
 		WithNumberParam("days", false, "Days threshold for stale detection (default 7)"),
@@ -354,12 +354,12 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			workloadCfg.ExcludeStatus = parseCSVStringList(excludeStatusStr)
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		calculator := analysis.NewWorkloadCalculator(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return calculator.Calculate(ctx, projectKey, workloadCfg)
 	})
 	// logvalet_my_tasks
-	r.RegisterWithSpaces(NewToolDef("logvalet_my_tasks",
+	r.Register(NewToolDef("logvalet_my_tasks",
 		WithDesc("Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals"),
 		WithStringParam("mode", false, "View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)"),
 		WithNumberParam("stale_days", false, "Days threshold for stale detection on watched issues (default 7)"),
@@ -373,13 +373,13 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			opts.StaleDays = staleDays
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := analysis.NewMyTasksBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opts)
 	})
 
 	// logvalet_digest_unified: B3
-	r.RegisterWithSpaces(NewToolDef("logvalet_digest_unified",
+	r.Register(NewToolDef("logvalet_digest_unified",
 		WithDesc("Generate a unified digest across projects, users, teams, or issues"),
 		WithStringParam("since", true, "Start date (YYYY-MM-DD)"),
 		WithStringParam("until", false, "End date (YYYY-MM-DD)"),
@@ -447,7 +447,7 @@ func RegisterAnalysisTools(r *ToolRegistry, cfg ServerConfig) {
 			scope.IssueKeys = parseCSVStringList(issueKeysStr)
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := digest.NewUnifiedDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, scope)
 	})

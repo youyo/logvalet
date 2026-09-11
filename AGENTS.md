@@ -18,7 +18,6 @@
 - CLI: Kong
 - MCP: `github.com/modelcontextprotocol/go-sdk` (公式 Go SDK)
 - OAuth / 認証: `internal/auth`, `internal/credentials`, `internal/transport/http`
-- マルチスペース保存: memory / SQLite / DynamoDB
 - リリース: GoReleaser, GitHub Actions, Homebrew tap
 
 ## 主要ディレクトリ
@@ -30,7 +29,6 @@
 - `internal/digest`: issue / project / document / activity などの agent-friendly digest 生成。
 - `internal/analysis`: stale issue、blocker、health、workload、timeline、triage などの決定論的分析。
 - `internal/mcp`: MCP server、tool registry、各 `logvalet_*` tool 登録。
-- `internal/space`: 複数 Backlog space の登録、解決、fan-out 実行。
 - `internal/auth`, `internal/credentials`: API key / OAuth credential 解決と token 管理。
 - `internal/render`: JSON / YAML / Markdown / gantt renderer。stdout は機械可読結果用。
 - `docs/specs`: 仕様・設計メモ。実装とズレている可能性があるため、コードを最終確認する。
@@ -156,7 +154,7 @@ Tool の read/write/destructive 分類は `internal/mcp/tool_categories.go` を�
 - 一般設定は概ね CLI flags > env > config > default だが、profile 固有の `space` / `base_url` は CLI flags > profile config > env > default。
 - 認証情報の実装上の優先順位は CLI flags > `tokens.json` の `authRef` > env。env が profile token を上書きすると思い込まない。
 - Write 系には `--dry-run` / `LOGVALET_DRY_RUN` がある。Backlog に書く変更ではまず dry-run を検討する。
-- multi-space は read fan-out と write で扱いが違う。read は `--spaces` / `--all-spaces`、write は単一 space 指定が前提。
+- multi-space は v0.40 で削除。複数スペースは Cloudflare MCP Server Portals にスペース毎に MCP サーバーを登録して扱う。`--spaces` / `--all-spaces` / `LOGVALET_SPACE_STORE_*` は指定すると fail-fast する。
 
 ## リリース
 

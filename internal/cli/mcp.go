@@ -3,23 +3,21 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/youyo/logvalet/internal/auth"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
-	"github.com/youyo/logvalet/internal/space"
 	"github.com/youyo/logvalet/internal/version"
 )
 
-// removedAuthNotice は削除済み認証フラグに対する fail-fast エラーの定型文。
-const removedAuthNotice = "MCP アクセスの認証は AgentCore Gateway に委譲されました。" +
-	"logvalet 側の外部 IdP 連携は廃止されています。"
+// removedCallerAuthNotice は呼び出し元認証系の削除済みフラグに対する fail-fast エラーの定型文。
+const removedCallerAuthNotice = "--auth-mode は v0.40 で廃止されました。" +
+	"HTTP モードは常に Backlog 資格情報の Bearer passthrough で動作します。" +
+	"呼び出し元の認証・認可は Cloudflare MCP Server Portals 等の前段で行ってください。"
 
 // McpCmd は `logvalet mcp` サブコマンド。
 // Streamable HTTP MCP サーバーを起動する。
@@ -27,27 +25,10 @@ type McpCmd struct {
 	Port int    `help:"listen port" default:"8080"`
 	Host string `help:"listen host" default:"127.0.0.1"`
 
-	// 認証フラグ（Gateway → logvalet の service-to-service 共有シークレット）。
-	// apikey は Gateway を認証する共有鍵であってエンドユーザーを認証しない。
-	AuthMode string `name:"auth-mode" help:"auth mode: apikey|none" group:"auth" env:"LOGVALET_MCP_AUTH_MODE"`
-	// フラグ名がグローバルの --api-key（Backlog API キー）と衝突するため --auth-api-key とする。
-	ApiKey string `name:"auth-api-key" help:"static api key for mode=apikey, sent as X-Logvalet-Api-Key (min 32 chars)" group:"auth" env:"LOGVALET_MCP_API_KEY"`
-	// BearerToken は --auth-api-key の後方互換エイリアス。値は同じ apikey として扱われ、
-	// 受理ヘッダーは X-Logvalet-Api-Key（Authorization ではない）。
-	BearerToken string `name:"bearer-token" help:"deprecated alias for --auth-api-key" group:"auth" env:"LOGVALET_MCP_BEARER_TOKEN"`
-
-	// Backlog OAuth フラグ
-	BacklogClientID     string `name:"backlog-client-id" help:"Backlog OAuth client ID" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_ID"`
-	BacklogClientSecret string `name:"backlog-client-secret" help:"Backlog OAuth client secret" group:"auth" env:"LOGVALET_MCP_BACKLOG_CLIENT_SECRET"`
-	BacklogRedirectURL  string `name:"backlog-redirect-url" help:"Backlog OAuth redirect URL" group:"auth" env:"LOGVALET_MCP_BACKLOG_REDIRECT_URL"`
-	OAuthStateSecret    string `name:"oauth-state-secret" help:"HMAC-SHA256 signing key for OAuth state (hex-encoded, 32+ bytes)" group:"auth" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
-
-	// 注記: --token-store 系フラグは HTTP/Gateway モードから完全に削除した
-	// （決定E: tokenstore は使用しない。Backlog credential は S30 の Bearer
-	// passthrough 経路。決定F: dynamodb バックエンド自体も廃止）。
-	// tokenstore は CLI/stdio の直接 OAuth 利用専用として存続する。
-	// これらのフラグはフィールドごと削除しているため、指定すると Kong の
-	// unknown flag エラーとして fail-fast する。
+	// 注記: HTTP モードは常に「呼び出し元の認証なし + Backlog 資格情報は
+	// Authorization: Bearer passthrough」の単一構成。呼び出し元の認証・認可は
+	// Cloudflare MCP Server Portals 等の前段で行う。--token-store 系フラグは
+	// フィールドごと削除済みで、指定すると Kong の unknown flag エラーになる。
 
 	// 削除済みフラグ。値が渡された場合に移行先を案内して fail-fast するためだけに
 	// 定義を残している（ヘルプ非表示・機能なし）。
@@ -61,34 +42,21 @@ type McpCmd struct {
 	RemovedAllowedEmails    string `name:"allowed-emails" hidden:"" env:"LOGVALET_MCP_ALLOWED_EMAILS"`
 	RemovedSigningKey       string `name:"signing-key" hidden:"" env:"LOGVALET_MCP_SIGNING_KEY"`
 	RemovedRefreshTokenTTL  string `name:"refresh-token-ttl" hidden:"" env:"LOGVALET_MCP_REFRESH_TOKEN_TTL"`
-}
 
-// 実効認証モード。logvalet 側の認証は none|apikey の 2 値のみで、
-// エンドユーザー認証（OIDC/JWT 検証）は AgentCore Gateway に委譲されている。
-const (
-	authModeNone   = "none"
-	authModeAPIKey = "apikey"
-)
+	// multi-space 撤去 (v0.40) で廃止された space store 系。同じく fail-fast 専用。
+	RemovedSpaceStoreType     string `name:"space-store-type" hidden:"" env:"LOGVALET_SPACE_STORE_TYPE"`
+	RemovedSpaceStorePath     string `name:"space-store-path" hidden:"" env:"LOGVALET_SPACE_STORE_PATH"`
+	RemovedSpaceStoreDDBTable string `name:"space-store-dynamodb-table" hidden:"" env:"LOGVALET_SPACE_STORE_DYNAMODB_TABLE"`
+	RemovedSpaceStoreDDBRegion string `name:"space-store-dynamodb-region" hidden:"" env:"LOGVALET_SPACE_STORE_DYNAMODB_REGION"`
 
-// resolvedAuthMode は実効認証モードを返す。未指定は "none"。
-// "bearer" は "apikey" の後方互換エイリアス。未知の値は Validate で弾かれるが、
-// 万一 Run まで到達した場合に無認証で公開しないよう apikey へ倒す（fail-closed）。
-func (c *McpCmd) resolvedAuthMode() string {
-	switch strings.ToLower(strings.TrimSpace(c.AuthMode)) {
-	case "", authModeNone:
-		return authModeNone
-	default:
-		return authModeAPIKey
-	}
-}
-
-// apiKeyValue は実効 apikey を返す。--auth-api-key を優先し、未指定なら
-// 後方互換エイリアスの --bearer-token を使う。
-func (c *McpCmd) apiKeyValue() string {
-	if c.ApiKey != "" {
-		return c.ApiKey
-	}
-	return c.BearerToken
+	// v0.40 で廃止: 呼び出し元認証（auth-mode / apikey）と OAuth ハンドラ系。同じく fail-fast 専用。
+	RemovedAuthMode            string `name:"auth-mode" hidden:"" env:"LOGVALET_MCP_AUTH_MODE"`
+	RemovedApiKey              string `name:"auth-api-key" hidden:"" env:"LOGVALET_MCP_API_KEY"`
+	RemovedBearerToken         string `name:"bearer-token" hidden:"" env:"LOGVALET_MCP_BEARER_TOKEN"`
+	RemovedBacklogClientID     string `name:"backlog-client-id" hidden:"" env:"LOGVALET_MCP_BACKLOG_CLIENT_ID"`
+	RemovedBacklogClientSecret string `name:"backlog-client-secret" hidden:"" env:"LOGVALET_MCP_BACKLOG_CLIENT_SECRET"`
+	RemovedBacklogRedirectURL  string `name:"backlog-redirect-url" hidden:"" env:"LOGVALET_MCP_BACKLOG_REDIRECT_URL"`
+	RemovedOAuthStateSecret    string `name:"oauth-state-secret" hidden:"" env:"LOGVALET_MCP_OAUTH_STATE_SECRET"`
 }
 
 // validateRemovedFlags は削除済みフラグが指定されていないかを検査する。
@@ -110,7 +78,40 @@ func (c *McpCmd) validateRemovedFlags() error {
 	}
 	for _, r := range removed {
 		if r.set {
-			return fmt.Errorf("%s は削除されました: %s", r.flag, removedAuthNotice)
+			return fmt.Errorf("%s は削除されました: %s", r.flag, removedCallerAuthNotice)
+		}
+	}
+
+	removedSpaceStore := []struct {
+		env string
+		set bool
+	}{
+		{"LOGVALET_SPACE_STORE_TYPE", c.RemovedSpaceStoreType != ""},
+		{"LOGVALET_SPACE_STORE_PATH", c.RemovedSpaceStorePath != ""},
+		{"LOGVALET_SPACE_STORE_DYNAMODB_TABLE", c.RemovedSpaceStoreDDBTable != ""},
+		{"LOGVALET_SPACE_STORE_DYNAMODB_REGION", c.RemovedSpaceStoreDDBRegion != ""},
+	}
+	for _, r := range removedSpaceStore {
+		if r.set {
+			return fmt.Errorf("%s は削除されました: %s", r.env, removedMultiSpaceNotice)
+		}
+	}
+
+	removedCallerAuth := []struct {
+		flag string
+		set  bool
+	}{
+		{"--auth-mode", c.RemovedAuthMode != ""},
+		{"--auth-api-key", c.RemovedApiKey != ""},
+		{"--bearer-token", c.RemovedBearerToken != ""},
+		{"--backlog-client-id", c.RemovedBacklogClientID != ""},
+		{"--backlog-client-secret", c.RemovedBacklogClientSecret != ""},
+		{"--backlog-redirect-url", c.RemovedBacklogRedirectURL != ""},
+		{"--oauth-state-secret", c.RemovedOAuthStateSecret != ""},
+	}
+	for _, r := range removedCallerAuth {
+		if r.set {
+			return fmt.Errorf("%s は削除されました: %s", r.flag, removedCallerAuthNotice)
 		}
 	}
 	return nil
@@ -122,38 +123,15 @@ func (c *McpCmd) Validate() error {
 		return err
 	}
 
-	switch strings.ToLower(strings.TrimSpace(c.AuthMode)) {
-	case "", authModeNone:
-		return nil
-	case authModeAPIKey, "bearer": // bearer は apikey の後方互換エイリアス
-		key := c.apiKeyValue()
-		if key == "" {
-			return fmt.Errorf("--auth-api-key is required when --auth-mode=apikey (fail-closed: missing key would expose unauthenticated MCP)")
-		}
-		if len(key) < 32 {
-			return fmt.Errorf("--auth-api-key: must be at least 32 characters, got %d", len(key))
-		}
-		return nil
-	case "oidc":
-		return fmt.Errorf("--auth-mode=oidc は削除されました: %s", removedAuthNotice)
-	default:
-		return fmt.Errorf("--auth-mode: invalid value %q; must be apikey or none", c.AuthMode)
-	}
+	return nil
 }
 
-// buildHTTPHandler は Gateway (HTTP) モードのハンドラートポロジーを構築する。
+// buildHTTPHandler は HTTP モードのハンドラートポロジーを構築する。
 //
-// verifier F1 の指摘どおり、S28 までに実装済みの PassthroughAuthMiddleware /
-// NewPassthroughClientFactory / NewOfficialStreamableHTTPHandlerWithFactory を
-// ここで初めて本番経路に配線する。Backlog credential は per-request の
-// `Authorization: Bearer <token>` (Gateway が注入する per-user access token) のみを
-// 使う passthrough 専用構成になり、rc.Client (サーバー側 credential) はこの経路では
-// 使われない。
-//
-// ミドルウェアチェーンは契約 (docs/specs/gateway-request-contract.md §4, S04) どおり
-// apikey → identity → passthrough の順。apikey 検証を通過しないリクエストは
-// identity・passthrough のどちらにも到達しない。auth-mode=none では apikey 層が無い
-// ため stripIdentityMiddleware → passthrough の順になる。
+// HTTP モードは単一構成のみ: logvalet は呼び出し元を認証せず、Backlog 資格情報は
+// per-request の `Authorization: Bearer <token>` を Backlog へそのまま転送する
+// (passthrough)。呼び出し元の認証・認可・tool 許可リストは Cloudflare MCP Server
+// Portals 等の前段に委ねる (docs/specs/remote-mcp-request-contract.md)。
 //
 // stdio モード (McpStdioCmd) はこの経路を通らず、従来どおり単一 client
 // (server 側 credential) を使う。
@@ -165,21 +143,11 @@ func (c *McpCmd) buildHTTPHandler(ver string, cfg mcpinternal.ServerConfig) http
 
 	mcpMux := http.NewServeMux()
 	mcpMux.Handle("/mcp", h)
-	passthrough := mcpinternal.PassthroughAuthMiddleware(mcpMux)
 
-	// /healthz はいずれの認証層の対象外（契約 §1.5）。
+	// /healthz は認証対象外。それ以外は Bearer 必須の passthrough。
 	topMux := http.NewServeMux()
 	topMux.HandleFunc("/healthz", healthHandler)
-
-	if c.resolvedAuthMode() == authModeAPIKey {
-		// identity は apikey の内側、passthrough はさらにその内側に配線する。
-		// apikey 検証を通過しないリクエストでは identity ヘッダー・Backlog credential の
-		// どちらも一切参照しない（契約 §2.3, §4.3）。
-		topMux.Handle("/", apiKeyAuthMiddleware(c.apiKeyValue())(identityMiddleware()(passthrough)))
-	} else {
-		// auth-mode=none では identity を注入せず、クライアント由来のヘッダーを落とすだけ。
-		topMux.Handle("/", stripIdentityMiddleware()(passthrough))
-	}
+	topMux.Handle("/", mcpinternal.PassthroughAuthMiddleware(mcpMux))
 	return topMux
 }
 
@@ -189,19 +157,8 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
-// checkSpaceStoreType は HTTP/Gateway モードで LOGVALET_SPACE_STORE_TYPE の
-// 明示指定を必須とする（決定F）。未設定・memory 選択時は警告ではなく起動エラーに
-// する。stdio モード（McpStdioCmd）はこのチェックを持たず memory 既定を維持する。
-func (c *McpCmd) checkSpaceStoreType() error {
-	return space.RequireExplicitStoreType(os.Getenv("LOGVALET_SPACE_STORE_TYPE"))
-}
-
 // Run は MCP サーバーを起動する。
 func (c *McpCmd) Run(g *GlobalFlags) error {
-	if err := c.checkSpaceStoreType(); err != nil {
-		return err
-	}
-
 	rc, err := buildRunContext(g)
 	if err != nil {
 		return err
@@ -214,29 +171,10 @@ func (c *McpCmd) Run(g *GlobalFlags) error {
 		BaseURL: rc.Config.BaseURL,
 	}
 
-	// SpaceStore / Resolver / ClientFactory を設定（space 管理ツール有効化）。
-	// store type 自体は上のチェックで明示指定済みのため、以降の構築失敗
-	// （DB接続不可等）は従来どおり警告に留め、MCP サーバー起動は継続する。
-	if spaceStore, storeErr := buildSpaceStore(); storeErr != nil {
-		slog.Warn("space store init failed, space management tools disabled", "error", storeErr)
-	} else {
-		cfg.SpaceStore = spaceStore
-		cfg.SpaceResolver = space.NewResolver(spaceStore)
-		if cliFactory, factoryErr := buildCLIClientFactory(); factoryErr != nil {
-			slog.Warn("space client factory init failed", "error", factoryErr)
-		} else {
-			cfg.SpaceClientFactory = cliFactory
-		}
-	}
-
 	handler := c.buildHTTPHandler(ver, cfg)
 
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
-	if c.resolvedAuthMode() == authModeAPIKey {
-		fmt.Fprintf(os.Stderr, "logvalet MCP server (apikey auth) listening on %s/mcp\n", addr)
-	} else {
-		fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
-	}
+	fmt.Fprintf(os.Stderr, "logvalet MCP server listening on %s/mcp\n", addr)
 
 	srv := &http.Server{
 		Addr:              addr,

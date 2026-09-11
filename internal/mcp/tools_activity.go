@@ -12,7 +12,7 @@ import (
 // RegisterActivityTools はアクティビティ関連の MCP tools を ToolRegistry に登録する。
 func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_activity_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_activity_list",
+	r.Register(NewToolDef("logvalet_activity_list",
 		WithDesc("List activities by scope (space, project, or user)"),
 		WithStringParam("user_id", false, "User ID or 'me' for current user"),
 		WithStringParam("project_key", false, "Project key"),
@@ -83,7 +83,7 @@ func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_activity_digest: B4
-	r.RegisterWithSpaces(NewToolDef("logvalet_activity_digest",
+	r.Register(NewToolDef("logvalet_activity_digest",
 		WithDesc("Generate an activity digest for a space or project"),
 		WithStringParam("since", false, "Start date (YYYY-MM-DD)"),
 		WithStringParam("until", false, "End date (YYYY-MM-DD)"),
@@ -115,7 +115,7 @@ func RegisterActivityTools(r *ToolRegistry, cfg ServerConfig) {
 			opt.Until = &t
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := digest.NewDefaultActivityDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, opt)
 	})

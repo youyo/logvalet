@@ -1,5 +1,66 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- **multi-space 機能を全削除**。複数 Backlog スペースは今後 Cloudflare MCP Server Portals に
+  スペース毎に MCP サーバーを登録して扱うため、logvalet 内での複数スペース管理を撤去した。
+  `config.toml` のプロファイル切替（`LOGVALET_PROFILE`、単一スペースの切替）は従来どおり使用できる。
+- **CLI フラグの廃止**: `--spaces` / `--all-spaces`（および `LOGVALET_SPACES` /
+  `LOGVALET_ALL_SPACES`）を削除。指定すると移行先を案内して fail-fast する。
+  `lv spaces` サブコマンド群（`list` / `add` / `connect` / `use` / `remove` / `verify`）も削除した。
+  単一スペース向けの `lv space info` / `disk-usage` / `digest` は存続する。
+- **環境変数の廃止**: `LOGVALET_SPACE_STORE_TYPE` / `LOGVALET_SPACE_STORE_PATH` /
+  `LOGVALET_SPACE_STORE_DYNAMODB_TABLE` / `LOGVALET_SPACE_STORE_DYNAMODB_REGION` を削除。
+  設定されていると `lv mcp` 起動時に fail-fast する。
+- **MCP ツールの削除**: space registry 系5ツール（`logvalet_space_list` / `logvalet_space_use` /
+  `logvalet_space_verify` / `logvalet_space_connect_url` / `logvalet_space_disconnect`）を削除。
+  ツール総数は 72 から 67 になった。`logvalet_space_info` / `logvalet_space_digest` /
+  `logvalet_space_disk_usage` は Backlog `/api/v2/space` 系のラッパーのため存続する。
+- **MCP ツールスキーマの変更**: 残る全 67 ツールから `spaces` / `all_spaces` パラメータを削除した。
+  全ツールの入力スキーマが変わるため、claude.ai 側では Settings > Connectors で
+  コネクタを切断→再接続する必要がある（`/mcp` の再読み込みでは不十分）。
+- **呼び出し元認証の廃止**: `lv mcp`（HTTP）から `--auth-mode` を削除し、単一構成
+  （呼び出し元を認証せず、Backlog 資格情報は `Authorization: Bearer` passthrough）に一本化した。
+  `--auth-mode` / `LOGVALET_MCP_AUTH_MODE`、`--auth-api-key` / `LOGVALET_MCP_API_KEY`、
+  `--bearer-token` / `LOGVALET_MCP_BEARER_TOKEN` は指定すると fail-fast する。
+  `none` を明示した場合も同様に fail-fast する（値による分岐を残さない）。
+  共有鍵ヘッダー `X-Logvalet-Api-Key` と識別ヘッダー `X-Logvalet-Identity-Issuer` /
+  `X-Logvalet-Identity-Subject` の処理も削除した。呼び出し元の認証・認可・監査・
+  tool 許可リストは Cloudflare MCP Server Portals 等の前段に委ねる。
+  - **影響**: 静的 Bearer トークンで保護する構成（Claude Tag 向けの
+    `LOGVALET_MCP_AUTH_MODE=bearer`）は v0.40 で設定自体が fail-fast する。
+    なお v0.36 時点でもこの構成は既に動作していない。apikey の受理ヘッダーは
+    `X-Logvalet-Api-Key` のみで、`Authorization` は Backlog passthrough 専用に予約
+    されていたため、静的 Bearer トークンは Backlog へ転送されて 401 になっていた。
+    該当デプロイは Portals 前段へ移行すること。
+- **内蔵 OAuth ハンドラの廃止**: `lv mcp` の OAuth コールバック
+  （`/oauth/backlog/authorize` / `/callback` / `/status` / `/disconnect`）と
+  state JWT・トークンストアを削除した。`LOGVALET_MCP_BACKLOG_CLIENT_ID` /
+  `_SECRET` / `_REDIRECT_URL`、`LOGVALET_MCP_OAUTH_STATE_SECRET` は指定すると fail-fast する。
+  Backlog OAuth トークンの取得・更新・保管は前段（Portals）の責務になった。
+  なお本経路は v0.36 時点で既に本番から到達不能（`BuildOAuthDeps` の呼び出し元が無い）だった。
+- **MCP の認可導線の削除**: ツール結果の `_meta.authorization_required` /
+  `_meta.authorization_url` と MRTR (SEP-2322) による Backlog 再認可 elicitation を削除した。
+  この導線は `ServerConfig.AuthorizationURL` を設定する本番経路が無く、到達不能だった。
+
+### Removed
+
+- `internal/space` パッケージ（store / resolver / executor / scope / normalize）を削除。
+- multi-space 専用の OAuth 経路（`space_connect_url` → nonce store → callback での
+  スペース登録）と bootstrap_token を削除。`lv auth login` と CLI/stdio の OAuth は影響を受けない。
+- 本番から未参照になった `provider.OAuthProvider.CloneWithBaseURL` を削除。
+- OAuth state JWT のクレーム `flow` / `base_url` / `alias` と `auth.GenerateStateWithSpaceInfo`
+  を削除（multi-space 登録フロー専用だったため）。
+- fan-out 専用だった exit code `8`（部分失敗）を削除。fan-out が無くなり発生経路が無い。
+- `internal/auth` の OAuth 実装（state JWT / TokenManager / provider / tokenstore）を削除。
+  残るのは Bearer passthrough と関連エラーのみ。`internal/transport/http` の OAuth ハンドラも削除した。
+- 依存から AWS SDK for Go v2、`golang.org/x/crypto`、`github.com/golang-jwt/jwt/v5`、
+  `modernc.org/sqlite` を削除。
+  （前回の「`modernc.org/sqlite` は tokenstore が使用するため存続」という記述を訂正する。
+  tokenstore 自体が本番未到達のデッドコードだったため、依存ごと削除した）
+
 ## v0.36.1 (2026-07-31)
 
 v0.36.0 の docs/CLI サーフェス追随漏れを修正（issue #62）。破壊的変更なし。

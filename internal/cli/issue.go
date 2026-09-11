@@ -10,7 +10,6 @@ import (
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
-	"github.com/youyo/logvalet/internal/space"
 )
 
 // IssueCmd は issue コマンド群のルート。
@@ -33,12 +32,6 @@ type IssueGetCmd struct {
 }
 
 func (c *IssueGetCmd) Run(g *GlobalFlags) error {
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.Issue, error) {
-		return client.GetIssue(ctx, c.IssueIDOrKey)
-	})
-	if fanoutDone {
-		return err
-	}
 
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
@@ -67,14 +60,6 @@ type IssueListCmd struct {
 }
 
 func (c *IssueListCmd) Run(g *GlobalFlags) error {
-	// --spaces / --all-spaces が指定された場合は fan-out 実行
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) ([]domain.Issue, error) {
-		return c.listIssues(ctx, client)
-	})
-	if fanoutDone {
-		return err
-	}
-
 	// 既存の単一スペース動作（後方互換）
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
@@ -209,15 +194,9 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
-		return c.createIssue(ctx, client, description)
-	}, rc.Client)
+	issue, err := c.createIssue(ctx, rc.Client, description)
 	if err != nil {
 		return err
-	}
-	issue, ok := result.(*domain.Issue)
-	if !ok {
-		return fmt.Errorf("unexpected result type")
 	}
 	return rc.Renderer.Render(os.Stdout, issue)
 }
@@ -439,15 +418,9 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
-		return c.updateIssue(ctx, client, resolvedDescription)
-	}, rc.Client)
+	issue, err := c.updateIssue(ctx, rc.Client, resolvedDescription)
 	if err != nil {
 		return err
-	}
-	issue, ok := result.(*domain.Issue)
-	if !ok {
-		return fmt.Errorf("unexpected result type")
 	}
 	return rc.Renderer.Render(os.Stdout, issue)
 }
@@ -648,18 +621,12 @@ func (c *IssueCommentAddCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
-		return client.AddIssueComment(ctx, c.IssueIDOrKey, backlog.AddCommentRequest{
-			Content:         content,
-			NotifiedUserIDs: c.NotifiedUserID,
-		})
-	}, rc.Client)
+	comment, err := rc.Client.AddIssueComment(ctx, c.IssueIDOrKey, backlog.AddCommentRequest{
+		Content:         content,
+		NotifiedUserIDs: c.NotifiedUserID,
+	})
 	if err != nil {
 		return err
-	}
-	comment, ok := result.(*domain.Comment)
-	if !ok {
-		return fmt.Errorf("unexpected result type")
 	}
 	return rc.Renderer.Render(os.Stdout, comment)
 }
@@ -706,17 +673,11 @@ func (c *IssueCommentUpdateCmd) Run(g *GlobalFlags) error {
 		return err
 	}
 
-	result, err := runFanoutWrite(ctx, g, func(ctx context.Context, client backlog.Client) (any, error) {
-		return client.UpdateIssueComment(ctx, c.IssueIDOrKey, int64(c.CommentID), backlog.UpdateCommentRequest{
-			Content: content,
-		})
-	}, rc.Client)
+	comment, err := rc.Client.UpdateIssueComment(ctx, c.IssueIDOrKey, int64(c.CommentID), backlog.UpdateCommentRequest{
+		Content: content,
+	})
 	if err != nil {
 		return err
-	}
-	comment, ok := result.(*domain.Comment)
-	if !ok {
-		return fmt.Errorf("unexpected result type")
 	}
 	return rc.Renderer.Render(os.Stdout, comment)
 }

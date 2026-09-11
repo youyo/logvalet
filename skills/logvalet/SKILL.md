@@ -18,13 +18,25 @@ logvalet プラグインの全スキルの使い方・組み合わせ・ワー�
 
 ## 認証・MCP の前提
 
-Remote HTTP MCP は `none` または `apikey` を使う。`apikey` では
-AgentCore Gateway が `X-Logvalet-Api-Key` を送り、任意の利用者識別情報を
-`X-Logvalet-Identity-Issuer` / `X-Logvalet-Identity-Subject` で伝える。
-Backlog credential は Bearer passthrough とする。HTTP mode は space store の
-明示指定が必要で `memory` は使えない。tokenstore は CLI/stdio 専用で、
-ローカルの SQLite または `tokens.json` のみを使い、DynamoDB は使わない。
-stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート HTTP (`mcp`) は `--auth-mode` で認証方式を指定して使い分ける。
+利用経路は3つあり、違いは Backlog 資格情報の出所にある。
+
+- CLI (`lv ...`) と stdio (`mcp-stdio`) はサーバー側の資格情報を使う。
+  設定・env・フラグの API キーまたはアクセストークンで、呼び出せるのはバイナリを
+  実行できるローカル利用者に限られる。
+- Remote HTTP (`mcp`) は呼び出し元を認証しない。Backlog 資格情報はリクエストごとの
+  `Authorization: Bearer <token>` で受け取り、logvalet はそれをそのまま Backlog API に
+  渡す（Bearer passthrough）。トークンの保存・リフレッシュは行わない。
+
+Remote HTTP はサポート構成として Cloudflare MCP Server Portals の背後に置く。
+Portals が利用者を認証し、その利用者の Backlog OAuth トークンを Bearer で注入する。
+利用者ごとのアクセス制御・監査ログ・tool 許可リストは Portals 側の機能で、
+logvalet 単体では提供しない。
+
+複数の Backlog スペースは logvalet 内では扱わず、スペース毎に MCP サーバーを立てて
+Portals に登録する。
+
+v0.40 で `--auth-mode`・`--auth-api-key`・`X-Logvalet-*` ヘッダーと内蔵 OAuth
+コールバックを廃止した。
 
 ## スキル一覧
 
@@ -79,67 +91,3 @@ stdio (`mcp-stdio`) は認証なしで CLI 資格情報を使い、リモート 
 1. `/logvalet:spec-to-issues` → 仕様書から課題を自動生成
 2. `/logvalet:health PROJECT` → 現状のリソース確認
 3. `/logvalet:digest-periodic PROJECT` → 定期進捗追跡を開始
-
-## MCP での spaces/all_spaces 使い方
-
-logvalet MCP サーバーの 72 ツールはすべて `spaces` / `all_spaces` パラメータに対応している。
-
-### Read-only: 登録済み全スペースを横断取得
-
-```json
-{
-  "tool": "logvalet_issue_list",
-  "arguments": {
-    "project_id": 1,
-    "all_spaces": true
-  }
-}
-```
-
-`all_spaces: true` を指定すると、登録済み全スペースのイシューをまとめて返す。
-
-### Read-only: 特定スペースを指定
-
-```json
-{
-  "tool": "logvalet_issue_list",
-  "arguments": {
-    "project_id": 1,
-    "spaces": ["foo", "bar"]
-  }
-}
-```
-
-### Write: 単一スペースへの課題作成
-
-```json
-{
-  "tool": "logvalet_issue_create",
-  "arguments": {
-    "spaces": ["foo"],
-    "project_id": 1,
-    "summary": "課題タイトル"
-  }
-}
-```
-
-Write 操作（create/update 等）は必ず単一スペースを `spaces` で指定する。`all_spaces` は Read-only ツールのみ有効。
-
-## CLI 基本情報
-- コマンド: `logvalet` (エイリアス: `lv`)
-- 出力: JSON (デフォルト) / YAML / Markdown / Gantt
-- 初期設定: `logvalet configure`
-- 各コマンドの詳細は個別スキルを参照
-
-## ウォッチ（CLI 直接操作）
-
-ウォッチ課題は担当ではないが自分の仕事に影響する課題。スキル（my-week, my-next 等）で自動表示されるが、CLI で直接操作も可能:
-
-```bash
-lv watching list me          # 自分のウォッチ一覧
-lv watching count me         # 件数
-lv watching get <ID>         # 詳細
-lv watching add PROJ-123     # ウォッチ追加
-lv watching delete <ID>      # ウォッチ解除
-lv watching mark-as-read <ID> # 既読化
-```

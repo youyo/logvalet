@@ -13,7 +13,7 @@ import (
 
 // idempotency_e2e_test.go は S17 の done_criteria「CategoryWriteNonIdempotent の
 // create 系ツールが同一 idempotency key で二重実行されないこと」を、実際の
-// ToolRegistry 登録経路(RegisterWithSpacesWrite → callWithDefaultClient)を通した
+// ToolRegistry 登録経路(Register → callWithDefaultClient)を通した
 // ハンドラー呼び出しレベルで検証する。ユニットレベルの IdempotencyCache 単体の
 // 挙動は idempotency_test.go (package mcp) で担保済み。
 

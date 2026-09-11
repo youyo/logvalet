@@ -13,10 +13,6 @@
         "description": "Generate an activity digest for a space or project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "limit": {
               "description": "Max number of activities (default 20)",
               "type": "number"
@@ -28,13 +24,6 @@
             "since": {
               "description": "Start date (YYYY-MM-DD)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "until": {
               "description": "End date (YYYY-MM-DD)",
@@ -60,10 +49,6 @@
               "description": "Comma-separated activity type IDs to filter",
               "type": "string"
             },
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of activities (default 20, max 100)",
               "type": "number"
@@ -75,13 +60,6 @@
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "user_id": {
               "description": "User ID or 'me' for current user",
@@ -103,10 +81,6 @@
         "description": "Get activity statistics (by type, actor, date, hour, patterns)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (required when scope=project)",
               "type": "string"
@@ -118,13 +92,6 @@
             "since": {
               "description": "Start date in YYYY-MM-DD format (default: 7 days ago)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "top_n": {
               "description": "Number of top actors/types to include (default: 5)",
@@ -154,10 +121,6 @@
         "description": "Generate daily periodic digest for a project (completed/started/blocked)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
@@ -165,13 +128,6 @@
             "since": {
               "description": "Start date in YYYY-MM-DD format (default: 1 day ago)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "until": {
               "description": "End date in YYYY-MM-DD format (default: now)",
@@ -195,10 +151,6 @@
         "description": "Generate a unified digest across projects, users, teams, or issues",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "due_date": {
               "description": "Due date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)",
               "type": "string"
@@ -214,13 +166,6 @@
             "since": {
               "description": "Start date (YYYY-MM-DD)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "start_date": {
               "description": "Start date filter (YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD)",
@@ -256,10 +201,6 @@
         "description": "Generate weekly periodic digest for a project (completed/started/blocked)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
@@ -267,13 +208,6 @@
             "since": {
               "description": "Start date in YYYY-MM-DD format (default: 7 days ago)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "until": {
               "description": "End date in YYYY-MM-DD format (default: now)",
@@ -310,13 +244,6 @@
               "description": "Project ID (numeric)",
               "type": "number"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "title": {
               "description": "Document title",
               "type": "string"
@@ -341,20 +268,9 @@
         "description": "Generate a digest for a document",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "document_id": {
               "description": "Document ID",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -374,20 +290,9 @@
         "description": "Get document by document ID",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "document_id": {
               "description": "Document ID",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -407,10 +312,6 @@
         "description": "List documents in a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of documents",
               "type": "number"
@@ -422,13 +323,6 @@
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -448,10 +342,6 @@
         "description": "Search documents by keyword within a Backlog space",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max results (1-100, default 100)",
               "type": "number"
@@ -479,13 +369,6 @@
             "sort": {
               "description": "Sort field: created | updated",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -505,20 +388,9 @@
         "description": "Get the document tree for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -546,13 +418,6 @@
             "issue_key": {
               "description": "Issue key (e.g. PROJECT-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -573,10 +438,6 @@
         "description": "Download an attachment from an issue (max 20MB, returned as base64)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "attachment_id": {
               "description": "Attachment ID",
               "type": "number"
@@ -584,13 +445,6 @@
             "issue_key": {
               "description": "Issue key (e.g. PROJECT-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -611,20 +465,9 @@
         "description": "List attachments for an issue",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "issue_key": {
               "description": "Issue key (e.g. PROJECT-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -664,13 +507,6 @@
             "mime_type": {
               "description": "MIME type hint (e.g. image/png). Advisory only; Backlog determines content type from filename.",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -706,13 +542,6 @@
             "notified_user_ids": {
               "description": "Comma-separated user IDs to notify",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -732,10 +561,6 @@
         "description": "List comments for an issue",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of comments",
               "type": "number"
@@ -747,13 +572,6 @@
             "offset": {
               "description": "Offset for pagination",
               "type": "number"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -789,13 +607,6 @@
             "issue_key": {
               "description": "Issue key (e.g. PROJECT-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -816,10 +627,6 @@
         "description": "Get structured issue context with signals and LLM hints for analysis",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "comments": {
               "description": "Max number of recent comments to include (default 10)",
               "type": "number"
@@ -831,13 +638,6 @@
             "issue_key": {
               "description": "Issue key (e.g. PROJ-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -898,13 +698,6 @@
               "description": "Project key",
               "type": "string"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "start_date": {
               "description": "Start date in YYYY-MM-DD format",
               "type": "string"
@@ -937,20 +730,9 @@
         "description": "Get issue details by issue key",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "issue_key": {
               "description": "Issue key (e.g. PROJECT-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -970,10 +752,6 @@
         "description": "List issues with optional filters, including parent issue filtering",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "assignee_id": {
               "description": "Assignee filter: me (resolved via GetMyself) or numeric user ID",
               "type": "string"
@@ -1014,13 +792,6 @@
               "description": "Sort field (e.g. updated, created)",
               "type": "string"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "start_date": {
               "description": "Start date filter: today, this-week, this-month, YYYY-MM-DD, or YYYY-MM-DD:YYYY-MM-DD",
               "type": "string"
@@ -1053,10 +824,6 @@
         "description": "Detect stale issues in specified projects",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "days": {
               "description": "Days threshold for stale detection (default 7)",
               "type": "number"
@@ -1068,13 +835,6 @@
             "project_keys": {
               "description": "Comma-separated project keys (e.g. 'PROJ1,PROJ2')",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1094,10 +854,6 @@
         "description": "Get comment and update timeline for an issue (structured chronological events)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "include_updates": {
               "description": "Include update history events (default true)",
               "type": "boolean"
@@ -1117,13 +873,6 @@
             "since": {
               "description": "Filter events since date (YYYY-MM-DD)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "until": {
               "description": "Filter events until date (YYYY-MM-DD)",
@@ -1147,20 +896,9 @@
         "description": "Get triage materials for an issue (stats, similar issues, history)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "issue_key": {
               "description": "Issue key (e.g. PROJ-123)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1225,13 +963,6 @@
               "description": "Priority ID",
               "type": "number"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "start_date": {
               "description": "Start date in YYYY-MM-DD format",
               "type": "string"
@@ -1266,20 +997,9 @@
         "description": "List categories for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1299,20 +1019,9 @@
         "description": "List custom field definitions for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1332,20 +1041,9 @@
         "description": "List issue types for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1365,20 +1063,9 @@
         "description": "List statuses for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1398,20 +1085,9 @@
         "description": "List versions for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1431,20 +1107,9 @@
         "description": "Get your personal task dashboard: overdue, upcoming, and watched issues with stale/overdue signals",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "mode": {
               "description": "View mode: 'week' (this week Mon-Sun, default) or 'next' (next 4-6 business days)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "stale_days": {
               "description": "Days threshold for stale detection on watched issues (default 7)",
@@ -1466,10 +1131,6 @@
         "description": "Detect project blocker issues (high priority unassigned, long in-progress, overdue)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "days": {
               "description": "Days threshold for in-progress stagnation (default 14)",
               "type": "number"
@@ -1485,13 +1146,6 @@
             "project_keys": {
               "description": "Comma-separated project keys (e.g. 'PROJ1,PROJ2')",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1511,20 +1165,9 @@
         "description": "Get project details by project key",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (e.g. PROJECT)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1544,10 +1187,6 @@
         "description": "Get project health summary (stale, blockers, workload, score)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "days": {
               "description": "Days threshold for stale/blocker detection (default 7)",
               "type": "number"
@@ -1563,13 +1202,6 @@
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1588,19 +1220,7 @@
         },
         "description": "List all projects in the space",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
+          "properties": {},
           "required": [],
           "type": "object"
         },
@@ -1616,10 +1236,6 @@
         "description": "Search issues, documents, and wiki pages by keyword",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max results per resource (1-100, default 20)",
               "type": "number"
@@ -1639,13 +1255,6 @@
             "project_keys": {
               "description": "Comma-separated project keys to filter (optional)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1665,10 +1274,6 @@
         "description": "Download a shared file (max 20MB, returned as base64)",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "file_id": {
               "description": "Shared file ID",
               "type": "number"
@@ -1676,13 +1281,6 @@
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1703,10 +1301,6 @@
         "description": "List shared files in a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of files",
               "type": "number"
@@ -1722,13 +1316,6 @@
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -1743,76 +1330,15 @@
           "idempotentHint": true,
           "openWorldHint": true,
           "readOnlyHint": true,
-          "title": "スペース接続 URL 生成"
-        },
-        "description": "Generate an OAuth authorization URL to connect a new Backlog space",
-        "inputSchema": {
-          "properties": {
-            "alias": {
-              "description": "Space alias (derived from base_url if omitted)",
-              "type": "string"
-            },
-            "base_url": {
-              "description": "Backlog space base URL (e.g. https://myspace.backlog.com)",
-              "type": "string"
-            }
-          },
-          "required": [
-            "base_url"
-          ],
-          "type": "object"
-        },
-        "name": "logvalet_space_connect_url"
-      },
-      {
-        "annotations": {
-          "idempotentHint": true,
-          "openWorldHint": true,
-          "readOnlyHint": true,
           "title": "スペースダイジェスト生成"
         },
         "description": "Generate a digest for the entire Backlog space",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
+          "properties": {},
           "required": [],
           "type": "object"
         },
         "name": "logvalet_space_digest"
-      },
-      {
-        "annotations": {
-          "destructiveHint": true,
-          "idempotentHint": true,
-          "openWorldHint": true,
-          "readOnlyHint": false,
-          "title": "スペース削除"
-        },
-        "description": "Remove a registered Backlog space for the current user",
-        "inputSchema": {
-          "properties": {
-            "alias": {
-              "description": "Space alias to disconnect",
-              "type": "string"
-            }
-          },
-          "required": [
-            "alias"
-          ],
-          "type": "object"
-        },
-        "name": "logvalet_space_disconnect"
       },
       {
         "annotations": {
@@ -1823,19 +1349,7 @@
         },
         "description": "Get disk usage information for the Backlog space",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
+          "properties": {},
           "required": [],
           "type": "object"
         },
@@ -1850,85 +1364,11 @@
         },
         "description": "Get information about the Backlog space",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "required": [],
-          "type": "object"
-        },
-        "name": "logvalet_space_info"
-      },
-      {
-        "annotations": {
-          "idempotentHint": true,
-          "openWorldHint": true,
-          "readOnlyHint": true,
-          "title": "スペース一覧取得"
-        },
-        "description": "List all Backlog spaces registered for the current user",
-        "inputSchema": {
           "properties": {},
           "required": [],
           "type": "object"
         },
-        "name": "logvalet_space_list"
-      },
-      {
-        "annotations": {
-          "destructiveHint": false,
-          "idempotentHint": true,
-          "openWorldHint": true,
-          "readOnlyHint": false,
-          "title": "デフォルトスペース設定"
-        },
-        "description": "Set the default Backlog space for the current user",
-        "inputSchema": {
-          "properties": {
-            "alias": {
-              "description": "Space alias to set as default",
-              "type": "string"
-            }
-          },
-          "required": [
-            "alias"
-          ],
-          "type": "object"
-        },
-        "name": "logvalet_space_use"
-      },
-      {
-        "annotations": {
-          "idempotentHint": true,
-          "openWorldHint": true,
-          "readOnlyHint": true,
-          "title": "スペース接続確認"
-        },
-        "description": "Verify connection status of registered Backlog spaces",
-        "inputSchema": {
-          "properties": {
-            "alias": {
-              "description": "Target space alias (omit to use default)",
-              "type": "string"
-            },
-            "all_spaces": {
-              "description": "Check all registered spaces",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "type": "object"
-        },
-        "name": "logvalet_space_verify"
+        "name": "logvalet_space_info"
       },
       {
         "annotations": {
@@ -1957,13 +1397,6 @@
               "description": "Pull request ID to star",
               "type": "number"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "wiki_id": {
               "description": "Wiki ID to star",
               "type": "number"
@@ -1984,17 +1417,6 @@
         "description": "Get team details by team ID",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "team_id": {
               "description": "Team ID (numeric)",
               "type": "number"
@@ -2017,10 +1439,6 @@
         "description": "List all teams in the space",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of teams (max 100)",
               "type": "number"
@@ -2032,13 +1450,6 @@
             "offset": {
               "description": "Offset for pagination",
               "type": "number"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [],
@@ -2056,20 +1467,9 @@
         "description": "List teams for a specific project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -2093,10 +1493,6 @@
               "description": "Comma-separated activity type IDs",
               "type": "string"
             },
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "limit": {
               "description": "Max number of activities (default 20)",
               "type": "number"
@@ -2108,13 +1504,6 @@
             "since": {
               "description": "Start date (YYYY-MM-DD)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "until": {
               "description": "End date (YYYY-MM-DD)",
@@ -2142,17 +1531,6 @@
         "description": "Get user details by user ID",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "user_id": {
               "description": "User ID",
               "type": "string"
@@ -2174,19 +1552,7 @@
         },
         "description": "List all users in the space",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
+          "properties": {},
           "required": [],
           "type": "object"
         },
@@ -2201,19 +1567,7 @@
         },
         "description": "Get the authenticated user's information",
         "inputSchema": {
-          "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
+          "properties": {},
           "required": [],
           "type": "object"
         },
@@ -2229,10 +1583,6 @@
         "description": "Calculate user workload distribution for a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "days": {
               "description": "Days threshold for stale detection (default 7)",
               "type": "number"
@@ -2244,13 +1594,6 @@
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -2278,13 +1621,6 @@
             "note": {
               "description": "Optional note for the watching",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -2304,17 +1640,6 @@
         "description": "Get the count of watchings for a user.",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "user_id": {
               "description": "User ID (required)",
               "type": "number"
@@ -2338,13 +1663,6 @@
         "description": "Delete a watching by watching ID. Returns the deleted watching.",
         "inputSchema": {
           "properties": {
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "watching_id": {
               "description": "Watching ID (required)",
               "type": "number"
@@ -2367,17 +1685,6 @@
         "description": "Get watching detail by watching ID.",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "watching_id": {
               "description": "Watching ID (required)",
               "type": "number"
@@ -2400,10 +1707,6 @@
         "description": "List watchings for a user. Returns issues being watched by the specified user.",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Max number of items (default: 20, max: 100)",
               "type": "number"
@@ -2419,13 +1722,6 @@
             "sort": {
               "description": "Sort key: created, updated, or issueUpdated",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "user_id": {
               "description": "User ID: \"me\" (resolved via GetMyself) or numeric user ID (e.g. \"12345\")",
@@ -2450,13 +1746,6 @@
         "description": "Mark a watching as read by watching ID.",
         "inputSchema": {
           "properties": {
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "watching_id": {
               "description": "Watching ID (required)",
               "type": "number"
@@ -2484,13 +1773,6 @@
               "description": "New note for the watching (required)",
               "type": "string"
             },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias（1件のみ指定可）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "watching_id": {
               "description": "Watching ID (required)",
               "type": "number"
@@ -2514,17 +1796,6 @@
         "description": "List attachments on a wiki page",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "wiki_id": {
               "description": "Wiki page ID",
               "type": "number"
@@ -2547,20 +1818,9 @@
         "description": "Count wiki pages in a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -2580,17 +1840,6 @@
         "description": "Get a wiki page by ID",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "wiki_id": {
               "description": "Wiki page ID",
               "type": "number"
@@ -2613,10 +1862,6 @@
         "description": "Get wiki page history",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "count": {
               "description": "Number of records (1-100, default 20)",
               "type": "number"
@@ -2632,13 +1877,6 @@
             "order": {
               "description": "Sort order: asc or desc (default desc)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             },
             "wiki_id": {
               "description": "Wiki page ID",
@@ -2662,10 +1900,6 @@
         "description": "List wiki pages in a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "keyword": {
               "description": "Keyword to search in wiki pages",
               "type": "string"
@@ -2673,13 +1907,6 @@
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [
@@ -2699,17 +1926,6 @@
         "description": "List shared files on a wiki page",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "wiki_id": {
               "description": "Wiki page ID",
               "type": "number"
@@ -2732,17 +1948,6 @@
         "description": "List stars on a wiki page",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
             "wiki_id": {
               "description": "Wiki page ID",
               "type": "number"
@@ -2765,20 +1970,9 @@
         "description": "List wiki tags in a project",
         "inputSchema": {
           "properties": {
-            "all_spaces": {
-              "description": "登録済みの全スペースを対象にする（spaces と同時指定不可）",
-              "type": "boolean"
-            },
             "project_key": {
               "description": "Project key (e.g. PROJ)",
               "type": "string"
-            },
-            "spaces": {
-              "description": "対象 Backlog スペースの alias 一覧（省略時はデフォルトスペースを使用）",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
             }
           },
           "required": [

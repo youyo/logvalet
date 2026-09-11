@@ -87,20 +87,6 @@ func (r ToolResult) ToOfficialSDKResult() *officialmcp.CallToolResult {
 			result.Meta = meta
 		}
 	}
-	if ir := r.URLInputRequest; ir != nil {
-		id := ir.ID
-		if id == "" {
-			id = "backlog-authorization"
-		}
-		result.InputRequests = officialmcp.InputRequestMap{
-			id: &officialmcp.ElicitParams{
-				Mode:          "url",
-				Message:       ir.Message,
-				URL:           ir.URL,
-				ElicitationID: id,
-			},
-		}
-	}
 	return result
 }
 
@@ -190,14 +176,6 @@ func ToolResultFromOfficialSDKResult(r *officialmcp.CallToolResult) ToolResult {
 		meta := &ResultMeta{Extra: map[string]any{}}
 		for k, v := range r.Meta {
 			switch k {
-			case "authorization_required":
-				if b, ok := v.(bool); ok {
-					meta.AuthorizationRequired = b
-				}
-			case "authorization_url":
-				if s, ok := v.(string); ok {
-					meta.AuthorizationURL = s
-				}
 			case "serverInfo":
 				if si, ok := v.(map[string]any); ok {
 					name, _ := si["name"].(string)

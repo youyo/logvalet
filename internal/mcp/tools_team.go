@@ -11,7 +11,7 @@ import (
 // RegisterTeamTools はチーム関連の MCP tools を ToolRegistry に登録する。
 func RegisterTeamTools(r *ToolRegistry) {
 	// logvalet_team_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_team_list",
+	r.Register(NewToolDef("logvalet_team_list",
 		WithDesc("List all teams in the space"),
 		WithNumberParam("count", false, "Max number of teams (max 100)"),
 		WithNumberParam("offset", false, "Offset for pagination"),
@@ -44,7 +44,7 @@ func RegisterTeamTools(r *ToolRegistry) {
 	})
 
 	// logvalet_team_get
-	r.RegisterWithSpaces(NewToolDef("logvalet_team_get",
+	r.Register(NewToolDef("logvalet_team_get",
 		WithDesc("Get team details by team ID"),
 		WithNumberParam("team_id", true, "Team ID (numeric)"),
 		WithAnnotation(readOnlyAnnotation("チーム詳細取得")),
@@ -57,7 +57,7 @@ func RegisterTeamTools(r *ToolRegistry) {
 	})
 
 	// logvalet_team_project: B11
-	r.RegisterWithSpaces(NewToolDef("logvalet_team_project",
+	r.Register(NewToolDef("logvalet_team_project",
 		WithDesc("List teams for a specific project"),
 		WithStringParam("project_key", true, "Project key"),
 		WithAnnotation(readOnlyAnnotation("プロジェクトチーム一覧取得")),

@@ -26,9 +26,13 @@ import (
 // トポロジーを、idproxy/OAuth 等の認証スタックを構築せずに再現できるようにする
 // ヘルパーのみを提供する。
 
-// NewNoAuthMCPMux は mcp.go の Run() が --auth=false (既定 / --auth-mode=none)
-// のときに組み立てるのと同一のハンドラートポロジー
-// ("/mcp" → 公式 SDK の StreamableHTTPHandler, "/healthz" → healthHandler) を返す。
+// NewNoAuthMCPMux は固定 client を使う MCP ハンドラーを "/mcp"、healthHandler を
+// "/healthz" に割り当てた mux を返すテスト専用ヘルパー。
+//
+// 本番の HTTP 経路 (mcp.go の buildHTTPHandler) とはトポロジーが異なる。本番は
+// per-request の Bearer credential から client を作る factory 版ハンドラーを使い、
+// PassthroughAuthMiddleware を前段に挟む。こちらは credential 非依存に
+// ヘッダー透過等を検証するためのもので、本番経路の等価物ではない。
 func NewNoAuthMCPMux(client backlog.Client, ver string, cfg mcpinternal.ServerConfig) http.Handler {
 	h := mcpinternal.NewOfficialStreamableHTTPHandler(client, ver, cfg)
 

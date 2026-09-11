@@ -10,7 +10,7 @@ import (
 // RegisterStarTools はスター関連の MCP tools を ToolRegistry に登録する。
 func RegisterStarTools(r *ToolRegistry) {
 	// logvalet_star_add
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_star_add",
+	r.Register(NewToolDef("logvalet_star_add",
 		WithDesc("Add a star to an issue, comment, wiki, pull request, or pull request comment. Specify exactly one of: issue_id, comment_id, wiki_id, pull_request_id, pull_request_comment_id"),
 		WithNumberParam("issue_id", false, "Issue ID to star"),
 		WithNumberParam("comment_id", false, "Comment ID to star"),

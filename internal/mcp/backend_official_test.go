@@ -130,26 +130,6 @@ func TestToolResultToOfficialSDKResult_Error(t *testing.T) {
 	}
 }
 
-// O05: ResultMeta (authorization_required/authorization_url 等) が officialmcp.Meta に
-// 変換される。
-func TestToolResultToOfficialSDKResult_Meta(t *testing.T) {
-	result := ToolResult{
-		Content: []ToolContent{{Type: ToolContentTypeText, Text: "auth required"}},
-		IsError: true,
-		Meta:    &ResultMeta{AuthorizationRequired: true, AuthorizationURL: "https://example.test/authorize"},
-	}
-	got := result.ToOfficialSDKResult()
-	if got.Meta == nil {
-		t.Fatal("expected non-nil Meta")
-	}
-	if got.Meta["authorization_required"] != true {
-		t.Errorf("Meta[authorization_required] = %v", got.Meta["authorization_required"])
-	}
-	if got.Meta["authorization_url"] != "https://example.test/authorize" {
-		t.Errorf("Meta[authorization_url] = %v", got.Meta["authorization_url"])
-	}
-}
-
 // --- in-process E2E テスト: 公式 SDK の StreamableHTTPHandler 経由 ---
 
 // newOfficialTestHTTPServer は NewOfficialStreamableHTTPHandler を httptest でラップして
@@ -210,7 +190,7 @@ func TestOfficialServer_ToolsList_NoInitializeRequired(t *testing.T) {
 	if parsed.Error != nil {
 		t.Fatalf("unexpected error: %+v", parsed.Error)
 	}
-	const wantCount = 72
+	const wantCount = 67
 	if len(parsed.Result.Tools) != wantCount {
 		t.Errorf("tools count = %d, want %d", len(parsed.Result.Tools), wantCount)
 	}
@@ -253,7 +233,7 @@ func stripOfficialSDKOnlyResultFields(t *testing.T, normalized []byte) []byte {
 // (移行前の旧 SDK backend による golden) と一致することを確認する
 // (S09 done_criteria)。SDK 間表現差については stripOfficialSDKOnlyResultFields の
 // コメントを参照。annotations.readOnlyHint/idempotentHint については、logvalet の
-// 全72ツール定義が両フィールドを常に明示設定しているため (tool_categories.go)、
+// 全67ツール定義が両フィールドを常に明示設定しているため (tool_categories.go)、
 // *bool→bool のデフォルト値変換に起因する意図しない差分は観測されていない。
 func TestOfficialServer_ToolsList_MatchesBaseline(t *testing.T) {
 	mock := backlog.NewMockClient()

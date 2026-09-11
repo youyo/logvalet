@@ -122,9 +122,13 @@ supported on stateless HTTP servers ... }`)。logvalet の MCP サーバーは
 | 2025-06-18 / 2025-03-26 / 2024-11-05 | 同上（`_meta` を使わない旧世代クライアントは全てこの経路）。SDK の `supportedProtocolVersions` に含まれるため `initialize.protocolVersion` として送っても `-32022` にならない。 |
 | 上記以外の未知バージョン文字列 (`_meta.protocolVersion` に指定した場合) | `-32022` (`UnsupportedProtocolVersionError`) + `data.supported` に上記5バージョンの一覧。`version_negotiation_test.go` V01。 |
 
-## AgentCore Gateway 運用上の注意（S28 参照用）
+## 前段プロキシ運用上の注意
 
-AgentCore Gateway 等、MCP サーバーの前段でプロトコルバージョンをアドバタイズする
+> 注記: 以下は AgentCore Gateway を前段に置いていた時期の知見。v0.40 で前段は
+> Cloudflare MCP Server Portals に移行したが、「MCP サーバーの前段でプロトコル
+> バージョンをアドバタイズするコンポーネント」一般に当てはまる内容として残す。
+
+前段でプロトコルバージョンをアドバタイズする
 ゲートウェイ型のプロキシを経由する構成では、ゲートウェイ側の
 `supportedVersions` 設定が **全置換 (リスト全体を上書き)** である製品がある。
 そのため、ゲートウェイ側の設定を logvalet バックエンドの実際のサポート範囲

@@ -58,32 +58,6 @@ func TestToolResult_ToOfficialSDKResult_Success(t *testing.T) {
 	}
 }
 
-// TestToolResult_ToOfficialSDKResult_AuthRequired は認可 URL 付きエラーが _meta に反映されることを確認する。
-// toolResultAuthRequired (tools.go) と等価な出力を ToolResult 経由で再現できることを検証する。
-func TestToolResult_ToOfficialSDKResult_AuthRequired(t *testing.T) {
-	r := ToolResult{
-		Content: []ToolContent{{Type: ToolContentTypeText, Text: "authorization required"}},
-		IsError: true,
-		Meta: &ResultMeta{
-			AuthorizationRequired: true,
-			AuthorizationURL:      "https://example.com/authorize",
-		},
-	}
-	sdk := r.ToOfficialSDKResult()
-	if !sdk.IsError {
-		t.Error("sdk.IsError should be true")
-	}
-	if len(sdk.Meta) == 0 {
-		t.Fatal("sdk.Meta should not be empty")
-	}
-	if sdk.Meta["authorization_required"] != true {
-		t.Errorf("authorization_required = %v, want true", sdk.Meta["authorization_required"])
-	}
-	if sdk.Meta["authorization_url"] != "https://example.com/authorize" {
-		t.Errorf("authorization_url = %v, want https://example.com/authorize", sdk.Meta["authorization_url"])
-	}
-}
-
 // TestToolResultFromOfficialSDKResult_RoundTrip は ToOfficialSDKResult -> ToolResultFromOfficialSDKResult の
 // 相互変換で情報が失われないことを確認する。
 func TestToolResultFromOfficialSDKResult_RoundTrip(t *testing.T) {
@@ -123,22 +97,5 @@ func TestToolResultFromOfficialSDKResult_Nil(t *testing.T) {
 	r := ToolResultFromOfficialSDKResult(nil)
 	if r.IsError || len(r.Content) != 0 || r.Meta != nil {
 		t.Errorf("ToolResultFromOfficialSDKResult(nil) = %#v, want zero value", r)
-	}
-}
-
-// TestResultMeta_ToMap_OmitsUnsetFields は AuthorizationRequired=false /
-// AuthorizationURL="" のとき、対応するキーが出力に含まれないことを確認する
-// (optional field 省略と null の同一視の一環)。
-func TestResultMeta_ToMap_OmitsUnsetFields(t *testing.T) {
-	m := ResultMeta{}
-	got := m.ToMap()
-	if _, ok := got["authorization_required"]; ok {
-		t.Error("authorization_required should be omitted when false")
-	}
-	if _, ok := got["authorization_url"]; ok {
-		t.Error("authorization_url should be omitted when empty")
-	}
-	if len(got) != 0 {
-		t.Errorf("got = %#v, want empty map", got)
 	}
 }

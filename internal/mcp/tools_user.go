@@ -12,7 +12,7 @@ import (
 // RegisterUserTools はユーザー関連の MCP tools を ToolRegistry に登録する。
 func RegisterUserTools(r *ToolRegistry) {
 	// logvalet_user_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_user_list",
+	r.Register(NewToolDef("logvalet_user_list",
 		WithDesc("List all users in the space"),
 		WithAnnotation(readOnlyAnnotation("ユーザー一覧取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
@@ -20,7 +20,7 @@ func RegisterUserTools(r *ToolRegistry) {
 	})
 
 	// logvalet_user_get
-	r.RegisterWithSpaces(NewToolDef("logvalet_user_get",
+	r.Register(NewToolDef("logvalet_user_get",
 		WithDesc("Get user details by user ID"),
 		WithStringParam("user_id", true, "User ID"),
 		WithAnnotation(readOnlyAnnotation("ユーザー詳細取得")),
@@ -33,7 +33,7 @@ func RegisterUserTools(r *ToolRegistry) {
 	})
 
 	// logvalet_user_me: B1
-	r.RegisterWithSpaces(NewToolDef("logvalet_user_me",
+	r.Register(NewToolDef("logvalet_user_me",
 		WithDesc("Get the authenticated user's information"),
 		WithAnnotation(readOnlyAnnotation("認証ユーザー情報取得")),
 	), func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
@@ -41,7 +41,7 @@ func RegisterUserTools(r *ToolRegistry) {
 	})
 
 	// logvalet_user_activity: B2
-	r.RegisterWithSpaces(NewToolDef("logvalet_user_activity",
+	r.Register(NewToolDef("logvalet_user_activity",
 		WithDesc("List activities for a specific user"),
 		WithStringParam("user_id", true, "User ID or 'me' for current user"),
 		WithStringParam("since", false, "Start date (YYYY-MM-DD)"),

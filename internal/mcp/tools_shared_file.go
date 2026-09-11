@@ -11,7 +11,7 @@ import (
 // RegisterSharedFileTools は共有ファイル関連の MCP tools を ToolRegistry に登録する。
 func RegisterSharedFileTools(r *ToolRegistry) {
 	// logvalet_shared_file_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_shared_file_list",
+	r.Register(NewToolDef("logvalet_shared_file_list",
 		WithDesc("List shared files in a project"),
 		WithStringParam("project_key", true, "Project key"),
 		WithStringParam("path", false, "Directory path within the project (default: root)"),
@@ -37,7 +37,7 @@ func RegisterSharedFileTools(r *ToolRegistry) {
 	})
 
 	// logvalet_shared_file_download: B14
-	r.RegisterWithSpaces(NewToolDef("logvalet_shared_file_download",
+	r.Register(NewToolDef("logvalet_shared_file_download",
 		WithDesc("Download a shared file (max 20MB, returned as base64)"),
 		WithStringParam("project_key", true, "Project key"),
 		WithNumberParam("file_id", true, "Shared file ID"),

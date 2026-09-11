@@ -4,10 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
-	"github.com/youyo/logvalet/internal/domain"
-	"github.com/youyo/logvalet/internal/space"
 )
 
 // SpaceCmd は space コマンド群のルート。
@@ -21,12 +18,6 @@ type SpaceCmd struct {
 type SpaceInfoCmd struct{}
 
 func (c *SpaceInfoCmd) Run(g *GlobalFlags) error {
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.Space, error) {
-		return client.GetSpace(ctx)
-	})
-	if fanoutDone {
-		return err
-	}
 
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
@@ -44,12 +35,6 @@ func (c *SpaceInfoCmd) Run(g *GlobalFlags) error {
 type SpaceDiskUsageCmd struct{}
 
 func (c *SpaceDiskUsageCmd) Run(g *GlobalFlags) error {
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.DiskUsage, error) {
-		return client.GetSpaceDiskUsage(ctx)
-	})
-	if fanoutDone {
-		return err
-	}
 
 	ctx := context.Background()
 	rc, err := buildRunContext(g)
@@ -69,13 +54,6 @@ type SpaceDigestCmd struct {
 }
 
 func (c *SpaceDigestCmd) Run(g *GlobalFlags) error {
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.DigestEnvelope, error) {
-		builder := digest.NewDefaultSpaceDigestBuilder(client, reg.Alias, reg.Tenant, reg.BaseURL)
-		return builder.Build(ctx, digest.SpaceDigestOptions{})
-	})
-	if fanoutDone {
-		return err
-	}
 
 	ctx := context.Background()
 	rc, err := buildRunContext(g)

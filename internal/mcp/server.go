@@ -2,11 +2,8 @@ package mcp
 
 import (
 	"context"
-	"time"
-
 	officialmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/youyo/logvalet/internal/backlog"
-	"github.com/youyo/logvalet/internal/space"
 )
 
 // ServerConfig は MCP サーバーの設定。
@@ -15,17 +12,7 @@ type ServerConfig struct {
 	Profile          string
 	Space            string
 	BaseURL          string
-	AuthorizationURL string
 	DisableFilePaths bool // stdio モードでローカルファイルシステムへのアクセスを防止する
-	// multi-space 対応フィールド（nil 許容 — 未設定時は通常動作）
-	SpaceStore         space.Store
-	SpaceResolver      *space.Resolver
-	SpaceClientFactory space.ClientFactory
-	// bootstrap_token 関連（multi-space OAuth フロー用）
-	MultiSpaceAuthorizeURL string
-	BootstrapKey           []byte
-	BootstrapTokenTTL      time.Duration
-	NonceStore             space.NonceStore
 }
 
 // newOfficialMCPServer は公式 Go SDK の *officialmcp.Server を logvalet の
@@ -36,9 +23,7 @@ func newOfficialMCPServer(ver string) *officialmcp.Server {
 
 // buildRegistry は cfg に応じた ToolRegistry を backend 上に構築し、全ツールを登録する。
 //
-// client と factory はどちらか一方を渡す (factory != nil が優先)。cfg.SpaceResolver が
-// 設定されている場合は multi-space 対応の ToolRegistry を使い、factory が nil のときは
-// client を返すだけの固定 factory でラップする。
+// client と factory はどちらか一方を渡す (factory != nil が優先)。
 //
 // NewServer / NewServerWithFactory / NewOfficialStreamableHTTPHandler 系および
 // テスト用の fake backend 経路がすべてこの関数を通ることで、どの経路でも
@@ -51,16 +36,10 @@ func buildRegistry(
 ) *ToolRegistry {
 	var reg *ToolRegistry
 	switch {
-	case cfg.SpaceResolver != nil:
-		f := factory
-		if f == nil {
-			f = func(context.Context) (backlog.Client, error) { return client, nil }
-		}
-		reg = NewToolRegistryWithMultiSpace(backend, f, cfg.AuthorizationURL, cfg.SpaceResolver, cfg.SpaceClientFactory)
 	case factory != nil:
-		reg = NewToolRegistryWithFactory(backend, factory, cfg.AuthorizationURL)
+		reg = NewToolRegistryWithFactory(backend, factory)
 	default:
-		reg = NewToolRegistryWithBackend(backend, client, cfg.AuthorizationURL)
+		reg = NewToolRegistryWithBackend(backend, client)
 	}
 	reg.disableFilePaths = cfg.DisableFilePaths
 	registerAllTools(reg, cfg)
@@ -107,5 +86,4 @@ func registerAllTools(reg *ToolRegistry, cfg ServerConfig) {
 	RegisterWatchingTools(reg)
 	RegisterWikiTools(reg)
 	RegisterAnalysisTools(reg, cfg)
-	RegisterSpaceRegistryTools(reg, cfg.SpaceStore, cfg.SpaceResolver, cfg.MultiSpaceAuthorizeURL, cfg.BootstrapKey, cfg.BootstrapTokenTTL, cfg.NonceStore)
 }

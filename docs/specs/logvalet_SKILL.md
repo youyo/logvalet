@@ -110,22 +110,27 @@ Secrets are not stored in project-local files.
 
 Primary auth mode:
 
-- API key (via `config init --init-api-key` or `auth login`)
+- API key. Set it with `logvalet configure --init-api-key`, the `--api-key`
+  flag, or `LOGVALET_API_KEY`.
+- An access token is also accepted via `--access-token` or
+  `LOGVALET_ACCESS_TOKEN` (mutually exclusive with the API key).
+- `logvalet configure` saves the credential into `tokens.json` under the
+  profile's `auth_ref`. Resolution order is flags, then that `tokens.json`
+  entry, then the environment variables.
 
-Remote MCP auth mode:
+Remote MCP:
 
-- `none` or `apikey` (`X-Logvalet-Api-Key`) behind AgentCore Gateway
-- Gateway identity uses `X-Logvalet-Identity-Issuer` and
-  `X-Logvalet-Identity-Subject`; Backlog credentials use Bearer passthrough
-- See [gateway-request-contract.md](gateway-request-contract.md)
+- logvalet does not authenticate the caller; run it behind Cloudflare MCP
+  Server Portals
+- Backlog credentials arrive per request as `Authorization: Bearer` and are
+  forwarded unchanged
+- See [remote-mcp-request-contract.md](remote-mcp-request-contract.md)
 
 MCP protocol and storage:
 
 - HTTP uses the official Go SDK in `Stateless=true` mode, including
-  `server/discover`, per-request `_meta`, and MRTR
-- HTTP requires an explicit space store; `memory` is invalid
-- Token storage is CLI/stdio-only and local (`sqlite` or `tokens.json`)
-- DynamoDB token storage is retired
+  `server/discover` and per-request `_meta`
+- logvalet stores no Backlog tokens; the OAuth token store was removed in v0.40
 
 Useful environment variables:
 
@@ -300,47 +305,9 @@ Use the full user shape only in user-focused commands such as `user list` and `u
 
 ## Command guide
 
-## auth
-
-### Login with API key
-
-```bash
-logvalet auth login --profile work
-```
-
-Use this to authenticate and save tokens into `~/.config/logvalet/tokens.json`.
-
-### Show active identity
-
-```bash
-logvalet auth whoami --profile work
-```
-
-Backlog API から認証ユーザー情報を取得して表示する。API にアクセスできない場合は認証情報のみ表示。
-
-### List configured profiles and auth state
-
-```bash
-logvalet auth list
-```
-
-### Remove stored credentials for a profile
-
-```bash
-logvalet auth logout --profile work
-```
-
----
-
 ## config
 
 ### Initialize configuration interactively
-
-```bash
-logvalet config init
-```
-
-or use the top-level alias:
 
 ```bash
 logvalet configure
@@ -354,7 +321,7 @@ This creates `~/.config/logvalet/config.toml` with profile, space, and base URL.
 logvalet configure --init-profile work --init-space myspace --init-api-key YOUR_KEY
 ```
 
-This creates `config.toml` and saves the API key to `tokens.json` in a single step. No separate `auth login` is needed.
+This creates `config.toml` and saves the API key to `tokens.json` in a single step.
 
 Non-interactive flags:
 

@@ -13,8 +13,8 @@ import (
 // 格納するためのキー型。unexported にすることで context.go の contextKey (userID 用)
 // や他パッケージのキーと衝突しない。
 //
-// docs/specs/gateway-request-contract.md §4 参照: HTTP(Gateway) モードでは、
-// AgentCore Gateway が logvalet へのリクエストの Authorization ヘッダーに
+// docs/specs/remote-mcp-request-contract.md §2 参照: HTTP(Gateway) モードでは、
+// 前段 (Cloudflare MCP Server Portals 等) が logvalet へのリクエストの Authorization ヘッダーに
 // per-user の Backlog OAuth access token を注入する。logvalet はこの値を
 // 検証・デコード・キャッシュせず、そのまま Backlog API 呼び出しへ転送する
 // (passthrough)。
@@ -66,27 +66,5 @@ func NewPassthroughClientFactory(baseURL string) ClientFactory {
 			BaseURL:    baseURL,
 			Credential: cred,
 		}), nil
-	}
-}
-
-// NewPassthroughAwareClientFactory は既存の per-user token 解決方式 (fallback) と
-// Backlog credential passthrough を、リクエストごとに排他的に選択する ClientFactory を
-// 返す。
-//
-// 選択規則: context に passthrough トークンが存在すればそれを優先して使い、
-// tokenstore 等の per-user 解決には一切触れない。存在しなければ fallback
-// (例: NewClientFactory が返す ClientFactory) にそのまま委譲する。
-// fallback が nil の場合、passthrough トークンが無いリクエストは
-// ErrPassthroughTokenMissing を返す (HTTP(Gateway) モード専用構成)。
-func NewPassthroughAwareClientFactory(baseURL string, fallback ClientFactory) ClientFactory {
-	passthroughFactory := NewPassthroughClientFactory(baseURL)
-	return func(ctx context.Context) (backlog.Client, error) {
-		if _, ok := PassthroughTokenFromContext(ctx); ok {
-			return passthroughFactory(ctx)
-		}
-		if fallback == nil {
-			return nil, fmt.Errorf("passthrough-aware client factory: %w", ErrPassthroughTokenMissing)
-		}
-		return fallback(ctx)
 	}
 }

@@ -11,7 +11,7 @@ import (
 // RegisterWatchingTools はウォッチ関連の MCP tools を ToolRegistry に登録する。
 func RegisterWatchingTools(r *ToolRegistry) {
 	// logvalet_watching_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_watching_list",
+	r.Register(NewToolDef("logvalet_watching_list",
 		WithDesc("List watchings for a user. Returns issues being watched by the specified user."),
 		WithStringParam("user_id", true, `User ID: "me" (resolved via GetMyself) or numeric user ID (e.g. "12345")`),
 		WithNumberParam("count", false, "Max number of items (default: 20, max: 100)"),
@@ -45,7 +45,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_count
-	r.RegisterWithSpaces(NewToolDef("logvalet_watching_count",
+	r.Register(NewToolDef("logvalet_watching_count",
 		WithDesc("Get the count of watchings for a user."),
 		WithNumberParam("user_id", true, "User ID (required)"),
 		WithAnnotation(readOnlyAnnotation("ウォッチ数取得")),
@@ -62,7 +62,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_get
-	r.RegisterWithSpaces(NewToolDef("logvalet_watching_get",
+	r.Register(NewToolDef("logvalet_watching_get",
 		WithDesc("Get watching detail by watching ID."),
 		WithNumberParam("watching_id", true, "Watching ID (required)"),
 		WithAnnotation(readOnlyAnnotation("ウォッチ詳細取得")),
@@ -75,7 +75,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_add
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_watching_add",
+	r.Register(NewToolDef("logvalet_watching_add",
 		WithDesc("Add a watching for an issue. Returns the created watching."),
 		WithStringParam("issue_id_or_key", true, "Issue ID or key (e.g., PROJ-123) (required)"),
 		WithStringParam("note", false, "Optional note for the watching"),
@@ -93,7 +93,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_update
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_watching_update",
+	r.Register(NewToolDef("logvalet_watching_update",
 		WithDesc("Update the note of a watching."),
 		WithNumberParam("watching_id", true, "Watching ID (required)"),
 		WithStringParam("note", true, "New note for the watching (required)"),
@@ -112,7 +112,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_delete
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_watching_delete",
+	r.Register(NewToolDef("logvalet_watching_delete",
 		WithDesc("Delete a watching by watching ID. Returns the deleted watching."),
 		WithNumberParam("watching_id", true, "Watching ID (required)"),
 		WithAnnotation(destructiveAnnotation("ウォッチ削除")),
@@ -125,7 +125,7 @@ func RegisterWatchingTools(r *ToolRegistry) {
 	})
 
 	// logvalet_watching_mark_as_read
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_watching_mark_as_read",
+	r.Register(NewToolDef("logvalet_watching_mark_as_read",
 		WithDesc("Mark a watching as read by watching ID."),
 		WithNumberParam("watching_id", true, "Watching ID (required)"),
 		WithAnnotation(writeAnnotation("ウォッチ既読化", true)),

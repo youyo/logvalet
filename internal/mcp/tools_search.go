@@ -10,7 +10,7 @@ import (
 
 // RegisterSearchTools は横断検索 MCP tool を登録する。
 func RegisterSearchTools(r *ToolRegistry, cfg ServerConfig) {
-	r.RegisterWithSpaces(NewToolDef("logvalet_search",
+	r.Register(NewToolDef("logvalet_search",
 		WithDesc("Search issues, documents, and wiki pages by keyword"),
 		WithStringParam("keyword", true, "Search keyword"),
 		WithStringParam("project_keys", false, "Comma-separated project keys to filter (optional)"),
@@ -40,7 +40,7 @@ func RegisterSearchTools(r *ToolRegistry, cfg ServerConfig) {
 			projectKeys = parseCSVStringList(raw)
 		}
 
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := digest.NewDefaultSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, digest.SearchOptions{
 			Keyword:     keyword,

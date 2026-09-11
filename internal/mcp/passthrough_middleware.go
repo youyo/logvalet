@@ -10,9 +10,9 @@ import (
 )
 
 // passthrough_middleware.go は Backlog credential の Bearer passthrough モード
-// (docs/specs/gateway-request-contract.md §4) 用の HTTP ミドルウェアを提供する。
+// (docs/specs/remote-mcp-request-contract.md §2) 用の HTTP ミドルウェアを提供する。
 //
-// AgentCore Gateway は logvalet へのリクエストの Authorization ヘッダーに
+// 前段 (Cloudflare MCP Server Portals 等) は logvalet へのリクエストの Authorization ヘッダーに
 // per-user の Backlog OAuth access token を注入する想定である。
 // PassthroughAuthMiddleware はこのヘッダーを抽出し、リクエストスコープの
 // context (auth.ContextWithPassthroughToken) へ運ぶ。抽出したトークンは

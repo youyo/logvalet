@@ -16,12 +16,6 @@ const (
 	ParamTypeObject  ParamType = "object"
 )
 
-// space injection によって全 read/write ツールに注入されるパラメータ名。
-const (
-	ParamNameSpaces    = "spaces"
-	ParamNameAllSpaces = "all_spaces"
-)
-
 // ParamSpec は ToolDef が持つ1パラメータ (JSON Schema property) の logvalet 独自表現。
 // MCP SDK は property を map[string]any として扱うが、ParamSpec は構造化された
 // 型として保持することで、JSON Schema への変換ロジックを一箇所に集約する。
@@ -163,30 +157,3 @@ type RequestMeta struct {
 	Extra           map[string]any
 }
 
-// SpacesParamSpec は read 系ツールに注入する "spaces" パラメータ (複数指定可) の定義を返す。
-// RegisterWithSpaces / injectSpaceParams が gomcp.Tool へ直接注入している内容の
-// logvalet 型表現。
-func SpacesParamSpec(description string) ParamSpec {
-	return ParamSpec{
-		Name:        ParamNameSpaces,
-		Type:        ParamTypeArray,
-		Description: description,
-		Items:       &ParamSpec{Type: ParamTypeString},
-	}
-}
-
-// AllSpacesParamSpec は read 系ツールに注入する "all_spaces" パラメータの定義を返す。
-func AllSpacesParamSpec(description string) ParamSpec {
-	return ParamSpec{Name: ParamNameAllSpaces, Type: ParamTypeBoolean, Description: description}
-}
-
-// SpacesWriteParamSpec は write 系ツールに注入する "spaces" パラメータ (単一指定) の定義を返す。
-// RegisterWithSpacesWrite / injectSpaceParamWrite が注入している内容の logvalet 型表現。
-func SpacesWriteParamSpec(description string) ParamSpec {
-	return ParamSpec{
-		Name:        ParamNameSpaces,
-		Type:        ParamTypeArray,
-		Description: description,
-		Items:       &ParamSpec{Type: ParamTypeString},
-	}
-}

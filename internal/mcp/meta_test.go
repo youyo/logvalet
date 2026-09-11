@@ -195,33 +195,7 @@ func TestOfficialBackend_ToolHandler_NoRequestMeta_ReturnsZeroValue(t *testing.T
 	}
 }
 
-// --- 結果側: serverInfo (SDK 自動付与) / authorization_url の _meta が壊れていない ---
-
-// M08: authorization_url の _meta (S06/既存実装) は、per-request _meta 対応後も
-// 変わらず authorization_required/authorization_url を含む。ServerInfo は
-// logvalet 側で設定しない (SDK の annotateServerInfo (server.go) が結果 _meta に
-// serverInfo を自動付与するため、二重に実装しない)。
-func TestToolResultAuthRequired_MetaUnaffectedByRequestMeta(t *testing.T) {
-	result := toolResultAuthRequired(errTestAuth, "https://example.test/authorize")
-	if result.Meta == nil {
-		t.Fatal("Meta is nil")
-	}
-	if !result.Meta.AuthorizationRequired {
-		t.Error("AuthorizationRequired = false, want true")
-	}
-	if result.Meta.AuthorizationURL != "https://example.test/authorize" {
-		t.Errorf("AuthorizationURL = %q, want https://example.test/authorize", result.Meta.AuthorizationURL)
-	}
-	if result.Meta.ServerInfo != nil {
-		t.Errorf("ServerInfo = %+v, want nil (SDK annotates serverInfo automatically)", result.Meta.ServerInfo)
-	}
-	toMap := result.Meta.ToMap()
-	if _, ok := toMap["serverInfo"]; ok {
-		t.Error(`ToMap()["serverInfo"] present, want absent so the SDK's annotateServerInfo can add it`)
-	}
-}
-
-// M09: tools/call の結果 _meta には、authorization_url 付きエラーであっても
+// M09: tools/call の結果 _meta には、ツール側が独自フィールドを載せたエラー結果でも
 // SDK が自動付与する serverInfo (SEP-2575) が乗る (公式 SDK の
 // annotateServerInfo が既に serverInfo を付与済みでない場合のみ付与する挙動 (server.go) の固定)。
 func TestOfficialBackend_ToolsCall_ResultMetaHasServerInfo(t *testing.T) {
@@ -229,7 +203,8 @@ func TestOfficialBackend_ToolsCall_ResultMetaHasServerInfo(t *testing.T) {
 	backend := NewOfficialBackend(s)
 	backend.RegisterTool(ToolDef{Name: "logvalet_test_meta_result", Description: "test-only tool"},
 		func(ctx context.Context, args map[string]any) (ToolResult, error) {
-			result := toolResultAuthRequired(errTestAuth, "https://example.test/authorize")
+			result := NewErrorToolResult(ToolError{Message: errTestAuth.Error()})
+			result.Meta = &ResultMeta{Extra: map[string]any{"probe_field": true}}
 			return result, nil
 		})
 
@@ -254,8 +229,8 @@ func TestOfficialBackend_ToolsCall_ResultMetaHasServerInfo(t *testing.T) {
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("unmarshal: %v; body=%s", err, resp)
 	}
-	if _, ok := parsed.Result.Meta["authorization_required"]; !ok {
-		t.Errorf("_meta.authorization_required missing; body=%s", resp)
+	if _, ok := parsed.Result.Meta["probe_field"]; !ok {
+		t.Errorf("_meta.probe_field missing; body=%s", resp)
 	}
 	serverInfoRaw, ok := parsed.Result.Meta["io.modelcontextprotocol/serverInfo"]
 	if !ok {

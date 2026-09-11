@@ -12,6 +12,5 @@ const (
 	ExitNotFoundError       = 5
 	ExitAPIError            = 6
 	ExitDigestError         = 7
-	ExitPartialFailure      = 8
 	ExitConfigError         = 10
 )

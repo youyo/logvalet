@@ -3,7 +3,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/alecthomas/kong"
 )
@@ -39,13 +38,10 @@ type GlobalFlags struct {
 	// env 処理は config.Resolve() で行う（プロファイル設定より低優先）。
 	Space string `short:"s" help:"specify Backlog space name directly (env: LOGVALET_SPACE)"`
 
-	// Spaces は comma-separated なスペース alias 指定（マルチスペース操作用）。
-	// 注意: --spaces foo --spaces bar のように2回渡すと後者で上書きされます。
-	// 複数スペースは --spaces foo,bar のように comma-separated で指定してください。
-	Spaces string `help:"comma-separated space aliases for multi-space operations (e.g. foo,bar). Cannot be combined with --all-spaces." env:"LOGVALET_SPACES"`
-
-	// AllSpaces はユーザーの登録済み全スペースを対象にする。--spaces との同時指定不可。
-	AllSpaces bool `help:"run against all spaces registered for the current user. Cannot be combined with --spaces." env:"LOGVALET_ALL_SPACES" name:"all-spaces"`
+	// 削除済みフラグ。値が渡された場合に移行先を案内して fail-fast するためだけに
+	// 定義を残している（ヘルプ非表示・機能なし）。McpCmd の Removed* と同じ規約。
+	RemovedSpaces    string `name:"spaces" hidden:"" env:"LOGVALET_SPACES"`
+	RemovedAllSpaces bool   `name:"all-spaces" hidden:"" env:"LOGVALET_ALL_SPACES"`
 
 	// Verbose は詳細なデバッグ出力を有効にする (stderr)。
 	Verbose bool `short:"v" help:"enable verbose debug output" env:"LOGVALET_VERBOSE"`
@@ -65,34 +61,28 @@ func (g *GlobalFlags) Validate() error {
 	if g.APIKey != "" && g.AccessToken != "" {
 		return fmt.Errorf("--api-key and --access-token are mutually exclusive")
 	}
-	if g.Spaces != "" && g.AllSpaces {
-		return fmt.Errorf("--spaces and --all-spaces are mutually exclusive")
-	}
-	return nil
+	return g.validateRemovedFlags()
 }
 
-// ParseSpacesFlag は "--spaces foo,bar" を []string{"foo","bar"} に変換する。
-// 空文字列は nil を返す（指定なし扱い）。
-// 空要素（"foo,,bar" 等）は error。重複は静かにスキップ。
-func ParseSpacesFlag(s string) ([]string, error) {
-	if s == "" {
-		return nil, nil
+// removedMultiSpaceNotice は multi-space 機能撤去の移行案内。
+const removedMultiSpaceNotice = "multi-space は v0.40 で削除されました。" +
+	"複数スペースは Cloudflare MCP Server Portals にスペース毎に MCP サーバーを登録してください。"
+
+// validateRemovedFlags は削除済みの multi-space フラグが指定されていないかを検査する。
+func (g *GlobalFlags) validateRemovedFlags() error {
+	removed := []struct {
+		flag string
+		set  bool
+	}{
+		{"--spaces", g.RemovedSpaces != ""},
+		{"--all-spaces", g.RemovedAllSpaces},
 	}
-	parts := strings.Split(s, ",")
-	seen := make(map[string]bool, len(parts))
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			return nil, fmt.Errorf("--spaces: empty alias in %q (use comma-separated list like 'foo,bar')", s)
+	for _, r := range removed {
+		if r.set {
+			return fmt.Errorf("%s は削除されました: %s", r.flag, removedMultiSpaceNotice)
 		}
-		if seen[p] {
-			continue
-		}
-		seen[p] = true
-		result = append(result, p)
 	}
-	return result, nil
+	return nil
 }
 
 // DigestFlags は digest コマンドで共通するフラグ。

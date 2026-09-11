@@ -88,20 +88,6 @@ resource 等、SDK の `Content` interface が持つ他バリアントは対象�
 `ToolResult`/`ToolError` は MCP の「tool エラーはプロトコルエラーではなく
 結果オブジェクトの `isError=true` で表現する」という規約を型として明示する。
 
-### 1.6 space injection 用パラメータ
-
-`tools.go` の `injectSpaceParams` / `injectSpaceParamWrite` が `gomcp.Tool.InputSchema.Properties`
-に直接注入している `spaces` / `all_spaces` パラメータの logvalet 型表現:
-
-| 用途 | 既存実装 (`tools.go`) | logvalet 型 (`tooldef.go`) |
-|---|---|---|
-| read 系ツール (`RegisterWithSpaces` → `injectSpaceParams`) の `spaces` | `map[string]any{"type":"array","items":{"type":"string"},"description":"..."}` | `SpacesParamSpec(description string) ParamSpec` |
-| read 系ツールの `all_spaces` | `map[string]any{"type":"boolean","description":"..."}` | `AllSpacesParamSpec(description string) ParamSpec` |
-| write 系ツール (`RegisterWithSpacesWrite` → `injectSpaceParamWrite`) の `spaces` (単一指定) | 同上 (array/string items) | `SpacesWriteParamSpec(description string) ParamSpec` |
-
-パラメータ名は `ParamNameSpaces = "spaces"` / `ParamNameAllSpaces = "all_spaces"` の
-定数で固定する。
-
 ## 2. 移行基準スナップショット (`internal/mcp/testdata/tools_list_baseline.json`)
 
 ### 2.1 取得方法
@@ -118,7 +104,7 @@ resource 等、SDK の `Content` interface が持つ他バリアントは対象�
   公式 SDK は SEP-2575 の `result.cacheScope` / `result.ttlMs` を追加で返すため、
   baseline 比較時は `stripOfficialSDKOnlyResultFields` でこの2フィールドのみ除外する
   (意図した SDK 間差分。baseline 自体は書き換えない)。
-- 登録ツール総数: 72 (`server_test.go` の `TestNewServerWithFactory_RegistersAllTools`
+- 登録ツール総数: 67 (`server_test.go` の `TestNewServerWithFactory_RegistersAllTools`
   が期待する `expectedCount` と同期)。
 
 ### 2.2 正規化規則

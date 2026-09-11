@@ -167,61 +167,44 @@ func TestE2E_Passthrough_NoneMode_MissingBearerReturnsErrorEnvelope(t *testing.T
 	}
 }
 
-// auth-mode=apikey: apikey → identity → passthrough の順。apikey が通っても
-// Authorization (passthrough 用) が無ければ Backlog は呼ばれず 401。
-func TestE2E_Passthrough_APIKeyMode_ChainOrder(t *testing.T) {
+// HTTP モードは単一構成: X-Logvalet-Api-Key や識別ヘッダーを送っても挙動は変わらず、
+// Backlog 資格情報の有無だけが結果を決める（v0.40 で呼び出し元認証を撤去）。
+func TestE2E_Passthrough_CallerAuthHeadersAreIgnored(t *testing.T) {
 	backlogSrv, mock := newPassthroughBacklogMock(t)
 
-	key := strings.Repeat("k", 32)
-	cmd := &cli.McpCmd{AuthMode: "apikey", ApiKey: key}
+	cmd := &cli.McpCmd{}
 	cfg := mcpinternal.ServerConfig{BaseURL: backlogSrv.URL}
 	handler := cli.BuildMCPHTTPHandlerForTest(cmd, "test-passthrough", cfg)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 
-	identityHeaders := map[string]string{
+	noise := map[string]string{
+		"X-Logvalet-Api-Key":          strings.Repeat("k", 32),
 		"X-Logvalet-Identity-Issuer":  "https://login.example.com/",
 		"X-Logvalet-Identity-Subject": "user-001",
 	}
 
-	// apikey OK + identity OK + Bearer あり → Backlog まで届く。
-	token := "gateway-injected-backlog-token"
-	resp := postToolCall(t, srv, mergeHeaders(map[string]string{
-		"X-Logvalet-Api-Key": key,
-		"Authorization":      "Bearer " + token,
-	}, identityHeaders))
-	defer resp.Body.Close()
+	// 有効な Backlog Bearer があれば、余計なヘッダーが付いていても成功する。
+	token := "backlog-access-token"
+	resp := postToolCall(t, srv, mergeHeaders(map[string]string{"Authorization": "Bearer " + token}, noise))
 	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("status = %d, want 200; body=%s", resp.StatusCode, b)
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
-	if want := "Bearer " + token; mock.lastObserved() != want {
-		t.Errorf("backlog observed Authorization = %q, want %q", mock.lastObserved(), want)
+	if got := mock.lastObserved(); got != "Bearer "+token {
+		t.Errorf("Backlog へ渡った Authorization = %q, want %q", got, "Bearer "+token)
 	}
 
-	// apikey OK + identity OK + Bearer 無し → passthrough の 401 (authentication_error)。
-	// apikey 自体のエラー (code=unauthorized) とは区別できる = passthrough 層まで
-	// 到達している証拠。
-	resp2 := postToolCall(t, srv, mergeHeaders(map[string]string{"X-Logvalet-Api-Key": key}, identityHeaders))
+	// Backlog Bearer が無ければ、呼び出し元向けヘッダーを揃えても 401。
+	resp2 := postToolCall(t, srv, noise)
 	if resp2.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", resp2.StatusCode)
 	}
 	env := decodeErrorEnvelope(t, resp2)
 	if env.Error.Code != "authentication_error" {
-		t.Errorf("error.code = %q, want %q (passthrough, not apikey's %q)", env.Error.Code, "authentication_error", "unauthorized")
-	}
-
-	// apikey 自体が無効 → apikey 層で弾かれ、passthrough/Backlog には到達しない。
-	resp3 := postToolCall(t, srv, map[string]string{"Authorization": "Bearer " + token})
-	if resp3.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", resp3.StatusCode)
-	}
-	env3 := decodeErrorEnvelope(t, resp3)
-	if env3.Error.Code != "unauthorized" {
-		t.Errorf("error.code = %q, want %q (apikey layer)", env3.Error.Code, "unauthorized")
+		t.Errorf("error.code = %q, want %q", env.Error.Code, "authentication_error")
 	}
 
 	if mock.callCount() != 1 {
-		t.Errorf("backlog mock should be called exactly once (only the valid request), count = %d", mock.callCount())
+		t.Errorf("backlog mock は有効リクエストの1回のみ呼ばれるべき, count = %d", mock.callCount())
 	}
 }

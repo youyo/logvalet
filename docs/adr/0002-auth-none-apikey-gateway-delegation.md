@@ -2,7 +2,14 @@
 
 ## ステータス
 
-承認済み（issue #52、2026-07-30）
+置換済み（v0.40、2026-09-11）。当初は承認済み（issue #52、2026-07-30）。
+
+v0.40 で AgentCore Gateway 前提を撤回し、リモート HTTP は「呼び出し元認証なし +
+Backlog 資格情報の Bearer passthrough」の単一構成へ一本化した。前段は Cloudflare
+MCP Server Portals とする。本 ADR の `apikey` モード・`X-Logvalet-*` ヘッダー・
+Gateway 委譲の決定は失効しており、現行契約は
+`docs/specs/remote-mcp-request-contract.md` を参照すること。
+以下は決定当時の記録として残す。
 
 ## コンテキスト
 

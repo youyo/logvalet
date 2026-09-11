@@ -278,8 +278,14 @@ auth_ref = "example-dev"
 ### Authentication method
 
 - Primary method: **API key authentication**
-- API key is provided via `--api-key` flag, `LOGVALET_API_KEY` environment variable, or `tokens.json`
-- `lv auth login` prompts for API key interactively (or accepts `--api-key` flag)
+- API key is provided via the `--api-key` flag, the `LOGVALET_API_KEY`
+  environment variable, or the profile's `auth_ref` entry in `tokens.json`
+- An access token is accepted the same way via `--access-token` or
+  `LOGVALET_ACCESS_TOKEN`, and is mutually exclusive with the API key
+- `lv configure --init-api-key` writes the credential into `tokens.json`; it is
+  the only command that stores credentials
+- Resolution order is flags, then the `tokens.json` entry for the active
+  profile, then the environment variables (`internal/credentials`)
 
 ### OAuth support (future)
 
@@ -287,122 +293,42 @@ auth_ref = "example-dev"
 - `internal/credentials/oauth.go` contains the OAuth flow implementation (currently unused by CLI)
 - When implemented, OAuth will provide browser-based authorization-code flow
 
-### Remote authentication contract (S27)
+### Remote authentication contract
 
-Remote HTTP MCP authentication is limited to `none` or `apikey`. With
-`apikey`, AgentCore Gateway authenticates the caller and delegates the request
-using `X-Logvalet-Api-Key`. It may also provide end-user identity through
-`X-Logvalet-Identity-Issuer` and `X-Logvalet-Identity-Subject`; logvalet treats
-those headers as identity metadata only after the shared-key check. Backlog
-credentials are passed through as a Bearer credential. See
-[gateway-request-contract.md](gateway-request-contract.md) for the complete
-header and trust-boundary contract.
+The remote HTTP path has a single configuration: logvalet does not
+authenticate the caller at all, and the Backlog credential arrives as
+`Authorization: Bearer <token>` on each request, which logvalet forwards to the
+Backlog API unchanged. Caller authentication, per-user access control, audit
+logging, and the tool allow list belong to the front layer, for which the
+supported choice is Cloudflare MCP Server Portals. See
+[remote-mcp-request-contract.md](remote-mcp-request-contract.md) for the
+complete contract.
 
-Entra ID JWT passthrough validation is not performed by logvalet. It has not
-been confirmed in a real environment that Gateway forwards the original JWT
-to the backend; that verification belongs to a separate repository. The final
-defence is the shared API key plus network restriction (private ingress),
-which is the responsibility of the Gateway deployment.
+A request without a valid bearer credential is rejected with `401` before
+reaching the MCP handler. A credential Backlog rejects surfaces as a tool
+error rather than a protocol error.
+
+Caller-side authentication in logvalet (`--auth-mode`, the shared
+`X-Logvalet-Api-Key`, and the `X-Logvalet-Identity-*` headers) was removed in
+v0.40, as was the built-in Backlog OAuth callback.
 
 ### MCP protocol and storage modes (2026-07-28)
 
 The official Go SDK is used with `StreamableHTTPOptions{Stateless: true}`.
-The HTTP endpoint supports `server/discover`, per-request `_meta`, and MRTR.
-Protocol negotiation and the `supportedVersions` decision are documented in
+The HTTP endpoint supports `server/discover`, per-request `_meta`, and the
+idempotency key for non-idempotent tools. Protocol negotiation and the
+`supportedVersions` decision are documented in
 [legacy-protocol-decision.md](legacy-protocol-decision.md).
 
-HTTP mode requires an explicitly configured space store; `memory` is an error
-in HTTP mode, while either SQLite or DynamoDB is allowed. DynamoDB remains
-available for multi-tenant HTTP deployments. The token store is CLI/stdio-only
-and limited to local SQLite or `tokens.json`; the DynamoDB token store is
-retired. Remote HTTP requests receive credentials through the Gateway
-contract instead. TokenStore and SpaceStore are separate concerns: retiring
-the DynamoDB TokenStore does not remove DynamoDB support from SpaceStore.
+logvalet stores no Backlog tokens. CLI and stdio read credentials from the
+config file, environment, or flags; remote HTTP forwards the per-request
+bearer credential. The OAuth token store was removed in v0.40.
 
 ### Issue relationship scope
 
 Backlog's public API does not expose related-issue relationships, so logvalet
 does not support a `related_issues` relationship. Parent/child issues remain
 supported through the public `parentIssueId` field only.
-
-### Auth commands
-
-#### `lv auth login`
-
-Purpose: login using API key and save credentials.
-
-Required:
-
-- `--profile`
-
-Output example:
-
-```json
-{
-  "schema_version": "1",
-  "result": "ok",
-  "profile": "work",
-  "space": "example-space",
-  "base_url": "https://example-space.backlog.com",
-  "auth_type": "api_key",
-  "saved": true
-}
-```
-
-#### `lv auth logout`
-
-Required:
-
-- `--profile`
-
-Output example:
-
-```json
-{
-  "schema_version": "1",
-  "result": "ok",
-  "profile": "work",
-  "removed": true
-}
-```
-
-#### `lv auth whoami`
-
-Output example:
-
-```json
-{
-  "schema_version": "1",
-  "profile": "work",
-  "space": "example-space",
-  "auth_type": "oauth",
-  "user": {
-    "id": 12345,
-    "name": "Naoto Ishizawa"
-  }
-}
-```
-
-#### `lv auth list`
-
-Output example:
-
-```json
-{
-  "schema_version": "1",
-  "profiles": [
-    {
-      "profile": "work",
-      "space": "example-space",
-      "base_url": "https://example-space.backlog.com",
-      "auth_type": "oauth",
-      "authenticated": true
-    }
-  ]
-}
-```
-
----
 
 ## 6. Completion
 

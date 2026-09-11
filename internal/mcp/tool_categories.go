@@ -77,13 +77,6 @@ var toolCategories = map[string]ToolCategorySpec{
 	"logvalet_wiki_stars":           {CategoryReadOnly, "Wiki スター一覧取得"},
 	"logvalet_wiki_attachment_list": {CategoryReadOnly, "Wiki 添付ファイル一覧取得"},
 	"logvalet_wiki_sharedfile_list": {CategoryReadOnly, "Wiki 共有ファイル一覧取得"},
-	// Space 管理 (5) — RegisterSpaceRegistryTools が常時登録
-	"logvalet_space_list":        {CategoryReadOnly, "スペース一覧取得"},
-	"logvalet_space_use":         {CategoryWriteIdempotent, "デフォルトスペース設定"},
-	"logvalet_space_verify":      {CategoryReadOnly, "スペース接続確認"},
-	"logvalet_space_connect_url": {CategoryReadOnly, "スペース接続 URL 生成"},
-	"logvalet_space_disconnect":  {CategoryDestructive, "スペース削除"},
-
 	// Write non-idempotent (4)
 	"logvalet_issue_create":            {CategoryWriteNonIdempotent, "課題作成"},
 	"logvalet_issue_comment_add":       {CategoryWriteNonIdempotent, "課題コメント追加"},

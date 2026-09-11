@@ -48,7 +48,7 @@ func (b *fakeBackend) call(t *testing.T, name string, args map[string]any) mcpin
 func TestRegister_DelegatesToBackend(t *testing.T) {
 	mock := backlog.NewMockClient()
 	backend := newFakeBackend()
-	reg := mcpinternal.NewToolRegistryWithBackend(backend, mock, "")
+	reg := mcpinternal.NewToolRegistryWithBackend(backend, mock)
 
 	tool := mcpinternal.NewToolDef("backend_test_tool",
 		mcpinternal.WithDesc("backend test"),
@@ -81,72 +81,5 @@ func TestRegister_DelegatesToBackend(t *testing.T) {
 	}
 	if decoded["echo"] != "hello" {
 		t.Errorf("echo = %q, want hello", decoded["echo"])
-	}
-}
-
-// B02: RegisterWithSpaces は resolver 未設定時、Register と同じく backend 経由で
-// ツールを登録・実行し、spaces/all_spaces パラメータを注入する。
-func TestRegisterWithSpaces_DelegatesToBackend_NoResolver(t *testing.T) {
-	mock := backlog.NewMockClient()
-	backend := newFakeBackend()
-	reg := mcpinternal.NewToolRegistryWithBackend(backend, mock, "")
-
-	tool := mcpinternal.NewToolDef("backend_space_tool", mcpinternal.WithDesc("space test"))
-	reg.RegisterWithSpaces(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
-		return "ok", nil
-	})
-
-	entry, ok := backend.registered["backend_space_tool"]
-	if !ok {
-		t.Fatal("expected tool to be registered on backend")
-	}
-	foundSpaces, foundAllSpaces := false, false
-	for _, p := range entry.tool.Params {
-		switch p.Name {
-		case mcpinternal.ParamNameSpaces:
-			foundSpaces = true
-		case mcpinternal.ParamNameAllSpaces:
-			foundAllSpaces = true
-		}
-	}
-	if !foundSpaces || !foundAllSpaces {
-		t.Errorf("expected spaces/all_spaces params injected, got %+v", entry.tool.Params)
-	}
-
-	result := backend.call(t, "backend_space_tool", map[string]any{})
-	if result.IsError {
-		t.Fatalf("unexpected error result: %+v", result)
-	}
-}
-
-// B03: RegisterWithSpacesWrite も同様に backend 経由で登録・実行され、
-// spaces パラメータ (単一指定用) を注入する。
-func TestRegisterWithSpacesWrite_DelegatesToBackend_NoResolver(t *testing.T) {
-	mock := backlog.NewMockClient()
-	backend := newFakeBackend()
-	reg := mcpinternal.NewToolRegistryWithBackend(backend, mock, "")
-
-	tool := mcpinternal.NewToolDef("backend_space_write_tool", mcpinternal.WithDesc("space write test"))
-	reg.RegisterWithSpacesWrite(tool, func(ctx context.Context, client backlog.Client, args map[string]any) (any, error) {
-		return "ok", nil
-	})
-
-	entry, ok := backend.registered["backend_space_write_tool"]
-	if !ok {
-		t.Fatal("expected tool to be registered on backend")
-	}
-	foundSpaces := false
-	for _, p := range entry.tool.Params {
-		if p.Name == mcpinternal.ParamNameSpaces {
-			foundSpaces = true
-		}
-	}
-	if !foundSpaces {
-		t.Errorf("expected spaces param injected, got %+v", entry.tool.Params)
-	}
-
-	result := backend.call(t, "backend_space_write_tool", map[string]any{})
-	if result.IsError {
-		t.Fatalf("unexpected error result: %+v", result)
 	}
 }

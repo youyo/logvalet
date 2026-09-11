@@ -11,7 +11,7 @@ import (
 // RegisterDocumentTools はドキュメント関連の MCP tools を ToolRegistry に登録する。
 func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	// logvalet_document_get
-	r.RegisterWithSpaces(NewToolDef("logvalet_document_get",
+	r.Register(NewToolDef("logvalet_document_get",
 		WithDesc("Get document by document ID"),
 		WithStringParam("document_id", true, "Document ID"),
 		WithAnnotation(readOnlyAnnotation("ドキュメント取得")),
@@ -24,7 +24,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_list
-	r.RegisterWithSpaces(NewToolDef("logvalet_document_list",
+	r.Register(NewToolDef("logvalet_document_list",
 		WithDesc("List documents in a project"),
 		WithStringParam("project_key", true, "Project key (e.g. PROJ)"),
 		WithNumberParam("count", false, "Max number of documents"),
@@ -50,7 +50,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_create
-	r.RegisterWithSpacesWrite(NewToolDef("logvalet_document_create",
+	r.Register(NewToolDef("logvalet_document_create",
 		WithDesc("Create a new document in a project"),
 		WithNumberParam("project_id", true, "Project ID (numeric)"),
 		WithStringParam("title", true, "Document title"),
@@ -84,7 +84,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_tree: B5
-	r.RegisterWithSpaces(NewToolDef("logvalet_document_tree",
+	r.Register(NewToolDef("logvalet_document_tree",
 		WithDesc("Get the document tree for a project"),
 		WithStringParam("project_key", true, "Project key"),
 		WithAnnotation(readOnlyAnnotation("ドキュメントツリー取得")),
@@ -97,7 +97,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 	})
 
 	// logvalet_document_digest: B6
-	r.RegisterWithSpaces(NewToolDef("logvalet_document_digest",
+	r.Register(NewToolDef("logvalet_document_digest",
 		WithDesc("Generate a digest for a document"),
 		WithStringParam("document_id", true, "Document ID"),
 		WithAnnotation(readOnlyAnnotation("ドキュメントダイジェスト生成")),
@@ -106,13 +106,13 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		if !ok || documentID == "" {
 			return nil, fmt.Errorf("document_id is required")
 		}
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := digest.NewDefaultDocumentDigestBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, documentID, digest.DocumentDigestOptions{})
 	})
 
 	// logvalet_document_search
-	r.RegisterWithSpaces(NewToolDef("logvalet_document_search",
+	r.Register(NewToolDef("logvalet_document_search",
 		WithDesc("Search documents by keyword within a Backlog space"),
 		WithStringParam("keyword", true, "Search keyword"),
 		WithStringParam("project_keys", false, "Comma-separated project keys to filter (e.g. PROJ1,PROJ2)"),
@@ -170,7 +170,7 @@ func RegisterDocumentTools(r *ToolRegistry, cfg ServerConfig) {
 		if d, ok := stringArg(args, "detail"); ok && d != "" {
 			detail = d
 		}
-		spaceAlias, spaceBaseURL := spaceInfoFromContext(ctx, cfg.Space, cfg.BaseURL)
+		spaceAlias, spaceBaseURL := cfg.Space, cfg.BaseURL
 		builder := digest.NewDefaultDocumentSearchBuilder(client, cfg.Profile, spaceAlias, spaceBaseURL)
 		return builder.Build(ctx, docs, digest.DocumentSearchOptions{
 			Keyword: keyword,

@@ -24,6 +24,6 @@ type ServerBackend interface {
 // NewToolRegistryWithBackend は任意の ServerBackend 実装を使う ToolRegistry を返す。
 // 公式 Go SDK backend (backend_official.go) や、SDK 非依存の fake backend を
 // テストで注入する場合の汎用エントリポイント。
-func NewToolRegistryWithBackend(backend ServerBackend, client backlog.Client, authorizationURL string) *ToolRegistry {
-	return &ToolRegistry{server: backend, client: client, authorizationURL: authorizationURL}
+func NewToolRegistryWithBackend(backend ServerBackend, client backlog.Client) *ToolRegistry {
+	return &ToolRegistry{server: backend, client: client}
 }

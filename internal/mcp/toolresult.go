@@ -8,29 +8,18 @@ type ServerInfo struct {
 	Title   string
 }
 
-// ResultMeta は tool 呼び出し結果の _meta (serverInfo・authorization_required・
-// authorization_url 等) を表す logvalet 独自型。
-// toolResultAuthRequired (tools.go) が組み立てている gomcp.Meta.AdditionalFields の
-// 内容を構造化したもの。
+// ResultMeta は tool 呼び出し結果の _meta (serverInfo 等) を表す logvalet 独自型。
 type ResultMeta struct {
-	ServerInfo            *ServerInfo
-	AuthorizationRequired bool
-	AuthorizationURL      string
+	ServerInfo *ServerInfo
 	// Extra はプロトコルで明示的に定義されていない追加フィールドを保持する。
 	Extra map[string]any
 }
 
 // ToMap は ResultMeta を gomcp.Meta.AdditionalFields 互換の map[string]any に変換する。
 func (m ResultMeta) ToMap() map[string]any {
-	out := make(map[string]any, len(m.Extra)+2)
+	out := make(map[string]any, len(m.Extra)+1)
 	for k, v := range m.Extra {
 		out[k] = v
-	}
-	if m.AuthorizationRequired {
-		out["authorization_required"] = true
-	}
-	if m.AuthorizationURL != "" {
-		out["authorization_url"] = m.AuthorizationURL
 	}
 	if m.ServerInfo != nil {
 		out["serverInfo"] = map[string]any{
@@ -71,25 +60,6 @@ type ToolResult struct {
 	StructuredContent any
 	IsError           bool
 	Meta              *ResultMeta
-	// URLInputRequest が設定されている場合、MRTR (SEP-2322, InputRequiredResult) の
-	// URL 型 elicitation として公式 SDK の InputRequests に変換される
-	// (ToOfficialSDKResult 参照)。公式 SDK は Content と InputRequests を同時設定不可
-	// とするため (mrtr.go handleMultiRoundTripResult)、これを設定する場合 Content は
-	// 空のままにすること。Meta は InputRequests と独立したフィールドのため、
-	// 旧 _meta.authorization_url との併記に使える。
-	URLInputRequest *MRTRURLInputRequest
-}
-
-// MRTRURLInputRequest は MRTR (SEP-2322) の URL 型 elicitation
-// (公式 SDK の mcp.ElicitParams{Mode:"url"} 相当) を SDK 非依存に表現する
-// logvalet 独自型。現時点では Backlog 再認可導線の URL 提示のみに用いる。
-type MRTRURLInputRequest struct {
-	// ID は InputRequests map のキー (サーバー側で任意採番する要求 ID)。
-	ID string
-	// URL はユーザーが開いて認可を完了すべき URL。
-	URL string
-	// Message はクライアントに提示する説明文。
-	Message string
 }
 
 // NewTextToolResult はテキストのみの成功結果を作る。

@@ -4,10 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/digest"
-	"github.com/youyo/logvalet/internal/domain"
-	"github.com/youyo/logvalet/internal/space"
 )
 
 // SearchCmd は Backlog リソースを keyword で横断検索するコマンド。
@@ -20,13 +17,6 @@ type SearchCmd struct {
 }
 
 func (c *SearchCmd) Run(g *GlobalFlags) error {
-	fanoutDone, err := runFanout(g, func(ctx context.Context, reg space.SpaceRegistration, client backlog.Client) (*domain.DigestEnvelope, error) {
-		builder := digest.NewDefaultSearchBuilder(client, g.Profile, reg.Alias, reg.BaseURL)
-		return builder.Build(ctx, c.options())
-	})
-	if fanoutDone {
-		return err
-	}
 
 	ctx := context.Background()
 	rc, err := buildRunContext(g)

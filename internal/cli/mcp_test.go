@@ -10,8 +10,8 @@ import (
 	"github.com/youyo/logvalet/internal/cli"
 )
 
-// removedFlagCases は削除済み認証フラグの fail-fast を検証するテーブル。
-// いずれも「AgentCore Gateway に委譲された」旨のエラーになる必要がある。
+// 削除済み認証フラグの fail-fast を検証するテーブル。
+// いずれも Portals 前段への移行を案内するエラーになる必要がある。
 func TestMcpCmd_Validate_RemovedFlags_FailFast(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -39,21 +39,10 @@ func TestMcpCmd_Validate_RemovedFlags_FailFast(t *testing.T) {
 			if !strings.Contains(err.Error(), tc.wantFlag) {
 				t.Errorf("error should mention %s, got: %v", tc.wantFlag, err)
 			}
-			if !strings.Contains(err.Error(), "AgentCore Gateway") {
-				t.Errorf("error should mention AgentCore Gateway delegation, got: %v", err)
+			if !strings.Contains(err.Error(), "Portals") {
+				t.Errorf("error should mention Portals, got: %v", err)
 			}
 		})
-	}
-}
-
-func TestMcpCmd_Validate_AuthModeOIDC_FailFast(t *testing.T) {
-	cmd := &cli.McpCmd{AuthMode: "oidc"}
-	err := cmd.Validate()
-	if err == nil {
-		t.Fatal("expected error for --auth-mode=oidc")
-	}
-	if !strings.Contains(err.Error(), "AgentCore Gateway") {
-		t.Errorf("error should mention AgentCore Gateway delegation, got: %v", err)
 	}
 }
 
@@ -64,48 +53,42 @@ func TestMcpCmd_Validate_Default_OK(t *testing.T) {
 	}
 }
 
-// Backlog OAuth フラグは OIDC 認証を前提としなくなったため、
-// 単独で設定しても Validate はエラーにならない。
-func TestMcpCmd_Validate_BacklogClientIDAlone_OK(t *testing.T) {
-	cmd := &cli.McpCmd{BacklogClientID: "some-client-id"}
-	if err := cmd.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// S23 決定F: HTTP モードでは LOGVALET_SPACE_STORE_TYPE の明示指定を必須とし、
-// 未設定・memory 選択時は起動エラー（警告ではない）になる。このチェックは
-// Run() の最初（config/認証情報の解決や listen より前）に行われるため、
-// サーバーを起動せずにエラーを検証できる。
-// 注意: sqlite/dynamodb を選択した「成功」系は Run() が実際に listen まで
-// 到達しテストがハングしうるため、ここでは検証しない
-// （sqlite/dynamodb 許容の検証は internal/space の RequireExplicitStoreType
-// 単体テストで行う）。
-func TestMcpCmd_Run_RequiresExplicitSpaceStoreType(t *testing.T) {
+// multi-space 撤去 (v0.40): space store 系の設定は廃止され、指定すると
+// Validate() が移行先を案内して fail-fast する。Kong が env から値を読むため、
+// ここでは対応する Removed* フィールドを直接埋めて検証する。
+func TestMcpCmd_Validate_RemovedSpaceStoreSettings(t *testing.T) {
 	cases := []struct {
-		name   string
-		envVal string
+		name string
+		cmd  cli.McpCmd
+		env  string
 	}{
-		{"unset", ""},
-		{"memory", "memory"},
-		{"MEMORY_case_insensitive", "MEMORY"},
+		{"type", cli.McpCmd{RemovedSpaceStoreType: "sqlite"}, "LOGVALET_SPACE_STORE_TYPE"},
+		{"path", cli.McpCmd{RemovedSpaceStorePath: "/tmp/spaces.db"}, "LOGVALET_SPACE_STORE_PATH"},
+		{"ddb_table", cli.McpCmd{RemovedSpaceStoreDDBTable: "tbl"}, "LOGVALET_SPACE_STORE_DYNAMODB_TABLE"},
+		{"ddb_region", cli.McpCmd{RemovedSpaceStoreDDBRegion: "ap-northeast-1"}, "LOGVALET_SPACE_STORE_DYNAMODB_REGION"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("LOGVALET_SPACE_STORE_TYPE", tc.envVal)
-
-			cmd := &cli.McpCmd{Port: 0}
-			g := &cli.GlobalFlags{}
-			err := cmd.Run(g)
-
+			err := tc.cmd.Validate()
 			if err == nil {
-				t.Fatal("expected space store type error, got nil")
+				t.Fatalf("%s 指定時はエラーになるべき", tc.env)
 			}
-			if !strings.Contains(err.Error(), "LOGVALET_SPACE_STORE_TYPE") {
-				t.Errorf("error should mention LOGVALET_SPACE_STORE_TYPE, got: %v", err)
+			if !strings.Contains(err.Error(), tc.env) {
+				t.Errorf("エラーに %s を含むべき: %v", tc.env, err)
+			}
+			if !strings.Contains(err.Error(), "Portals") {
+				t.Errorf("エラーに移行先 (Portals) の案内を含むべき: %v", err)
 			}
 		})
+	}
+}
+
+// 未設定なら Validate() は通る（multi-space 撤去後の既定経路）。
+func TestMcpCmd_Validate_NoSpaceStoreSettings_OK(t *testing.T) {
+	cmd := &cli.McpCmd{}
+	if err := cmd.Validate(); err != nil {
+		t.Fatalf("space store 系未指定ならエラーにならないべき: %v", err)
 	}
 }
 
