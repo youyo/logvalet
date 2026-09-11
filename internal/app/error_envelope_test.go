@@ -16,8 +16,18 @@ type testExitCoderError struct {
 	exitCode int
 }
 
-func (e *testExitCoderError) Error() string   { return e.msg }
-func (e *testExitCoderError) ExitCode() int   { return e.exitCode }
+func (e *testExitCoderError) Error() string { return e.msg }
+func (e *testExitCoderError) ExitCode() int { return e.exitCode }
+
+// testQuietExitError は QuietExiter と ExitCoder を実装するテスト用エラー。
+type testQuietExitError struct {
+	msg      string
+	exitCode int
+}
+
+func (e *testQuietExitError) Error() string   { return e.msg }
+func (e *testQuietExitError) ExitCode() int   { return e.exitCode }
+func (e *testQuietExitError) QuietExit() bool { return true }
 
 // testFullError は ExitCoder, ErrorCoder, Retryabler を全て実装するテスト用エラー。
 type testFullError struct {
@@ -27,10 +37,10 @@ type testFullError struct {
 	retryable bool
 }
 
-func (e *testFullError) Error() string    { return e.msg }
-func (e *testFullError) ExitCode() int    { return e.exitCode }
+func (e *testFullError) Error() string     { return e.msg }
+func (e *testFullError) ExitCode() int     { return e.exitCode }
 func (e *testFullError) ErrorCode() string { return e.errorCode }
-func (e *testFullError) Retryable() bool  { return e.retryable }
+func (e *testFullError) Retryable() bool   { return e.retryable }
 
 func TestNewErrorEnvelope(t *testing.T) {
 	env := app.NewErrorEnvelope("not_found", "Issue PROJ-999 was not found.", false)
@@ -179,6 +189,31 @@ func TestHandleError_ExitCoderError(t *testing.T) {
 
 	if env.Error.Code != "not_found" {
 		t.Errorf("error.code = %q, want %q", env.Error.Code, "not_found")
+	}
+}
+
+func TestHandleError_QuietExiter(t *testing.T) {
+	err := &testQuietExitError{msg: "検証結果は出力済み", exitCode: app.ExitArgumentError}
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "直接", err: err},
+		{name: "errors.Join でラップ", err: errors.Join(err)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			exitCode := app.HandleError(&buf, tt.err, app.ExitGenericError)
+
+			if exitCode != app.ExitArgumentError {
+				t.Errorf("exit code = %d, want %d", exitCode, app.ExitArgumentError)
+			}
+			if buf.Len() != 0 {
+				t.Errorf("QuietExiter で出力された: %q", buf.String())
+			}
+		})
 	}
 }
 

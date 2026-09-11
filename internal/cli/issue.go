@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/youyo/logvalet/internal/backlog"
+	"github.com/youyo/logvalet/internal/conventions"
 	"github.com/youyo/logvalet/internal/domain"
 )
 
@@ -20,6 +21,7 @@ type IssueCmd struct {
 	Update          IssueUpdateCmd          `cmd:"" help:"update issue"`
 	Comment         IssueCommentCmd         `cmd:"" help:"manage comments"`
 	Attachment      IssueAttachmentCmd      `cmd:"" help:"manage attachments"`
+	Related         IssueRelatedCmd         `cmd:"" help:"manage related issues"`
 	Context         IssueContextCmd         `cmd:"" help:"get issue context for AI analysis"`
 	Stale           IssueStaleCmd           `cmd:"" help:"detect stale issues"`
 	TriageMaterials IssueTriageMaterialsCmd `cmd:"" name:"triage-materials" help:"get triage materials for an issue"`
@@ -143,6 +145,7 @@ type IssueCreateCmd struct {
 	Priority        string   `help:"priority (name or ID). defaults to normal priority"`
 	Assignee        string   `help:"assignee user ID"`
 	Category        []string `help:"category (name or ID, multiple allowed)"`
+	Engagement      string   `help:"engagement name (sets both the engagement category and parent issue)"`
 	Version         []string `name:"versions" help:"version (name or ID, multiple allowed)"`
 	Milestone       []string `help:"milestone (name or ID, multiple allowed)"`
 	DueDate         string   `help:"due date (YYYY-MM-DD)"`
@@ -173,6 +176,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 			"priority":         nilIfEmpty(c.Priority),
 			"assignee":         nilIfEmpty(c.Assignee),
 			"category":         c.Category,
+			"engagement":       nilIfEmpty(c.Engagement),
 			"version":          c.Version,
 			"milestone":        c.Milestone,
 			"due_date":         nilIfEmpty(c.DueDate),
@@ -198,6 +202,7 @@ func (c *IssueCreateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
+	warnEngagementCategoryMismatch(ctx, rc.Client, c.ProjectKey, issue)
 	return rc.Renderer.Render(os.Stdout, issue)
 }
 
@@ -221,7 +226,7 @@ func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client,
 		}
 		issueTypeID = issueTypes[0].ID
 	} else {
-		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypes)
+		issueTypeID, err = resolveNameOrID(c.IssueType, issueTypesAsIDNames(issueTypes))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}
@@ -273,6 +278,17 @@ func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client,
 		}
 	}
 
+	var engagement *conventions.EngagementRef
+	if c.Engagement != "" {
+		engagement, err = conventions.ResolveEngagement(ctx, client, c.ProjectKey, c.Engagement)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve engagement: %w", err)
+		}
+		if len(c.Category) == 0 {
+			categoryIDs = []int{engagement.CategoryID}
+		}
+	}
+
 	// 6. versions / milestones
 	var versionIDs []int
 	var milestoneIDs []int
@@ -305,6 +321,10 @@ func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client,
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse start date: %w", err)
 	}
+	parentIssueID := c.ParentIssueID
+	if parentIssueID == 0 && engagement != nil && engagement.ParentIssueID != 0 {
+		parentIssueID = engagement.ParentIssueID
+	}
 
 	return client.CreateIssue(ctx, backlog.CreateIssueRequest{
 		ProjectID:       proj.ID,
@@ -318,7 +338,7 @@ func (c *IssueCreateCmd) createIssue(ctx context.Context, client backlog.Client,
 		MilestoneIDs:    milestoneIDs,
 		DueDate:         dueDate,
 		StartDate:       startDate,
-		ParentIssueID:   c.ParentIssueID,
+		ParentIssueID:   parentIssueID,
 		NotifiedUserIDs: c.NotifiedUserID,
 	})
 }
@@ -336,6 +356,7 @@ type IssueUpdateCmd struct {
 	IssueType       *string  `help:"issue type (name or ID)"`
 	ParentIssueID   *int     `help:"parent issue ID (0 to remove parent)"`
 	Category        []string `help:"category (multiple allowed)"`
+	Engagement      *string  `help:"engagement name (sets both the engagement category and parent issue)"`
 	Version         []string `name:"versions" help:"version (multiple allowed)"`
 	Milestone       []string `help:"milestone (multiple allowed)"`
 	DueDate         *string  `help:"due date (YYYY-MM-DD)"`
@@ -366,10 +387,14 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if hasNotifiedUserID {
 		notifiedUserIDSlice = []string{"_"} // 非空スライスとして扱う
 	}
+	var engagementSlice []string
+	if c.Engagement != nil {
+		engagementSlice = []string{"_"} // --engagement を指定済みとして扱う
+	}
 	if err := validateAtLeastOneUpdateFlag(
 		c.Summary, c.Description, c.Status, c.Priority, c.Assignee,
 		c.DueDate, c.StartDate, descStr,
-		c.Category, c.Version, c.Milestone, notifiedUserIDSlice,
+		c.Category, c.Version, c.Milestone, notifiedUserIDSlice, engagementSlice,
 	); err != nil {
 		// IssueType, Comment, ParentIssueID もチェック
 		if c.IssueType == nil && c.Comment == nil && c.ParentIssueID == nil {
@@ -398,6 +423,7 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 			"priority":         ptrOrNil(c.Priority),
 			"assignee":         ptrOrNil(c.Assignee),
 			"issue_type":       ptrOrNil(c.IssueType),
+			"engagement":       ptrOrNil(c.Engagement),
 			"parent_issue_id":  intPtrOrNil(c.ParentIssueID),
 			"due_date":         ptrOrNil(c.DueDate),
 			"start_date":       ptrOrNil(c.StartDate),
@@ -422,12 +448,20 @@ func (c *IssueUpdateCmd) Run(g *GlobalFlags) error {
 	if err != nil {
 		return err
 	}
+	warnEngagementCategoryMismatch(ctx, rc.Client, extractIssueProjectKey(c.IssueIDOrKey, issue), issue)
 	return rc.Renderer.Render(os.Stdout, issue)
 }
 
 // updateIssue は client を使って課題を更新するヘルパー。
 func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client, resolvedDescription *string) (*domain.Issue, error) {
 	projectKey := extractProjectKey(c.IssueIDOrKey)
+	if c.Engagement != nil {
+		var err error
+		projectKey, err = c.resolveProjectKey(ctx, client)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var statusID *int
 	if c.Status != nil {
@@ -461,7 +495,7 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		if err != nil {
 			return nil, fmt.Errorf("failed to get issue types: %w", err)
 		}
-		id, err := resolveNameOrID(*c.IssueType, issueTypes)
+		id, err := resolveNameOrID(*c.IssueType, issueTypesAsIDNames(issueTypes))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve issue type: %w", err)
 		}
@@ -487,6 +521,18 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		categoryIDs, err2 = resolveNamesOrIDs(c.Category, toIDNamesFromCategories(cats))
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to resolve categories: %w", err2)
+		}
+	}
+
+	var engagement *conventions.EngagementRef
+	if c.Engagement != nil {
+		var err error
+		engagement, err = conventions.ResolveEngagement(ctx, client, projectKey, *c.Engagement)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve engagement: %w", err)
+		}
+		if len(c.Category) == 0 {
+			categoryIDs = []int{engagement.CategoryID}
 		}
 	}
 
@@ -530,6 +576,10 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 			return nil, fmt.Errorf("failed to parse start date: %w", err)
 		}
 	}
+	parentIssueID := c.ParentIssueID
+	if parentIssueID == nil && engagement != nil && engagement.ParentIssueID != 0 {
+		parentIssueID = &engagement.ParentIssueID
+	}
 
 	return client.UpdateIssue(ctx, c.IssueIDOrKey, backlog.UpdateIssueRequest{
 		Summary:         c.Summary,
@@ -538,7 +588,7 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		PriorityID:      priorityID,
 		AssigneeID:      assigneeID,
 		IssueTypeID:     issueTypeID,
-		ParentIssueID:   c.ParentIssueID,
+		ParentIssueID:   parentIssueID,
 		CategoryIDs:     categoryIDs,
 		VersionIDs:      versionIDs,
 		MilestoneIDs:    milestoneIDs,
@@ -547,6 +597,56 @@ func (c *IssueUpdateCmd) updateIssue(ctx context.Context, client backlog.Client,
 		NotifiedUserIDs: c.NotifiedUserID,
 		Comment:         c.Comment,
 	})
+}
+
+func (c *IssueUpdateCmd) resolveProjectKey(ctx context.Context, client backlog.Client) (string, error) {
+	if _, err := strconv.Atoi(c.IssueIDOrKey); err != nil {
+		return extractProjectKey(c.IssueIDOrKey), nil
+	}
+
+	issue, err := client.GetIssue(ctx, c.IssueIDOrKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve issue ID %q: %w", c.IssueIDOrKey, err)
+	}
+	if issue == nil || issue.IssueKey == "" {
+		return "", fmt.Errorf("failed to resolve issue ID %q: issue key is missing", c.IssueIDOrKey)
+	}
+	return extractProjectKey(issue.IssueKey), nil
+}
+
+func extractIssueProjectKey(issueIDOrKey string, issue *domain.Issue) string {
+	if issue != nil && issue.IssueKey != "" {
+		return extractProjectKey(issue.IssueKey)
+	}
+	return extractProjectKey(issueIDOrKey)
+}
+
+func warnEngagementCategoryMismatch(ctx context.Context, client backlog.Client, projectKey string, issue *domain.Issue) {
+	if issue == nil || projectKey == "" {
+		return
+	}
+
+	// 規約課題と案件親課題は案件カテゴリの器そのものなので警告の対象外にする。
+	// analysis の曖昧さ検知と同じ扱い。
+	if issue.IssueType != nil {
+		switch issue.IssueType.Name {
+		case conventions.IssueTypeRule, conventions.IssueTypeEngagement:
+			return
+		}
+	}
+
+	result, err := conventions.Show(ctx, client, projectKey)
+	if err != nil || result == nil || !result.Adopted || result.Conventions == nil {
+		return
+	}
+
+	count := conventions.CountEngagementCategories(result.Conventions, issue.Categories)
+	switch {
+	case count == 0:
+		fmt.Fprintln(os.Stderr, "warning: 案件カテゴリが設定されていません。--engagement で案件を指定してください")
+	case count >= 2:
+		fmt.Fprintf(os.Stderr, "warning: 案件カテゴリが %d 個設定されています。案件はちょうど 1 つにしてください\n", count)
+	}
 }
 
 // IssueCommentCmd は issue comment コマンド群。

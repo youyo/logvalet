@@ -13,7 +13,7 @@ import (
 // 格納するためのキー型。unexported にすることで context.go の contextKey (userID 用)
 // や他パッケージのキーと衝突しない。
 //
-// docs/specs/remote-mcp-request-contract.md §2 参照: HTTP(Gateway) モードでは、
+// docs/specs/remote-mcp-request-contract.md §2 参照: HTTP モードでは、
 // 前段 (Cloudflare MCP Server Portals 等) が logvalet へのリクエストの Authorization ヘッダーに
 // per-user の Backlog OAuth access token を注入する。logvalet はこの値を
 // 検証・デコード・キャッシュせず、そのまま Backlog API 呼び出しへ転送する
@@ -22,7 +22,7 @@ type passthroughContextKey struct{}
 
 // ErrPassthroughTokenMissing は Backlog credential passthrough トークンが
 // context に存在しない場合に返されるセンチネルエラー。
-// HTTP(Gateway) モードで Authorization: Bearer ヘッダーが欠落しているリクエストに対する
+// HTTP モードで Authorization: Bearer ヘッダーが欠落しているリクエストに対する
 // fail-fast 判定に使う (契約 §4.3)。
 var ErrPassthroughTokenMissing = errors.New("auth: backlog credential passthrough token missing")
 

@@ -8,10 +8,12 @@ import (
 
 // ProjectCmd は project コマンド群のルート。
 type ProjectCmd struct {
-	Get      ProjectGetCmd      `cmd:"" help:"get project"`
-	List     ProjectListCmd     `cmd:"" help:"list projects"`
-	Blockers ProjectBlockersCmd `cmd:"" help:"detect project blockers"`
-	Health   ProjectHealthCmd   `cmd:"" help:"show project health summary"`
+	Get         ProjectGetCmd         `cmd:"" help:"get project"`
+	List        ProjectListCmd        `cmd:"" help:"list projects"`
+	Blockers    ProjectBlockersCmd    `cmd:"" help:"detect project blockers"`
+	Health      ProjectHealthCmd      `cmd:"" help:"show project health summary"`
+	Conventions ProjectConventionsCmd `cmd:"" help:"manage project conventions"`
+	Apply       ProjectApplyCmd       `cmd:"" help:"apply conventions to a project"`
 }
 
 // ProjectGetCmd は project get コマンド。
@@ -51,4 +53,3 @@ func (c *ProjectListCmd) Run(g *GlobalFlags) error {
 	}
 	return rc.Renderer.Render(os.Stdout, projects)
 }
-

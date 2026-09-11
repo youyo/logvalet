@@ -23,6 +23,59 @@ type CreateIssueRequest struct {
 	AttachmentIDs   []int64 // UploadAttachment で取得した添付 ID
 }
 
+// CreateProjectRequest は CreateProject リクエストのパラメータ。
+// bool はポインタ（nil = 未指定。API の既定に委ねる）。
+type CreateProjectRequest struct {
+	Name                              string // 必須
+	Key                               string // 必須。大文字英数字と _ のみ
+	ChartEnabled                      *bool
+	SubtaskingEnabled                 *bool // nil のときは true を送る
+	GrandchildIssueEnabled            *bool
+	ProjectLeaderCanEditProjectLeader *bool
+	UseDevAttributes                  *bool
+	TextFormattingRule                string // "backlog" | "markdown"。空なら送らない
+}
+
+// AddCategoryRequest はカテゴリ追加のパラメータ。
+type AddCategoryRequest struct {
+	Name string // 必須
+}
+
+// UpdateCategoryRequest はカテゴリ更新のパラメータ。
+type UpdateCategoryRequest struct {
+	Name string // 必須
+}
+
+// AddIssueTypeRequest は課題種別追加のパラメータ。
+type AddIssueTypeRequest struct {
+	Name                string // 必須
+	Color               string // 必須。Backlog が許可する色コードのみ
+	TemplateSummary     string
+	TemplateDescription string
+}
+
+// UpdateIssueTypeRequest は課題種別更新のパラメータ。
+// 全フィールドはポインタ型（nil = 変更しない）。
+type UpdateIssueTypeRequest struct {
+	Name                *string
+	Color               *string
+	TemplateSummary     *string
+	TemplateDescription *string
+}
+
+// AddStatusRequest は状態追加のパラメータ。
+type AddStatusRequest struct {
+	Name  string // 必須
+	Color string // 必須。状態用の許可色コードのみ
+}
+
+// UpdateStatusRequest は状態更新のパラメータ。
+// 全フィールドはポインタ型（nil = 変更しない）。
+type UpdateStatusRequest struct {
+	Name  *string
+	Color *string
+}
+
 // UpdateIssueRequest は UpdateIssue リクエストのパラメータ。
 // 全フィールドはポインタ型（nil = 変更しない）。
 type UpdateIssueRequest struct {

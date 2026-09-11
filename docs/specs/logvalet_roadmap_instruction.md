@@ -222,7 +222,7 @@ AI が Backlog の issue / project / user / activity を扱う際、
 - status / assignee / priority / category / version / milestone
 - recent comments
 - recent updates
-- related issue 候補
+- related issue 候補（v0.38.0 で `related_issues` として実装済み。`--no-include-related-issues` でスキップ可）
 - blocker 候補
 - next action hint の素地となる材料
 - optional summary
@@ -232,6 +232,7 @@ AI が Backlog の issue / project / user / activity を扱う際、
 - `logvalet issue context PROJ-123`
 - `logvalet issue context PROJ-123 --comments 20`
 - `logvalet issue context PROJ-123 --compact`
+- `logvalet issue context PROJ-123 --no-include-related-issues`
 
 #### 2. project digest 強化
 既存 digest がある場合は活用し、足りない視点を強化する。

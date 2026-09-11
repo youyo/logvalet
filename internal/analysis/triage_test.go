@@ -129,6 +129,9 @@ func setupTriageMock(targetIssue *domain.Issue, projectIssues []domain.Issue, co
 	mc.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
 		return comments, nil
 	}
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, nil
+	}
 	return mc
 }
 
@@ -474,6 +477,111 @@ func TestTriageMaterials_Build_IssueGetError(t *testing.T) {
 	}
 	if env != nil {
 		t.Error("env should be nil on GetIssue error")
+	}
+}
+
+// T11: TestTriageMaterials_Build_RelatedIssues は関連課題が RelatedIssues に反映されることを検証する。
+func TestTriageMaterials_Build_RelatedIssues(t *testing.T) {
+	targetIssue := helperTriageIssue()
+	mc := setupTriageMock(targetIssue, helperProjectIssues(fixedNowTriage), nil)
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return []domain.RelatedIssue{
+			{Issue: domain.Issue{IssueKey: "PROJ-200", Summary: "関連課題1"}, Type: "related"},
+			{Issue: domain.Issue{IssueKey: "PROJ-201", Summary: "関連課題2"}, Type: "duplicate"},
+		}, nil
+	}
+
+	builder := NewTriageMaterialsBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNowTriage }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", TriageMaterialsOptions{})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	result := env.Analysis.(*TriageMaterials)
+	if len(result.RelatedIssues) != 2 {
+		t.Fatalf("RelatedIssues count = %d, want 2", len(result.RelatedIssues))
+	}
+	if result.RelatedIssues[0].IssueKey != "PROJ-200" {
+		t.Errorf("RelatedIssues[0].IssueKey = %q, want PROJ-200", result.RelatedIssues[0].IssueKey)
+	}
+	if len(env.Warnings) != 0 {
+		t.Errorf("Warnings = %v, want empty", env.Warnings)
+	}
+
+	// 既存4フィールドが不変であることの確認
+	if result.Issue.IssueKey != "PROJ-123" {
+		t.Errorf("Issue.IssueKey = %q, want PROJ-123", result.Issue.IssueKey)
+	}
+	if result.History.CommentCount != 0 {
+		t.Errorf("History.CommentCount = %d, want 0", result.History.CommentCount)
+	}
+	if result.ProjectStats.TotalIssues != 5 {
+		t.Errorf("ProjectStats.TotalIssues = %d, want 5", result.ProjectStats.TotalIssues)
+	}
+	if result.SimilarIssues.SameCategoryCount == 0 {
+		t.Error("SimilarIssues.SameCategoryCount should not be 0")
+	}
+}
+
+// T12: TestTriageMaterials_Build_RelatedIssuesFetchFailed は関連課題取得失敗時に
+// 空配列と warning が設定され、Build() 自体は error を返さないことを検証する。
+func TestTriageMaterials_Build_RelatedIssuesFetchFailed(t *testing.T) {
+	targetIssue := helperTriageIssue()
+	mc := setupTriageMock(targetIssue, helperProjectIssues(fixedNowTriage), nil)
+	mc.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		return nil, errors.New("api error")
+	}
+
+	builder := NewTriageMaterialsBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNowTriage }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", TriageMaterialsOptions{})
+	if err != nil {
+		t.Fatalf("Build() error = %v, want nil", err)
+	}
+
+	result := env.Analysis.(*TriageMaterials)
+	if len(result.RelatedIssues) != 0 {
+		t.Errorf("RelatedIssues = %v, want empty", result.RelatedIssues)
+	}
+
+	found := false
+	for _, w := range env.Warnings {
+		if w.Code == "related_issues_fetch_failed" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Warnings = %v, want related_issues_fetch_failed", env.Warnings)
+	}
+	if len(env.Warnings) != 1 {
+		t.Errorf("Warnings count = %d, want 1", len(env.Warnings))
+	}
+}
+
+// T13: TestTriageMaterials_Build_SkipRelatedIssues は SkipRelatedIssues:true 指定時に
+// ListRelatedIssues が呼ばれないことを検証する。
+func TestTriageMaterials_Build_SkipRelatedIssues(t *testing.T) {
+	targetIssue := helperTriageIssue()
+	mc := setupTriageMock(targetIssue, helperProjectIssues(fixedNowTriage), nil)
+
+	builder := NewTriageMaterialsBuilder(mc, "default", "heptagon", "https://heptagon.backlog.com",
+		WithClock(func() time.Time { return fixedNowTriage }))
+
+	env, err := builder.Build(context.Background(), "PROJ-123", TriageMaterialsOptions{SkipRelatedIssues: true})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	if mc.GetCallCount("ListRelatedIssues") != 0 {
+		t.Errorf("GetCallCount(ListRelatedIssues) = %d, want 0", mc.GetCallCount("ListRelatedIssues"))
+	}
+
+	result := env.Analysis.(*TriageMaterials)
+	if len(result.RelatedIssues) != 0 {
+		t.Errorf("RelatedIssues = %v, want empty", result.RelatedIssues)
 	}
 }
 

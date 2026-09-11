@@ -20,8 +20,9 @@ const DefaultMaxComments = 10
 
 // IssueContextOptions は IssueContextBuilder.Build() のオプション。
 type IssueContextOptions struct {
-	MaxComments int  // default: 10
-	Compact     bool // true: description, comment content を省略
+	MaxComments       int  // default: 10
+	Compact           bool // true: description, comment content を省略
+	SkipRelatedIssues bool // ゼロ値=取得する。true で関連課題取得をスキップする
 }
 
 // IssueContext は issue context 分析の結果。
@@ -31,6 +32,7 @@ type IssueContext struct {
 	RecentComments []ContextComment      `json:"recent_comments"`
 	Signals        IssueSignals          `json:"signals"`
 	LLMHints       digest.DigestLLMHints `json:"llm_hints"`
+	RelatedIssues  []RelatedIssueRef     `json:"related_issues"`
 }
 
 // IssueSnapshot は issue の正規化スナップショット（snake_case JSON）。
@@ -100,10 +102,11 @@ func (b *IssueContextBuilder) Build(ctx context.Context, issueKey string, opt Is
 
 	// 2. errgroup で comments, statuses を並行取得（部分失敗は warnings）
 	var (
-		comments []domain.Comment
-		statuses []domain.Status
-		mu       sync.Mutex
-		warnings []domain.Warning
+		comments      []domain.Comment
+		statuses      []domain.Status
+		relatedIssues = []RelatedIssueRef{}
+		mu            sync.Mutex
+		warnings      []domain.Warning
 	)
 
 	projectKey := extractProjectKey(issueKey)
@@ -148,6 +151,19 @@ func (b *IssueContextBuilder) Build(ctx context.Context, issueKey string, opt Is
 		return nil
 	})
 
+	if !opt.SkipRelatedIssues {
+		g.Go(func() error {
+			refs, warn := fetchRelatedIssues(gctx, b.client, issueKey)
+			mu.Lock()
+			relatedIssues = refs
+			if warn != nil {
+				warnings = append(warnings, *warn)
+			}
+			mu.Unlock()
+			return nil
+		})
+	}
+
 	_ = g.Wait()
 
 	// 3. snapshot, signals, llm_hints を組み立て
@@ -164,6 +180,7 @@ func (b *IssueContextBuilder) Build(ctx context.Context, issueKey string, opt Is
 		RecentComments: recentComments,
 		Signals:        signals,
 		LLMHints:       hints,
+		RelatedIssues:  relatedIssues,
 	}
 
 	// 4. envelope で包んで返却

@@ -46,7 +46,7 @@ func normalizedInputSchema(t ToolDef) map[string]any {
 //
 // 公式 SDK (v1.7.0) の ToolAnnotations.ReadOnlyHint / IdempotentHint は ToolAnnotation の
 // *bool ではなく素の bool (false 値も省略されず出力される) であるため、nil の場合は
-// false として復元する。logvalet の全 72 ツール定義は ReadOnlyHint/IdempotentHint を常に明示的に
+// false として復元する。logvalet の全 75 ツール定義は ReadOnlyHint/IdempotentHint を常に明示的に
 // 設定しており (tool_categories.go)、nil になるケースは実運用上存在しないため、
 // この変換で tools_list_baseline.json との差分は生じない。
 func (a ToolAnnotation) toOfficialSDKAnnotations() *officialmcp.ToolAnnotations {

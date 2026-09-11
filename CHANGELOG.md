@@ -16,9 +16,9 @@
   設定されていると `lv mcp` 起動時に fail-fast する。
 - **MCP ツールの削除**: space registry 系5ツール（`logvalet_space_list` / `logvalet_space_use` /
   `logvalet_space_verify` / `logvalet_space_connect_url` / `logvalet_space_disconnect`）を削除。
-  ツール総数は 72 から 67 になった。`logvalet_space_info` / `logvalet_space_digest` /
+  ツール総数は 76 から 71 になった。`logvalet_space_info` / `logvalet_space_digest` /
   `logvalet_space_disk_usage` は Backlog `/api/v2/space` 系のラッパーのため存続する。
-- **MCP ツールスキーマの変更**: 残る全 67 ツールから `spaces` / `all_spaces` パラメータを削除した。
+- **MCP ツールスキーマの変更**: 残る全 71 ツールから `spaces` / `all_spaces` パラメータを削除した。
   全ツールの入力スキーマが変わるため、claude.ai 側では Settings > Connectors で
   コネクタを切断→再接続する必要がある（`/mcp` の再読み込みでは不十分）。
 - **呼び出し元認証の廃止**: `lv mcp`（HTTP）から `--auth-mode` を削除し、単一構成
@@ -53,7 +53,6 @@
 - 本番から未参照になった `provider.OAuthProvider.CloneWithBaseURL` を削除。
 - OAuth state JWT のクレーム `flow` / `base_url` / `alias` と `auth.GenerateStateWithSpaceInfo`
   を削除（multi-space 登録フロー専用だったため）。
-- fan-out 専用だった exit code `8`（部分失敗）を削除。fan-out が無くなり発生経路が無い。
 - `internal/auth` の OAuth 実装（state JWT / TokenManager / provider / tokenstore）を削除。
   残るのは Bearer passthrough と関連エラーのみ。`internal/transport/http` の OAuth ハンドラも削除した。
 - 依存から AWS SDK for Go v2、`golang.org/x/crypto`、`github.com/golang-jwt/jwt/v5`、
@@ -61,6 +60,85 @@
   （前回の「`modernc.org/sqlite` は tokenstore が使用するため存続」という記述を訂正する。
   tokenstore 自体が本番未到達のデッドコードだったため、依存ごと削除した）
 
+## v0.39.0 (2026-09-03)
+
+運用規約（conventions）機能を追加。Linear の「曖昧さを許さない構造」を Backlog の語彙に
+翻訳した規約を、宣言的ファイルから冪等に適用し、その規約を AI に読ませる（ADR:
+[0005](docs/adr/0005-conventions-source-of-truth-in-rule-issue.md) /
+[0006](docs/adr/0006-linear-project-mapping-to-category-and-parent-issue.md)、
+導入ガイド: [docs/conventions-guide.md](docs/conventions-guide.md)）。
+
+規約を導入していないプロジェクトの挙動は変わらない。
+
+### Added
+- feat(cli): `lv project conventions init` — 全項目にコメント付きの `conventions.yaml`
+  スケルトンを生成（`--from-project KEY` で既存プロジェクトのカテゴリ・種別・状態を起点にする）
+- feat(cli): `lv project conventions validate` — オフラインで 25 ルールを検証。
+  error は常に exit 2、warning は `--strict` のときだけ exit 2
+- feat(cli): `lv project conventions show` — 規約課題から運用規約と用語集を読み出す
+- feat(cli): `lv project apply` — 規約を Backlog へ冪等に差分適用。`--dry-run` は
+  書き込みを一切せず差分計画を表示、`--create` はプロジェクトごと作成
+- feat(cli/mcp): `issue create` / `issue update` に `--engagement`（MCP は `engagement`）を追加。
+  案件名 1 つで案件カテゴリと案件親課題の両方を設定する
+- feat(mcp): `logvalet_project_conventions` ツールを追加（読み出しのみ。ツール総数 75 → 76）
+- feat(analysis): `lv project health` の出力に `ambiguities` を追加。案件不明の課題・
+  Lead 不在の案件・クローズ候補など 7 種を検知し `health_score` の減点要因にする
+  （1 件 2 点、上限 20 点）
+- feat(backlog): 書き込み API を追加 — `CreateProject` / `AddCategory` / `UpdateCategory` /
+  `AddIssueType` / `UpdateIssueType` / `AddStatus` / `UpdateStatus`、および `ListProjectUsers`
+- docs: 導入ガイド（新規 / 既存プロジェクト）、README の Operating Conventions 節、
+  スキル（`logvalet` / `issue-create` / `health`）への規約参照
+
+### Changed
+- `ListProjectIssueTypes` の戻り値を `[]domain.IDName` → `[]domain.IssueType` に変更。
+  MCP `logvalet_meta_issue_types` の出力に `color` / `templateSummary` /
+  `templateDescription` が増える（既存キーは不変で後方互換）
+
+### 設計方針
+- 規約の正本は Backlog 上の**規約課題**（種別「規約」の課題 1 件）。MCP サーバーは
+  stateless で複数ユーザーから使われるため、ローカルの `conventions.yaml` は
+  apply の入力に留める
+- `apply` は MCP に出さない。一括更新には人の承認を挟む
+- `apply` はトランザクションではない。部分失敗は exit 8 で報告し、ロールバックせず
+  再実行で回復させる。同名リソースが複数あるときは書き込み前に停止する
+- Lead 未設定の案件は親課題を作らずスキップする（カテゴリは作る）
+
+## v0.38.1 (2026-09-02)
+
+依存モジュールの定期更新のみ（Dependabot #64〜#67）。機能変更・破壊的変更なし。
+
+### Changed
+- chore(deps): 直接依存を更新 — kong v1.16.1 / aws-sdk-go-v2 v1.43.7 系 /
+  golang.org/x/crypto v0.55.0 / modernc.org/sqlite v1.57.0（間接依存も追随）
+
+## v0.38.0 (2026-07-31)
+
+関連課題を digest 系サーフェス（issue context / triage-materials）に統合（ADR:
+[0004](docs/adr/0004-related-issues-scope-limited-to-digest-surfaces.md)）。破壊的変更なし。
+
+### Added
+- feat(analysis): `lv issue context` / `lv issue triage-materials` の出力に `related_issues` を追加
+  （軽量射影 `RelatedIssueRef`。取得失敗時は課題本体を失敗させず warnings に degrade）
+- feat(cli): 両コマンドに `--include-related-issues`（default: true、`--no-include-related-issues` で
+  除外可）を追加
+- feat(mcp): `logvalet_issue_context` / `logvalet_issue_triage_materials` に `include_related_issues`
+  パラメータ（boolean、既定 true）を追加
+- 設計方針: 関連課題の統合は抽象度の高い digest 系サーフェスに限定し、API と 1:1 の thin wrapper
+  （`issue get` / `issue related list`）は現状維持（ADR 0004）
+
+## v0.37.0 (2026-07-31)
+
+Backlog 関連課題（related issues）対応（issue #63、ADR:
+[0003](docs/adr/0003-related-issues-unpublished-api-direct-use.md)）。破壊的変更なし。
+
+### Added
+- feat(backlog): Client に `ListRelatedIssues` / `AddRelatedIssue` / `DeleteRelatedIssue` を追加
+  （未公開 API `/api/v2/issues/:issueIdOrKey/relatedIssues` を直接利用。204/空 body 応答にも対応）
+- feat(domain): `RelatedIssue` モデルを追加（Issue + `type`。未知の関係種別も許容する防御的パース）
+- feat(cli): `lv issue related list|add|remove` サブコマンドを追加（add/remove は `--dry-run` 対応）
+- feat(mcp): MCP ツール `logvalet_issue_related_list` / `_add` / `_delete` を追加（計 72→75 ツール）
+- docs: README en/ja・設計仕様書・スキル定義を同期（未公開 API である旨を明記）。MCP ツールの
+  annotation 分類表をコード実数（Read-only 59 / Write 非冪等 4 / Write 冪等 8 / Destructive 4）に是正
 ## v0.36.1 (2026-07-31)
 
 v0.36.0 の docs/CLI サーフェス追随漏れを修正（issue #62）。破壊的変更なし。

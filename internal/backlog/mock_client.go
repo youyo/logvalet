@@ -31,28 +31,36 @@ type MockClient struct {
 	UpdateIssueCommentFunc func(ctx context.Context, issueKey string, commentID int64, req UpdateCommentRequest) (*domain.Comment, error)
 
 	// Projects
-	GetProjectFunc           func(ctx context.Context, projectKey string) (*domain.Project, error)
-	ListProjectsFunc         func(ctx context.Context) ([]domain.Project, error)
+	GetProjectFunc            func(ctx context.Context, projectKey string) (*domain.Project, error)
+	ListProjectsFunc          func(ctx context.Context) ([]domain.Project, error)
+	CreateProjectFunc         func(ctx context.Context, req CreateProjectRequest) (*domain.Project, error)
 	ListProjectActivitiesFunc func(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Space activities
 	ListSpaceActivitiesFunc func(ctx context.Context, opt ListActivitiesOptions) ([]domain.Activity, error)
 
 	// Documents
-	GetDocumentFunc            func(ctx context.Context, documentID string) (*domain.Document, error)
-	ListDocumentsFunc          func(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
-	GetDocumentTreeFunc        func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
-	CreateDocumentFunc         func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
+	GetDocumentFunc             func(ctx context.Context, documentID string) (*domain.Document, error)
+	ListDocumentsFunc           func(ctx context.Context, projectID int, opt ListDocumentsOptions) ([]domain.Document, error)
+	GetDocumentTreeFunc         func(ctx context.Context, projectKey string) (*domain.DocumentTree, error)
+	CreateDocumentFunc          func(ctx context.Context, req CreateDocumentRequest) (*domain.Document, error)
 	ListDocumentAttachmentsFunc func(ctx context.Context, documentID string) ([]domain.Attachment, error)
-	SearchDocumentsFunc        func(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
+	SearchDocumentsFunc         func(ctx context.Context, opt SearchDocumentsOptions) ([]domain.Document, error)
 
 	// Project meta
-	ListProjectStatusesFunc      func(ctx context.Context, projectKey string) ([]domain.Status, error)
-	ListProjectCategoriesFunc    func(ctx context.Context, projectKey string) ([]domain.Category, error)
-	ListProjectVersionsFunc      func(ctx context.Context, projectKey string) ([]domain.Version, error)
-	ListProjectCustomFieldsFunc  func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
-	ListProjectIssueTypesFunc    func(ctx context.Context, projectKey string) ([]domain.IDName, error)
-	ListPrioritiesFunc           func(ctx context.Context) ([]domain.IDName, error)
+	ListProjectStatusesFunc     func(ctx context.Context, projectKey string) ([]domain.Status, error)
+	AddStatusFunc               func(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error)
+	UpdateStatusFunc            func(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error)
+	ListProjectUsersFunc        func(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error)
+	ListProjectCategoriesFunc   func(ctx context.Context, projectKey string) ([]domain.Category, error)
+	AddCategoryFunc             func(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error)
+	UpdateCategoryFunc          func(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error)
+	ListProjectVersionsFunc     func(ctx context.Context, projectKey string) ([]domain.Version, error)
+	ListProjectCustomFieldsFunc func(ctx context.Context, projectKey string) ([]domain.CustomFieldDefinition, error)
+	ListProjectIssueTypesFunc   func(ctx context.Context, projectKey string) ([]domain.IssueType, error)
+	AddIssueTypeFunc            func(ctx context.Context, projectKey string, req AddIssueTypeRequest) (*domain.IssueType, error)
+	UpdateIssueTypeFunc         func(ctx context.Context, projectKey string, issueTypeID int, req UpdateIssueTypeRequest) (*domain.IssueType, error)
+	ListPrioritiesFunc          func(ctx context.Context) ([]domain.IDName, error)
 
 	// Teams
 	ListTeamsFunc        func(ctx context.Context, opt ListTeamsOptions) ([]domain.TeamWithMembers, error)
@@ -75,13 +83,18 @@ type MockClient struct {
 	DownloadIssueAttachmentFunc        func(ctx context.Context, issueKey string, attachmentID int64) (io.ReadCloser, string, error)
 	DownloadIssueAttachmentBoundedFunc func(ctx context.Context, issueKey string, attachmentID int64, maxBytes int64) ([]byte, string, string, error)
 
+	// Related issues
+	ListRelatedIssuesFunc  func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error)
+	AddRelatedIssueFunc    func(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*domain.RelatedIssue, error)
+	DeleteRelatedIssueFunc func(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error)
+
 	// Wiki
-	ListWikisFunc          func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
-	CountWikisFunc         func(ctx context.Context, projectKey string) (int, error)
-	ListWikiTagsFunc       func(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
-	GetWikiFunc            func(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
-	GetWikiHistoryFunc     func(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
-	GetWikiStarsFunc       func(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
+	ListWikisFunc           func(ctx context.Context, projectKey string, opt ListWikisOptions) ([]domain.WikiPage, error)
+	CountWikisFunc          func(ctx context.Context, projectKey string) (int, error)
+	ListWikiTagsFunc        func(ctx context.Context, projectKey string) ([]domain.WikiTag, error)
+	GetWikiFunc             func(ctx context.Context, wikiID int64) (*domain.WikiPage, error)
+	GetWikiHistoryFunc      func(ctx context.Context, wikiID int64, opt ListWikiHistoryOptions) ([]domain.WikiHistory, error)
+	GetWikiStarsFunc        func(ctx context.Context, wikiID int64) ([]domain.WikiStar, error)
 	ListWikiAttachmentsFunc func(ctx context.Context, wikiID int64) ([]domain.Attachment, error)
 	ListWikiSharedFilesFunc func(ctx context.Context, wikiID int64) ([]domain.SharedFile, error)
 
@@ -89,12 +102,12 @@ type MockClient struct {
 	AddStarFunc func(ctx context.Context, req AddStarRequest) error
 
 	// Watchings
-	ListWatchingsFunc     func(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
-	CountWatchingsFunc    func(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
-	GetWatchingFunc       func(ctx context.Context, watchingID int64) (*domain.Watching, error)
-	AddWatchingFunc       func(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
-	UpdateWatchingFunc    func(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
-	DeleteWatchingFunc    func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	ListWatchingsFunc      func(ctx context.Context, userID int, opt ListWatchingsOptions) ([]domain.Watching, error)
+	CountWatchingsFunc     func(ctx context.Context, userID int, opt ListWatchingsOptions) (int, error)
+	GetWatchingFunc        func(ctx context.Context, watchingID int64) (*domain.Watching, error)
+	AddWatchingFunc        func(ctx context.Context, req AddWatchingRequest) (*domain.Watching, error)
+	UpdateWatchingFunc     func(ctx context.Context, watchingID int64, req UpdateWatchingRequest) (*domain.Watching, error)
+	DeleteWatchingFunc     func(ctx context.Context, watchingID int64) (*domain.Watching, error)
 	MarkWatchingAsReadFunc func(ctx context.Context, watchingID int64) error
 
 	mu         sync.Mutex
@@ -228,6 +241,14 @@ func (m *MockClient) ListProjects(ctx context.Context) ([]domain.Project, error)
 	return nil, ErrNotFound
 }
 
+func (m *MockClient) CreateProject(ctx context.Context, req CreateProjectRequest) (*domain.Project, error) {
+	m.increment("CreateProject")
+	if m.CreateProjectFunc != nil {
+		return m.CreateProjectFunc(ctx, req)
+	}
+	return nil, ErrNotFound
+}
+
 func (m *MockClient) ListProjectActivities(ctx context.Context, projectKey string, opt ListActivitiesOptions) ([]domain.Activity, error) {
 	m.increment("ListProjectActivities")
 	if m.ListProjectActivitiesFunc != nil {
@@ -300,10 +321,50 @@ func (m *MockClient) ListProjectStatuses(ctx context.Context, projectKey string)
 	return nil, ErrNotFound
 }
 
+func (m *MockClient) AddStatus(ctx context.Context, projectKey string, req AddStatusRequest) (*domain.Status, error) {
+	m.increment("AddStatus")
+	if m.AddStatusFunc != nil {
+		return m.AddStatusFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateStatus(ctx context.Context, projectKey string, statusID int, req UpdateStatusRequest) (*domain.Status, error) {
+	m.increment("UpdateStatus")
+	if m.UpdateStatusFunc != nil {
+		return m.UpdateStatusFunc(ctx, projectKey, statusID, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) ListProjectUsers(ctx context.Context, projectKey string, opt ListProjectUsersOptions) ([]domain.User, error) {
+	m.increment("ListProjectUsers")
+	if m.ListProjectUsersFunc != nil {
+		return m.ListProjectUsersFunc(ctx, projectKey, opt)
+	}
+	return nil, ErrNotFound
+}
+
 func (m *MockClient) ListProjectCategories(ctx context.Context, projectKey string) ([]domain.Category, error) {
 	m.increment("ListProjectCategories")
 	if m.ListProjectCategoriesFunc != nil {
 		return m.ListProjectCategoriesFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddCategory(ctx context.Context, projectKey string, req AddCategoryRequest) (*domain.Category, error) {
+	m.increment("AddCategory")
+	if m.AddCategoryFunc != nil {
+		return m.AddCategoryFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateCategory(ctx context.Context, projectKey string, categoryID int, req UpdateCategoryRequest) (*domain.Category, error) {
+	m.increment("UpdateCategory")
+	if m.UpdateCategoryFunc != nil {
+		return m.UpdateCategoryFunc(ctx, projectKey, categoryID, req)
 	}
 	return nil, ErrNotFound
 }
@@ -324,10 +385,26 @@ func (m *MockClient) ListProjectCustomFields(ctx context.Context, projectKey str
 	return nil, ErrNotFound
 }
 
-func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IDName, error) {
+func (m *MockClient) ListProjectIssueTypes(ctx context.Context, projectKey string) ([]domain.IssueType, error) {
 	m.increment("ListProjectIssueTypes")
 	if m.ListProjectIssueTypesFunc != nil {
 		return m.ListProjectIssueTypesFunc(ctx, projectKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddIssueType(ctx context.Context, projectKey string, req AddIssueTypeRequest) (*domain.IssueType, error) {
+	m.increment("AddIssueType")
+	if m.AddIssueTypeFunc != nil {
+		return m.AddIssueTypeFunc(ctx, projectKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) UpdateIssueType(ctx context.Context, projectKey string, issueTypeID int, req UpdateIssueTypeRequest) (*domain.IssueType, error) {
+	m.increment("UpdateIssueType")
+	if m.UpdateIssueTypeFunc != nil {
+		return m.UpdateIssueTypeFunc(ctx, projectKey, issueTypeID, req)
 	}
 	return nil, ErrNotFound
 }
@@ -442,6 +519,30 @@ func (m *MockClient) DownloadIssueAttachmentBounded(ctx context.Context, issueKe
 		return m.DownloadIssueAttachmentBoundedFunc(ctx, issueKey, attachmentID, maxBytes)
 	}
 	return nil, "", "", ErrNotFound
+}
+
+func (m *MockClient) ListRelatedIssues(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+	m.increment("ListRelatedIssues")
+	if m.ListRelatedIssuesFunc != nil {
+		return m.ListRelatedIssuesFunc(ctx, issueKey)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) AddRelatedIssue(ctx context.Context, issueKey string, req AddRelatedIssueRequest) (*domain.RelatedIssue, error) {
+	m.increment("AddRelatedIssue")
+	if m.AddRelatedIssueFunc != nil {
+		return m.AddRelatedIssueFunc(ctx, issueKey, req)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockClient) DeleteRelatedIssue(ctx context.Context, issueKey string, relatedIssueID int64) (*domain.RelatedIssue, error) {
+	m.increment("DeleteRelatedIssue")
+	if m.DeleteRelatedIssueFunc != nil {
+		return m.DeleteRelatedIssueFunc(ctx, issueKey, relatedIssueID)
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockClient) AddStar(ctx context.Context, req AddStarRequest) error {

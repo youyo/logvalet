@@ -37,11 +37,34 @@ lv project list -f md
 
 Then ask the user to select a project using AskUserQuestion.
 
+### Step 1.5: Check the project's operating conventions
+
+Read the conventions before asking for fields. If the project has adopted them,
+the questions you ask change.
+
+```bash
+lv project conventions show --project PROJECT_KEY
+```
+
+If `adopted` is `false`, skip this step entirely and proceed as usual.
+
+If `adopted` is `true`:
+
+- Ask which **engagement**（案件）the issue belongs to, using `conventions.engagements[].name`
+  as the choices. Do not ask for `--category` and `--parent-issue-id` separately —
+  `--engagement NAME` sets both.
+- When suggesting a priority, use the meanings written in `conventions.priority`,
+  not a generic interpretation. In particular, 低 usually means "execution is not
+  guaranteed", so do not default to it just because the issue seems minor.
+- If the user cannot name an engagement, say so plainly: an issue with no engagement
+  shows up in `project health` as a 溜まり（`no_engagement`）.
+
 ### Step 2: Gather required fields
 
 **Required:**
 - `--project-key` — from Step 1
 - `--summary` — the issue title
+- `--engagement` — when the project has adopted conventions（Step 1.5）
 
 If `summary` is not provided, ask for it.
 

@@ -76,6 +76,13 @@ type ListSharedFilesOptions struct {
 	Offset int
 }
 
+// ListProjectUsersOptions は ListProjectUsers リクエストのオプション。
+// Backlog API: GET /api/v2/projects/{projectKey}/users
+type ListProjectUsersOptions struct {
+	// ExcludeGroupMembers はプロジェクトグループ経由のメンバーを除外する。
+	ExcludeGroupMembers bool
+}
+
 // ListTeamsOptions は ListTeams リクエストのオプション。
 // Backlog API: GET /api/v2/teams
 type ListTeamsOptions struct {

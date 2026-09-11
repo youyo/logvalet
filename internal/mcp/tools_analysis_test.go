@@ -651,3 +651,271 @@ func TestDigestUnified_MissingSince(t *testing.T) {
 		t.Fatal("expected tool error but got none")
 	}
 }
+
+// ===== S5: include_related_issues パラメータ =====
+
+// relatedIssuesFromEnvelopeAnalysis は AnalysisEnvelope.Analysis から related_issues キーの
+// 生値（未型付け）を取り出す。
+func relatedIssuesFromEnvelopeAnalysis(t *testing.T, envelope analysis.AnalysisEnvelope) (any, bool) {
+	t.Helper()
+	analysisBytes, err := json.Marshal(envelope.Analysis)
+	if err != nil {
+		t.Fatalf("failed to marshal analysis: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(analysisBytes, &m); err != nil {
+		t.Fatalf("failed to unmarshal analysis: %v", err)
+	}
+	v, ok := m["related_issues"]
+	return v, ok
+}
+
+// TestIssueContextHandler_IncludeRelatedIssues_DefaultFetches は include_related_issues
+// 未指定時に related_issues キーが存在し、ListRelatedIssues が呼び出されることを確認する。
+func TestIssueContextHandler_IncludeRelatedIssues_DefaultFetches(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return helperMCPIssue(), nil
+	}
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return helperMCPComments(1), nil
+	}
+	mock.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		return helperMCPStatuses(), nil
+	}
+	called := false
+	mock.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		called = true
+		return nil, nil
+	}
+
+	s := newAnalysisTestServer(t, mock)
+	result := callTool(t, s, "logvalet_issue_context", map[string]any{"issue_key": "PROJ-123"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent := resultTextContent(t, result)
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if _, ok := relatedIssuesFromEnvelopeAnalysis(t, envelope); !ok {
+		t.Error("analysis.related_issues key not found")
+	}
+	if !called {
+		t.Error("expected ListRelatedIssues to be called when include_related_issues is unspecified")
+	}
+}
+
+// TestIssueContextHandler_IncludeRelatedIssuesFalse_SkipsFetch は include_related_issues=false
+// で related_issues キーは残るが空配列になり、ListRelatedIssues が呼ばれないことを確認する。
+func TestIssueContextHandler_IncludeRelatedIssuesFalse_SkipsFetch(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return helperMCPIssue(), nil
+	}
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return helperMCPComments(1), nil
+	}
+	mock.ListProjectStatusesFunc = func(ctx context.Context, projectKey string) ([]domain.Status, error) {
+		return helperMCPStatuses(), nil
+	}
+	called := false
+	mock.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		called = true
+		return nil, nil
+	}
+
+	s := newAnalysisTestServer(t, mock)
+	result := callTool(t, s, "logvalet_issue_context", map[string]any{
+		"issue_key":              "PROJ-123",
+		"include_related_issues": false,
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent := resultTextContent(t, result)
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	v, ok := relatedIssuesFromEnvelopeAnalysis(t, envelope)
+	if !ok {
+		t.Fatal("analysis.related_issues key not found")
+	}
+	arr, ok := v.([]any)
+	if !ok {
+		t.Fatalf("related_issues is not an array: %T", v)
+	}
+	if len(arr) != 0 {
+		t.Errorf("related_issues length = %d, want 0", len(arr))
+	}
+	if called {
+		t.Error("expected ListRelatedIssues NOT to be called when include_related_issues=false")
+	}
+}
+
+// TestIssueContextTool_InputSchema_HasIncludeRelatedIssues は logvalet_issue_context の
+// inputSchema に include_related_issues (boolean, 非 required) が存在することを確認する。
+func TestIssueContextTool_InputSchema_HasIncludeRelatedIssues(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newAnalysisTestServer(t, mock)
+
+	tool := s.GetTool("logvalet_issue_context")
+	if tool == nil {
+		t.Fatal("logvalet_issue_context tool not registered")
+	}
+
+	var param *mcpinternal.ParamSpec
+	for i := range tool.Params {
+		if tool.Params[i].Name == "include_related_issues" {
+			param = &tool.Params[i]
+			break
+		}
+	}
+	if param == nil {
+		t.Fatal("include_related_issues param not found")
+	}
+	if param.Type != mcpinternal.ParamTypeBoolean {
+		t.Errorf("include_related_issues type = %v, want boolean", param.Type)
+	}
+	for _, req := range tool.Required {
+		if req == "include_related_issues" {
+			t.Error("include_related_issues should not be required")
+		}
+	}
+}
+
+// TestTriageMaterialsHandler_IncludeRelatedIssues_DefaultFetches は include_related_issues
+// 未指定時に related_issues キーが存在し、ListRelatedIssues が呼び出されることを確認する。
+func TestTriageMaterialsHandler_IncludeRelatedIssues_DefaultFetches(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return helperMCPIssue(), nil
+	}
+	mock.GetProjectFunc = func(ctx context.Context, key string) (*domain.Project, error) {
+		return &domain.Project{ID: 100, ProjectKey: key, Name: "テストプロジェクト"}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return helperMCPComments(1), nil
+	}
+	called := false
+	mock.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		called = true
+		return nil, nil
+	}
+
+	s := newAnalysisTestServer(t, mock)
+	result := callTool(t, s, "logvalet_issue_triage_materials", map[string]any{"issue_key": "PROJ-123"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent := resultTextContent(t, result)
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if _, ok := relatedIssuesFromEnvelopeAnalysis(t, envelope); !ok {
+		t.Error("analysis.related_issues key not found")
+	}
+	if !called {
+		t.Error("expected ListRelatedIssues to be called when include_related_issues is unspecified")
+	}
+}
+
+// TestTriageMaterialsHandler_IncludeRelatedIssuesFalse_SkipsFetch は include_related_issues=false
+// で related_issues キーは残るが空配列になり、ListRelatedIssues が呼ばれないことを確認する。
+func TestTriageMaterialsHandler_IncludeRelatedIssuesFalse_SkipsFetch(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.GetIssueFunc = func(ctx context.Context, issueKey string) (*domain.Issue, error) {
+		return helperMCPIssue(), nil
+	}
+	mock.GetProjectFunc = func(ctx context.Context, key string) (*domain.Project, error) {
+		return &domain.Project{ID: 100, ProjectKey: key, Name: "テストプロジェクト"}, nil
+	}
+	mock.ListIssuesFunc = func(ctx context.Context, opt backlog.ListIssuesOptions) ([]domain.Issue, error) {
+		return []domain.Issue{}, nil
+	}
+	mock.ListIssueCommentsFunc = func(ctx context.Context, issueKey string, opt backlog.ListCommentsOptions) ([]domain.Comment, error) {
+		return helperMCPComments(1), nil
+	}
+	called := false
+	mock.ListRelatedIssuesFunc = func(ctx context.Context, issueKey string) ([]domain.RelatedIssue, error) {
+		called = true
+		return nil, nil
+	}
+
+	s := newAnalysisTestServer(t, mock)
+	result := callTool(t, s, "logvalet_issue_triage_materials", map[string]any{
+		"issue_key":              "PROJ-123",
+		"include_related_issues": false,
+	})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+
+	textContent := resultTextContent(t, result)
+	var envelope analysis.AnalysisEnvelope
+	if err := json.Unmarshal([]byte(textContent.Text), &envelope); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	v, ok := relatedIssuesFromEnvelopeAnalysis(t, envelope)
+	if !ok {
+		t.Fatal("analysis.related_issues key not found")
+	}
+	arr, ok := v.([]any)
+	if !ok {
+		t.Fatalf("related_issues is not an array: %T", v)
+	}
+	if len(arr) != 0 {
+		t.Errorf("related_issues length = %d, want 0", len(arr))
+	}
+	if called {
+		t.Error("expected ListRelatedIssues NOT to be called when include_related_issues=false")
+	}
+}
+
+// TestTriageMaterialsTool_InputSchema_HasIncludeRelatedIssues は logvalet_issue_triage_materials
+// の inputSchema に include_related_issues (boolean, 非 required) が存在することを確認する。
+func TestTriageMaterialsTool_InputSchema_HasIncludeRelatedIssues(t *testing.T) {
+	mock := backlog.NewMockClient()
+	s := newAnalysisTestServer(t, mock)
+
+	tool := s.GetTool("logvalet_issue_triage_materials")
+	if tool == nil {
+		t.Fatal("logvalet_issue_triage_materials tool not registered")
+	}
+
+	var param *mcpinternal.ParamSpec
+	for i := range tool.Params {
+		if tool.Params[i].Name == "include_related_issues" {
+			param = &tool.Params[i]
+			break
+		}
+	}
+	if param == nil {
+		t.Fatal("include_related_issues param not found")
+	}
+	if param.Type != mcpinternal.ParamTypeBoolean {
+		t.Errorf("include_related_issues type = %v, want boolean", param.Type)
+	}
+	for _, req := range tool.Required {
+		if req == "include_related_issues" {
+			t.Error("include_related_issues should not be required")
+		}
+	}
+}

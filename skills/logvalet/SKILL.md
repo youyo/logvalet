@@ -38,6 +38,39 @@ Portals に登録する。
 v0.40 で `--auth-mode`・`--auth-api-key`・`X-Logvalet-*` ヘッダーと内蔵 OAuth
 コールバックを廃止した。
 
+## 運用規約（conventions）を先に読む
+
+プロジェクトに運用規約が導入されている場合、**作業を始める前に規約を読むこと。**
+規約は「案件（engagement）とは何か」「優先度の低が何を意味するか」といった
+組織の言葉の定義そのものであり、それを知らずに提案すると規約に反した助言になる。
+
+```
+logvalet_project_conventions(project_key="PROJ")
+```
+
+返り値の `adopted` が false なら規約未導入なので、従来どおり進めてよい。
+true なら `conventions` と `glossary` が返るので、次を前提にする。
+
+- 課題は**案件カテゴリをちょうど 1 つ**持ち、案件親課題の子課題にする
+- 案件の Lead は 1 人。決まっていない案件は始めない
+- 優先度の 高・中・低 の意味は `conventions.priority` に書かれている。
+  一般論ではなくこの定義で判断する
+- 案件は必ずいずれかの Initiative に属する
+
+課題を起票するときは `engagement` パラメータを使う。案件名 1 つで
+案件カテゴリと親課題の両方が設定される。
+
+```
+logvalet_issue_create(project_key="PROJ", summary="...", engagement="顧客A 基盤更改", ...)
+```
+
+`/logvalet:health` の `ambiguities` は「規約に照らして決まっていないこと」で、
+案件不明の課題・Lead 不在の案件・クローズ候補などが挙がる。
+規約導入済みプロジェクトのレビューでは必ず確認する。
+
+規約の変更（apply）は書き込みを伴うため MCP からは行えない。
+CLI の `logvalet project apply` を人が実行する。
+
 ## スキル一覧
 
 ### 📥 情報収集（現状把握）
@@ -76,7 +109,8 @@ v0.40 で `--auth-mode`・`--auth-api-key`・`X-Logvalet-*` ヘッダーと内�
 2. `/logvalet:my-next` → 今日・明日の具体的なタスク
 
 ### 📋 プロジェクトレビュー
-1. `/logvalet:health PROJECT` → 全体の健全性スコア
+0. `logvalet_project_conventions` → 運用規約と用語を確認（導入済みなら必須）
+1. `/logvalet:health PROJECT` → 全体の健全性スコア（`ambiguities` を含む）
 2. `/logvalet:risk PROJECT` → リスク評価と推奨アクション
 3. `/logvalet:intelligence PROJECT` → アクティビティの偏り・異常
 4. `/logvalet:report PROJECT` → 共有用レポート生成
@@ -91,3 +125,35 @@ v0.40 で `--auth-mode`・`--auth-api-key`・`X-Logvalet-*` ヘッダーと内�
 1. `/logvalet:spec-to-issues` → 仕様書から課題を自動生成
 2. `/logvalet:health PROJECT` → 現状のリソース確認
 3. `/logvalet:digest-periodic PROJECT` → 定期進捗追跡を開始
+
+
+## CLI 基本情報
+- コマンド: `logvalet` (エイリアス: `lv`)
+- 出力: JSON (デフォルト) / YAML / Markdown / Gantt
+- 初期設定: `logvalet configure`
+- 各コマンドの詳細は個別スキルを参照
+
+## ウォッチ（CLI 直接操作）
+
+ウォッチ課題は担当ではないが自分の仕事に影響する課題。スキル（my-week, my-next 等）で自動表示されるが、CLI で直接操作も可能:
+
+```bash
+lv watching list me          # 自分のウォッチ一覧
+lv watching count me         # 件数
+lv watching get <ID>         # 詳細
+lv watching add PROJ-123     # ウォッチ追加
+lv watching delete <ID>      # ウォッチ解除
+lv watching mark-as-read <ID> # 既読化
+```
+
+## 関連課題（CLI 直接操作）
+
+課題間の関連付け。専用スキルはなく CLI で直接操作する。Backlog の非公開 API
+（`/api/v2/issues/{issueKey}/relatedIssues`）を利用しており、レスポンス形式や
+挙動は Backlog による公式な保証がない:
+
+```bash
+lv issue related list PROJ-123              # 関連課題一覧
+lv issue related add PROJ-123 456789         # 関連課題を追加（数値の課題 ID）
+lv issue related remove PROJ-123 789012      # 関連課題を削除（関連 ID）
+```

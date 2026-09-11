@@ -458,19 +458,518 @@ func TestHTTPClientGetProject(t *testing.T) {
 	})
 }
 
+func TestHTTPClientCreateProject(t *testing.T) {
+	t.Run("posts all supported parameters and decodes the project", func(t *testing.T) {
+		var gotMethod string
+		var gotPath string
+		var gotForm url.Values
+		var gotContentType string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotMethod = r.Method
+			gotPath = r.URL.Path
+			gotContentType = r.Header.Get("Content-Type")
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("ParseForm() error = %v", err)
+				return
+			}
+			gotForm = r.PostForm
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":1,"projectKey":"PROJ","name":"New Project","archived":false}`))
+		}))
+		defer srv.Close()
+
+		chartEnabled := true
+		subtaskingEnabled := false
+		grandchildIssueEnabled := true
+		projectLeaderCanEditProjectLeader := false
+		useDevAttributes := true
+		client := newOAuthClient(t, srv.URL)
+		got, err := client.CreateProject(context.Background(), backlog.CreateProjectRequest{
+			Name:                              "New Project",
+			Key:                               "PROJ",
+			ChartEnabled:                      &chartEnabled,
+			SubtaskingEnabled:                 &subtaskingEnabled,
+			GrandchildIssueEnabled:            &grandchildIssueEnabled,
+			ProjectLeaderCanEditProjectLeader: &projectLeaderCanEditProjectLeader,
+			UseDevAttributes:                  &useDevAttributes,
+			TextFormattingRule:                "markdown",
+		})
+		if err != nil {
+			t.Fatalf("CreateProject() error = %v", err)
+		}
+		if got == nil || got.ID != 1 || got.ProjectKey != "PROJ" || got.Name != "New Project" {
+			t.Errorf("CreateProject() = %+v, want decoded project", got)
+		}
+		if gotMethod != http.MethodPost {
+			t.Errorf("method = %q, want %q", gotMethod, http.MethodPost)
+		}
+		if gotPath != "/api/v2/projects" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects")
+		}
+		if gotContentType != "application/x-www-form-urlencoded" {
+			t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+		}
+		for key, want := range map[string]string{
+			"name":                              "New Project",
+			"key":                               "PROJ",
+			"chartEnabled":                      "true",
+			"subtaskingEnabled":                 "false",
+			"grandchildIssueEnabled":            "true",
+			"projectLeaderCanEditProjectLeader": "false",
+			"useDevAttributes":                  "true",
+			"textFormattingRule":                "markdown",
+		} {
+			if gotForm.Get(key) != want {
+				t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
+			}
+		}
+	})
+}
+
+func TestHTTPClientCreateProjectDefaultsAndOmissions(t *testing.T) {
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":2,"projectKey":"MIN","name":"Minimal"}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.CreateProject(context.Background(), backlog.CreateProjectRequest{
+		Name: "Minimal",
+		Key:  "MIN",
+	})
+	if err != nil {
+		t.Fatalf("CreateProject() error = %v", err)
+	}
+	if gotForm.Get("subtaskingEnabled") != "true" {
+		t.Errorf("subtaskingEnabled = %q, want %q", gotForm.Get("subtaskingEnabled"), "true")
+	}
+	for _, key := range []string{
+		"chartEnabled",
+		"grandchildIssueEnabled",
+		"projectLeaderCanEditProjectLeader",
+		"useDevAttributes",
+		"textFormattingRule",
+	} {
+		if _, ok := gotForm[key]; ok {
+			t.Errorf("form[%q] should be omitted, got %v", key, gotForm[key])
+		}
+	}
+}
+
+func TestHTTPClientAddCategory(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":10,"name":"Backend","displayOrder":2}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.AddCategory(context.Background(), "PROJ key", backlog.AddCategoryRequest{Name: "Backend"})
+	if err != nil {
+		t.Fatalf("AddCategory() error = %v", err)
+	}
+	if got == nil || got.ID != 10 || got.Name != "Backend" || got.DisplayOrder != 2 {
+		t.Errorf("AddCategory() = %+v, want decoded category", got)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPost)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/categories" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/categories")
+	}
+	if gotForm.Get("name") != "Backend" {
+		t.Errorf("name = %q, want %q", gotForm.Get("name"), "Backend")
+	}
+}
+
+func TestHTTPClientUpdateCategory(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":42,"name":"Platform","displayOrder":3}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.UpdateCategory(context.Background(), "PROJ key", 42, backlog.UpdateCategoryRequest{Name: "Platform"})
+	if err != nil {
+		t.Fatalf("UpdateCategory() error = %v", err)
+	}
+	if got == nil || got.ID != 42 || got.Name != "Platform" || got.DisplayOrder != 3 {
+		t.Errorf("UpdateCategory() = %+v, want decoded category", got)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPatch)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/categories/42" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/categories/42")
+	}
+	if gotForm.Get("name") != "Platform" {
+		t.Errorf("name = %q, want %q", gotForm.Get("name"), "Platform")
+	}
+}
+
+func TestHTTPClientAddIssueType(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	var gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		gotContentType = r.Header.Get("Content-Type")
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":1,"projectId":42,"name":"Bug","color":"#990000","displayOrder":0,"templateSummary":"Subject","templateDescription":"Description"}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.AddIssueType(context.Background(), "PROJ key", backlog.AddIssueTypeRequest{
+		Name:                "Bug",
+		Color:               "#990000",
+		TemplateSummary:     "Subject",
+		TemplateDescription: "Description",
+	})
+	if err != nil {
+		t.Fatalf("AddIssueType() error = %v", err)
+	}
+	if got == nil || got.ID != 1 || got.ProjectID != 42 || got.Name != "Bug" || got.Color != "#990000" || got.DisplayOrder != 0 || got.TemplateSummary != "Subject" || got.TemplateDescription != "Description" {
+		t.Errorf("AddIssueType() = %+v, want decoded issue type", got)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPost)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/issueTypes" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/issueTypes")
+	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/x-www-form-urlencoded")
+	}
+	for key, want := range map[string]string{
+		"name":                "Bug",
+		"color":               "#990000",
+		"templateSummary":     "Subject",
+		"templateDescription": "Description",
+	} {
+		if gotForm.Get(key) != want {
+			t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
+		}
+	}
+}
+
+func TestHTTPClientAddIssueTypeOmitsEmptyTemplates(t *testing.T) {
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":1,"projectId":42,"name":"Bug","color":"#990000"}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.AddIssueType(context.Background(), "PROJ", backlog.AddIssueTypeRequest{Name: "Bug", Color: "#990000"})
+	if err != nil {
+		t.Fatalf("AddIssueType() error = %v", err)
+	}
+	for _, key := range []string{"templateSummary", "templateDescription"} {
+		if _, ok := gotForm[key]; ok {
+			t.Errorf("form[%q] should be omitted, got %v", key, gotForm[key])
+		}
+	}
+}
+
+func TestHTTPClientUpdateIssueType(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":42,"projectId":1,"name":"Bug","color":"","displayOrder":3,"templateDescription":"Description"}`))
+	}))
+	defer srv.Close()
+
+	name := "Bug"
+	color := ""
+	description := "Description"
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.UpdateIssueType(context.Background(), "PROJ key", 42, backlog.UpdateIssueTypeRequest{
+		Name:                &name,
+		Color:               &color,
+		TemplateDescription: &description,
+	})
+	if err != nil {
+		t.Fatalf("UpdateIssueType() error = %v", err)
+	}
+	if got == nil || got.ID != 42 || got.Name != "Bug" || got.Color != "" || got.TemplateDescription != "Description" {
+		t.Errorf("UpdateIssueType() = %+v, want decoded issue type", got)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPatch)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/issueTypes/42" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/issueTypes/42")
+	}
+	for key, want := range map[string]string{
+		"name":                "Bug",
+		"color":               "",
+		"templateDescription": "Description",
+	} {
+		values, ok := gotForm[key]
+		if !ok || len(values) != 1 || values[0] != want {
+			t.Errorf("form[%q] = %v, want present value %q", key, values, want)
+		}
+	}
+	if _, ok := gotForm["templateSummary"]; ok {
+		t.Errorf("form[%q] should be omitted, got %v", "templateSummary", gotForm["templateSummary"])
+	}
+}
+
+func TestHTTPClientAddStatus(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":101,"projectId":42,"name":"Waiting for review","color":"#e87758","displayOrder":3999}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.AddStatus(context.Background(), "PROJ key", backlog.AddStatusRequest{Name: "Waiting for review", Color: "#e87758"})
+	if err != nil {
+		t.Fatalf("AddStatus() error = %v", err)
+	}
+	if got == nil || got.ID != 101 || got.ProjectID != 42 || got.Name != "Waiting for review" || got.Color != "#e87758" || got.DisplayOrder != 3999 {
+		t.Errorf("AddStatus() = %+v, want decoded status", got)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPost)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/statuses" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/statuses")
+	}
+	for key, want := range map[string]string{
+		"name":  "Waiting for review",
+		"color": "#e87758",
+	} {
+		if gotForm.Get(key) != want {
+			t.Errorf("form[%q] = %q, want %q", key, gotForm.Get(key), want)
+		}
+	}
+}
+
+func TestHTTPClientUpdateStatus(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotForm url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.EscapedPath()
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+			return
+		}
+		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":101,"projectId":42,"name":"","color":"#e87758","displayOrder":3999}`))
+	}))
+	defer srv.Close()
+
+	name := ""
+	client := newOAuthClient(t, srv.URL)
+	got, err := client.UpdateStatus(context.Background(), "PROJ key", 101, backlog.UpdateStatusRequest{Name: &name})
+	if err != nil {
+		t.Fatalf("UpdateStatus() error = %v", err)
+	}
+	if got == nil || got.ID != 101 || got.Name != "" || got.Color != "#e87758" {
+		t.Errorf("UpdateStatus() = %+v, want decoded status", got)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method = %q, want %q", gotMethod, http.MethodPatch)
+	}
+	if gotPath != "/api/v2/projects/PROJ%20key/statuses/101" {
+		t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ%20key/statuses/101")
+	}
+	if values, ok := gotForm["name"]; !ok || len(values) != 1 || values[0] != "" {
+		t.Errorf("form[%q] = %v, want present empty value", "name", values)
+	}
+	if _, ok := gotForm["color"]; ok {
+		t.Errorf("form[%q] should be omitted, got %v", "color", gotForm["color"])
+	}
+}
+
+func assertHTTPClientWriteErrors(t *testing.T, invoke func(*backlog.HTTPClient) error) {
+	t.Helper()
+	for _, tt := range []struct {
+		name       string
+		statusCode int
+		wantErr    error
+	}{
+		{name: "401 -> ErrUnauthorized", statusCode: http.StatusUnauthorized, wantErr: backlog.ErrUnauthorized},
+		{name: "403 -> ErrForbidden", statusCode: http.StatusForbidden, wantErr: backlog.ErrForbidden},
+		{name: "404 -> ErrNotFound", statusCode: http.StatusNotFound, wantErr: backlog.ErrNotFound},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"errors": []map[string]interface{}{{"message": "error", "code": tt.statusCode}},
+				})
+			}))
+			defer srv.Close()
+
+			if err := invoke(newOAuthClient(t, srv.URL)); !errors.Is(err, tt.wantErr) {
+				t.Errorf("error = %v, want errors.Is(err, %v) = true", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestHTTPClientCreateProjectErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.CreateProject(context.Background(), backlog.CreateProjectRequest{Name: "Project", Key: "PROJ"})
+		return err
+	})
+}
+
+func TestHTTPClientAddCategoryErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.AddCategory(context.Background(), "PROJ", backlog.AddCategoryRequest{Name: "Category"})
+		return err
+	})
+}
+
+func TestHTTPClientUpdateCategoryErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.UpdateCategory(context.Background(), "PROJ", 1, backlog.UpdateCategoryRequest{Name: "Category"})
+		return err
+	})
+}
+
+func TestHTTPClientAddIssueTypeErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.AddIssueType(context.Background(), "PROJ", backlog.AddIssueTypeRequest{Name: "Bug", Color: "#990000"})
+		return err
+	})
+}
+
+func TestHTTPClientUpdateIssueTypeErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.UpdateIssueType(context.Background(), "PROJ", 1, backlog.UpdateIssueTypeRequest{})
+		return err
+	})
+}
+
+func TestHTTPClientAddStatusErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.AddStatus(context.Background(), "PROJ", backlog.AddStatusRequest{Name: "Review", Color: "#e87758"})
+		return err
+	})
+}
+
+func TestHTTPClientUpdateStatusErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.UpdateStatus(context.Background(), "PROJ", 1, backlog.UpdateStatusRequest{})
+		return err
+	})
+}
+
+// AddStatus が 400 を受けたとき、既存の変換規則どおり ErrAPI になり、
+// Backlog の errors[].code が BacklogError に保持されることを確認する。
+// apply（LC03）はこの code を見てカスタム状態が使えないケースを判別する。
+func TestHTTPClientAddStatusBadRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"invalid status","code":7}]}`))
+	}))
+	defer srv.Close()
+
+	client := newOAuthClient(t, srv.URL)
+	_, err := client.AddStatus(context.Background(), "PROJ", backlog.AddStatusRequest{Name: "Review", Color: "#e87758"})
+	if !errors.Is(err, backlog.ErrAPI) {
+		t.Fatalf("error = %v, want errors.Is(err, ErrAPI) = true", err)
+	}
+	var backlogErr *backlog.BacklogError
+	if !errors.As(err, &backlogErr) {
+		t.Fatalf("error = %v, want *BacklogError", err)
+	}
+	if backlogErr.Code != "7" {
+		t.Errorf("BacklogError.Code = %q, want %q", backlogErr.Code, "7")
+	}
+}
+
 func TestHTTPClientImplementsClient(t *testing.T) {
 	// HTTPClient が Client interface を実装していることを確認
 	var _ backlog.Client = (*backlog.HTTPClient)(nil)
 }
 
 func TestHTTPClientListProjectIssueTypes(t *testing.T) {
-	t.Run("calls correct endpoint and returns IDName list", func(t *testing.T) {
+	t.Run("calls correct endpoint and returns issue type details", func(t *testing.T) {
 		var gotPath string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotPath = r.URL.Path
 			issueTypes := []map[string]interface{}{
-				{"id": 1, "name": "課題"},
-				{"id": 2, "name": "バグ"},
+				{
+					"id":                  1,
+					"projectId":           42,
+					"name":                "課題",
+					"color":               "#990000",
+					"displayOrder":        0,
+					"templateSummary":     "Subject",
+					"templateDescription": "Description",
+				},
+				{"id": 2, "projectId": 42, "name": "バグ", "displayOrder": 1},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(issueTypes)
@@ -488,8 +987,14 @@ func TestHTTPClientListProjectIssueTypes(t *testing.T) {
 		if len(result) != 2 {
 			t.Fatalf("len(result) = %d, want 2", len(result))
 		}
-		if result[0].ID != 1 || result[0].Name != "課題" {
-			t.Errorf("result[0] = %+v, want {ID:1, Name:課題}", result[0])
+		if result[0].ID != 1 || result[0].ProjectID != 42 || result[0].Name != "課題" {
+			t.Errorf("result[0] = %+v, want ID=1, ProjectID=42, Name=課題", result[0])
+		}
+		if result[0].Color != "#990000" || result[0].DisplayOrder != 0 {
+			t.Errorf("result[0] details = %+v, want Color=#990000, DisplayOrder=0", result[0])
+		}
+		if result[0].TemplateSummary != "Subject" || result[0].TemplateDescription != "Description" {
+			t.Errorf("result[0] templates = %+v, want Subject/Description", result[0])
 		}
 	})
 }
@@ -2039,5 +2544,57 @@ func newAPIKeyClientWithKey(t *testing.T, baseURL, apiKey string) *backlog.HTTPC
 	return backlog.NewHTTPClient(backlog.ClientConfig{
 		BaseURL:    baseURL,
 		Credential: cred,
+	})
+}
+
+func TestHTTPClientListProjectUsers(t *testing.T) {
+	t.Run("正しいパスを呼びユーザー一覧を返す", func(t *testing.T) {
+		var gotPath, gotQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"id":1,"userId":"yamada","name":"山田 太郎"},{"id":2,"userId":"suzuki","name":"鈴木 花子"}]`))
+		}))
+		defer srv.Close()
+
+		users, err := newOAuthClient(t, srv.URL).ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{})
+		if err != nil {
+			t.Fatalf("ListProjectUsers() error = %v", err)
+		}
+		if gotPath != "/api/v2/projects/PROJ/users" {
+			t.Errorf("path = %q, want %q", gotPath, "/api/v2/projects/PROJ/users")
+		}
+		if gotQuery != "" {
+			t.Errorf("query = %q, want empty（ExcludeGroupMembers 未指定時は送らない）", gotQuery)
+		}
+		if len(users) != 2 || users[0].Name != "山田 太郎" || users[1].ID != 2 {
+			t.Errorf("users = %#v", users)
+		}
+	})
+
+	t.Run("ExcludeGroupMembers はクエリに乗る", func(t *testing.T) {
+		var gotQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		_, err := newOAuthClient(t, srv.URL).ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{ExcludeGroupMembers: true})
+		if err != nil {
+			t.Fatalf("ListProjectUsers() error = %v", err)
+		}
+		if gotQuery != "excludeGroupMembers=true" {
+			t.Errorf("query = %q, want %q", gotQuery, "excludeGroupMembers=true")
+		}
+	})
+}
+
+func TestHTTPClientListProjectUsersErrors(t *testing.T) {
+	assertHTTPClientWriteErrors(t, func(client *backlog.HTTPClient) error {
+		_, err := client.ListProjectUsers(context.Background(), "PROJ", backlog.ListProjectUsersOptions{})
+		return err
 	})
 }

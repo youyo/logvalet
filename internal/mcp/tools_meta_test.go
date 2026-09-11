@@ -2,12 +2,46 @@ package mcp_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/youyo/logvalet/internal/backlog"
 	"github.com/youyo/logvalet/internal/domain"
 	mcpinternal "github.com/youyo/logvalet/internal/mcp"
 )
+
+func TestMetaIssueTypes_PreservesDetails(t *testing.T) {
+	mock := backlog.NewMockClient()
+	mock.ListProjectIssueTypesFunc = func(ctx context.Context, projectKey string) ([]domain.IssueType, error) {
+		return []domain.IssueType{{
+			ID:                  1,
+			ProjectID:           42,
+			Name:                "課題",
+			Color:               "#990000",
+			DisplayOrder:        0,
+			TemplateSummary:     "Subject",
+			TemplateDescription: "Description",
+		}}, nil
+	}
+
+	s := newTestServer(t, mock, mcpinternal.ServerConfig{})
+	result := callTool(t, s, "logvalet_meta_issue_types", map[string]any{"project_key": "PROJ"})
+
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	textContent := resultTextContent(t, result)
+	var got []domain.IssueType
+	if err := json.Unmarshal([]byte(textContent.Text), &got); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(result) = %d, want 1", len(got))
+	}
+	if got[0].Color != "#990000" || got[0].TemplateSummary != "Subject" || got[0].TemplateDescription != "Description" {
+		t.Errorf("result[0] = %+v, want color and template details", got[0])
+	}
+}
 
 // ===== B9: logvalet_meta_version =====
 

@@ -108,12 +108,19 @@ This enables completion for both `logvalet` and `lv`.
 | `issue attachment get <KEY> <ID>` | Get attachment info |
 | `issue attachment download <KEY> <ID>` | Download an attachment |
 | `issue attachment delete <KEY> <ID>` | Delete an attachment |
-| `issue context <KEY>` | Get full context for a single issue (details, comments, signals) |
+| `issue related list <KEY>` | List related issues (undocumented Backlog API) |
+| `issue related add <KEY> <TARGET-ISSUE-ID>` | Add a related issue (undocumented Backlog API) |
+| `issue related remove <KEY> <RELATED-ISSUE-ID>` | Remove a related issue (undocumented Backlog API) |
+| `issue context <KEY>` | Get full context for a single issue (details, comments, signals, related issues) |
 | `issue stale` | Detect stale issues in a project |
 | `project get <KEY>` | Get a single project |
 | `project list` | List all projects |
 | `project blockers <KEY>` | Detect project blockers (stale, unassigned, overdue) |
-| `project health <KEY>` | Integrated project health view |
+| `project health <KEY>` | Integrated project health view (includes convention ambiguities) |
+| `project conventions init` | Generate a conventions.yaml skeleton (`--from-project` seeds it from an existing project) |
+| `project conventions validate` | Validate a conventions.yaml (`--strict` treats warnings as errors) |
+| `project conventions show` | Show the conventions adopted by a project, with a glossary |
+| `project apply` | Apply conventions to a project idempotently (`--dry-run` to preview) |
 | `user workload <KEY>` | Analyze user workload distribution |
 | `activity list` | List activity events |
 | `user list` | List space users |
@@ -151,7 +158,7 @@ Phase 1 added a set of AI-oriented analysis commands for project insight and dec
 
 | Command | Description |
 |---------|-------------|
-| `issue context <KEY>` | Fetch full context for a single issue: details, comments, and analysis signals |
+| `issue context <KEY>` | Fetch full context for a single issue: details, comments, analysis signals, and related issues |
 | `issue stale -k <PROJECT>` | Detect issues that haven't been updated for N days |
 | `project blockers <PROJECT>` | Detect blockers: stale high-priority, unassigned, or overdue issues |
 | `user workload <PROJECT>` | Analyze per-user open issue counts and overdue distribution |
@@ -160,8 +167,11 @@ Phase 1 added a set of AI-oriented analysis commands for project insight and dec
 ### Examples
 
 ```bash
-# Get full context for an issue
+# Get full context for an issue (includes related_issues by default)
 logvalet issue context PROJ-123
+
+# Skip the related-issues lookup (fewer API calls)
+logvalet issue context PROJ-123 --no-include-related-issues
 
 # Detect issues stale for 7+ days
 logvalet issue stale -k PROJ --days 7
@@ -176,13 +186,49 @@ logvalet user workload PROJ --exclude-status "完了,却下"
 logvalet project health PROJ --days 7
 ```
 
+## Operating Conventions
+
+Translate Linear's structural constraints into Backlog's vocabulary, apply them
+idempotently, and hand the same rules to your AI agents.
+
+| Command | Description |
+|---------|-------------|
+| `project conventions init [--from-project KEY]` | Generate a commented `conventions.yaml` skeleton |
+| `project conventions validate --file FILE [--strict]` | Validate the file offline; exits 2 on violations |
+| `project conventions show --project KEY` | Read the conventions from the project's rule issue, with a glossary |
+| `project apply --file FILE [--dry-run] [--create]` | Apply the conventions to a project idempotently |
+| `issue create --engagement NAME` | Set both the engagement category and the parent issue in one flag |
+
+The source of truth is a **rule issue** in Backlog (one issue of type `規約`), not a
+local file — the MCP server is stateless and shared across users. `project apply`
+is CLI-only by design; bulk updates go through human approval.
+
+```bash
+# New project
+logvalet project conventions init --out conventions.yaml
+logvalet project conventions validate --file conventions.yaml
+logvalet project apply --file conventions.yaml --dry-run
+logvalet project apply --file conventions.yaml
+
+# Existing project: take stock, then seed the skeleton from what is already there
+logvalet project health EXISTING_PROJ
+logvalet project conventions init --from-project EXISTING_PROJ --out conventions.yaml
+
+# Day to day
+logvalet issue create --project-key PROJ --summary "..." --engagement "顧客A 基盤更改"
+logvalet project health PROJ    # ambiguities: issues with no engagement, leads left blank, ...
+```
+
+See [docs/conventions-guide.md](docs/conventions-guide.md) for the full guide,
+including what each field is actually asking you to decide.
+
 ## AI Workflow Commands (Phase 2)
 
 Phase 2 added workflow-oriented commands that provide structured materials for LLM-assisted decision-making:
 
 | Command | Description |
 |---------|-------------|
-| `issue triage-materials <KEY>` | Collect structured triage materials (attributes, history, similar-issue stats) for an issue |
+| `issue triage-materials <KEY>` | Collect structured triage materials (attributes, history, similar-issue stats, related issues) for an issue |
 | `digest weekly -k <PROJECT>` | Aggregate weekly activity: completed, started, and blocked issues |
 | `digest daily -k <PROJECT>` | Aggregate daily activity snapshot |
 
@@ -193,8 +239,11 @@ logvalet provides **deterministic materials**. LLM judgment (priority suggestion
 ### Examples
 
 ```bash
-# Get triage materials for an issue
+# Get triage materials for an issue (includes related_issues by default)
 logvalet issue triage-materials PROJ-123
+
+# Skip the related-issues lookup
+logvalet issue triage-materials PROJ-123 --no-include-related-issues
 
 # Weekly activity digest for a project
 logvalet digest weekly -k PROJ
@@ -431,6 +480,23 @@ logvalet issue attachment delete PROJ-123 12345 --dry-run
 logvalet issue attachment delete PROJ-123 12345
 ```
 
+## Related Issues
+
+Manage related issues. This uses an undocumented Backlog API endpoint (`/api/v2/issues/{issueKey}/relatedIssues`), so the response shape and behavior are not officially guaranteed by Backlog.
+
+```bash
+# List related issues for an issue
+logvalet issue related list PROJ-123
+
+# Add a related issue (target-issue-id is a numeric issue ID, not the issue key)
+logvalet issue related add PROJ-123 456789 --dry-run
+logvalet issue related add PROJ-123 456789
+
+# Remove a related issue (related-issue-id is the relation ID returned by "related list")
+logvalet issue related remove PROJ-123 789012 --dry-run
+logvalet issue related remove PROJ-123 789012
+```
+
 ## Shared Files
 
 Manage shared files in a project:
@@ -515,12 +581,13 @@ logvalet mcp
 logvalet mcp --host 0.0.0.0 --port 9000
 ```
 
-The MCP server exposes **67 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
+The MCP server exposes **71 tools** covering essentially every operation available in the CLI. For every CLI subcommand there is an equivalent MCP tool that accepts the same options (parameter names are converted to `snake_case` and typed as JSON Schema).
 
 Representative tools by area:
 
-- **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`
+- **Issue**: `logvalet_issue_{get,list,create,update,context,stale,timeline,triage_materials}`, `logvalet_issue_comment_{list,add,update}`, `logvalet_issue_attachment_{list,get,download,delete}`, `logvalet_issue_related_{list,add,delete}` (undocumented Backlog API)
 - **Project**: `logvalet_project_{get,list,blockers,health}`, `logvalet_user_workload`
+- **Conventions**: `logvalet_project_conventions` (read-only; `project apply` is CLI-only by design)
 - **Digest**: `logvalet_digest`, `logvalet_digest_unified`, `logvalet_digest_{weekly,daily}`, `logvalet_space_digest`, `logvalet_activity_digest`, `logvalet_document_digest`
 - **Document**: `logvalet_document_{get,list,tree,create}`
 - **Meta**: `logvalet_meta_{statuses,categories,issue_types,version,custom_field}`
@@ -541,15 +608,15 @@ The binary download tools `logvalet_issue_attachment_download` and `logvalet_sha
 
 ### MCP ツールの annotation 分類
 
-logvalet MCP サーバーは全 67 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
+logvalet MCP サーバーは全 71 ツールに [MCP ToolAnnotations](https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/#tool-annotations) を付与しています。
 Claude Desktop / Claude Code はこのヒントを参照してツールの自動実行可否や確認ダイアログの表示を決定します。
 
 | カテゴリ | 件数 | 対象ツール例 | 挙動 |
 |---|---|---|---|
-| Read-only | 45 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download` 等 | 確認ダイアログなしで自動実行 |
-| Write 非冪等 | 3 | `issue_create`, `issue_comment_add`, `document_create` | 通常の書き込み確認 |
-| Write 冪等 | 6 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read` | 通常の書き込み確認 |
-| Destructive | 2 | `watching_delete`, `issue_attachment_delete` | 強い確認ダイアログを表示 |
+| Read-only | 60 | `*_list`, `*_get`, `*_stats`, `*_health`, `*_digest`, `*_download`, `issue_related_list`, `project_conventions` 等 | 確認ダイアログなしで自動実行 |
+| Write 非冪等 | 4 | `issue_create`, `issue_comment_add`, `document_create`, `issue_attachment_upload` | 通常の書き込み確認 |
+| Write 冪等 | 8 | `issue_update`, `issue_comment_update`, `star_add`, `watching_add/update/mark_as_read`, `space_use`, `issue_related_add` | 通常の書き込み確認 |
+| Destructive | 4 | `watching_delete`, `issue_attachment_delete`, `space_disconnect`, `issue_related_delete` | 強い確認ダイアログを表示 |
 
 > **注意**: annotations はクライアントへの**ヒント**であり、サーバー側のアクセス制御ではありません。
 > annotation を変更した場合、Claude Desktop/Code のコネクタを一度切断して再接続することで新しい設定が反映されます。

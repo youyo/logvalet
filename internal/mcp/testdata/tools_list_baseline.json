@@ -635,6 +635,10 @@
               "description": "Omit description and comment bodies (default false)",
               "type": "boolean"
             },
+            "include_related_issues": {
+              "description": "Include related issues (default true)",
+              "type": "boolean"
+            },
             "issue_key": {
               "description": "Issue key (e.g. PROJ-123)",
               "type": "string"
@@ -672,6 +676,10 @@
             },
             "due_date": {
               "description": "Due date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "engagement": {
+              "description": "Engagement name; sets both the engagement category and the parent issue",
               "type": "string"
             },
             "issue_type_id": {
@@ -816,6 +824,84 @@
       },
       {
         "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "関連課題追加"
+        },
+        "description": "Add a related issue to an issue. target_issue_id is the numeric issue ID (not the issue key).",
+        "inputSchema": {
+          "properties": {
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "target_issue_id": {
+              "description": "Numeric ID of the issue to relate (not the issue key)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "issue_key",
+            "target_issue_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_related_add"
+      },
+      {
+        "annotations": {
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": false,
+          "title": "関連課題削除"
+        },
+        "description": "Delete a related issue link from an issue. related_issue_id is the relation ID returned by logvalet_issue_related_list.",
+        "inputSchema": {
+          "properties": {
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            },
+            "related_issue_id": {
+              "description": "Relation ID to delete (from logvalet_issue_related_list)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "issue_key",
+            "related_issue_id"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_related_delete"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "関連課題一覧取得"
+        },
+        "description": "List related issues for an issue",
+        "inputSchema": {
+          "properties": {
+            "issue_key": {
+              "description": "Issue key (e.g. PROJECT-123)",
+              "type": "string"
+            }
+          },
+          "required": [
+            "issue_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_issue_related_list"
+      },
+      {
+        "annotations": {
           "idempotentHint": true,
           "openWorldHint": true,
           "readOnlyHint": true,
@@ -896,6 +982,10 @@
         "description": "Get triage materials for an issue (stats, similar issues, history)",
         "inputSchema": {
           "properties": {
+            "include_related_issues": {
+              "description": "Include related issues (default true)",
+              "type": "boolean"
+            },
             "issue_key": {
               "description": "Issue key (e.g. PROJ-123)",
               "type": "string"
@@ -937,6 +1027,10 @@
             },
             "due_date": {
               "description": "Due date in YYYY-MM-DD format",
+              "type": "string"
+            },
+            "engagement": {
+              "description": "Engagement name; sets both the engagement category and the parent issue",
               "type": "string"
             },
             "issue_key": {
@@ -1154,6 +1248,28 @@
           "type": "object"
         },
         "name": "logvalet_project_blockers"
+      },
+      {
+        "annotations": {
+          "idempotentHint": true,
+          "openWorldHint": true,
+          "readOnlyHint": true,
+          "title": "運用規約取得"
+        },
+        "description": "Show the operating conventions adopted by a project (rule issue), with a glossary",
+        "inputSchema": {
+          "properties": {
+            "project_key": {
+              "description": "Project key",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "name": "logvalet_project_conventions"
       },
       {
         "annotations": {

@@ -63,6 +63,7 @@ lv issue context ISSUE_KEY -f json
 This returns:
 - issue details (summary, description, status, priority, assignee, dates)
 - comment history (tone, participants, recent discussion)
+- related issues (`related_issues`, included by default) — useful when a comment should reference a related/duplicate issue
 - analysis signals (stale indicator, overdue flag, blocker hints)
 
 ### Step 4: Draft the comment
