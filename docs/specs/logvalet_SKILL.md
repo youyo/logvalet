@@ -204,7 +204,7 @@ Rules:
 
 - `--content` and `--content-file` are mutually exclusive.
 - `--api-key` and `--access-token` should not be provided together.
-- Use `--profile` explicitly in multi-space environments.
+- Use `--profile` explicitly when more than one profile is configured.
 
 ---
 

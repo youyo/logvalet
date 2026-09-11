@@ -45,7 +45,7 @@ MCP ツール `logvalet_project_conventions` も返します。人と AI が同�
 
 | Linear | logvalet / Backlog | 備考 |
 |---|---|---|
-| Team | なし | 横断視点は既存の fan-out / multi-space で補う |
+| Team | なし | Backlog のチーム機能（`lv team`）で補う。複数スペース横断は Portals にスペース毎に MCP サーバーを登録して扱う |
 | Project | 案件 = カテゴリ + 種別「案件」の親課題 | 親課題が Lead・期間・状態・説明テンプレートを持つ |
 | Issue | 課題 | 案件カテゴリをちょうど 1 つ持ち、案件親課題の子課題にする |
 | Initiative | `conventions.yaml` 内の順序付きリスト | Backlog 側に横断プロジェクトは作らない |
