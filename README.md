@@ -709,19 +709,6 @@ Claude Desktop の設定例:
 > stdio モードでは stdout が JSON-RPC 専用パイプになるため、余分な出力が混入すると MCP クライアントが即死します。
 > 起動ログ・エラーログは必ず `os.Stderr` に出力してください。
 
-### Breaking Changes in v0.16.0
-
-v0.16.0 unifies MCP tool parameter naming and typing with the CLI. MCP clients that used the old names must update their invocations.
-
-| ID | Change | Affected tools | Before | After |
-|----|--------|----------------|--------|-------|
-| C1 | Pagination parameter unified to `count` | `logvalet_issue_list`, `logvalet_issue_comment_list`, `logvalet_document_list`, `logvalet_shared_file_list` | `limit: 50` | `count: 50` |
-| C2 | `user_id` now string-only (`"me"` or numeric string) | `logvalet_watching_list` | `user_id: 12345` (number) | `user_id: "12345"` / `user_id: "me"` |
-| C3 | `project_id` → `project_key` | `logvalet_document_list` | `project_id: 9999` (number) | `project_key: "PROJ"` (string) |
-| C4 | CLI flag rename (backward-compatible alias) | `logvalet star add` | `--pr-id <id>` | `--pull-request-id <id>` (old `--pr-id` kept as alias) |
-
-> **Migration note**: MCP clients send parameter names as JSON keys. Because the MCP framework silently ignores unknown parameters, sending the old names will not raise an explicit error — the parameter will simply be dropped. Update integration code before upgrading to v0.16.0.
-
 ### Access paths
 
 logvalet is used through three paths. The difference that matters is where the

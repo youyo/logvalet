@@ -669,19 +669,6 @@ Claude Desktop の設定例:
 >
 > **注意**: stdio モードでは `logvalet_issue_attachment_upload` の `file_paths` パラメータは使用できません。代わりに `file_content_base64` を使用してください。
 
-### v0.16.0 の破壊的変更
-
-v0.16.0 では MCP ツールのパラメータ命名・型を CLI と揃えるための破壊的変更が含まれます。旧パラメータ名を使っている MCP クライアントは呼び出しを更新してください。
-
-| ID | 変更内容 | 対象ツール | 変更前 | 変更後 |
-|----|---------|----------|-------|-------|
-| C1 | ページネーションを `count` に統一 | `logvalet_issue_list`, `logvalet_issue_comment_list`, `logvalet_document_list`, `logvalet_shared_file_list` | `limit: 50` | `count: 50` |
-| C2 | `user_id` を文字列型に統一（`"me"` または数値文字列） | `logvalet_watching_list` | `user_id: 12345`（数値） | `user_id: "12345"` / `user_id: "me"` |
-| C3 | `project_id` → `project_key` | `logvalet_document_list` | `project_id: 9999`（数値） | `project_key: "PROJ"`（文字列） |
-| C4 | CLI フラグ改名（後方互換 alias あり） | `logvalet star add` | `--pr-id <id>` | `--pull-request-id <id>`（旧 `--pr-id` は alias として維持） |
-
-> **移行上の注意**: MCP クライアントはパラメータ名を JSON キーとして送信します。MCP フレームワークは未知のパラメータを暗黙的に無視するため、旧パラメータ名を送っても明示的エラーにはならず、単にパラメータが欠落した呼び出しとして扱われます。v0.16.0 へ上げる前に統合コードを更新してください。
-
 ### 利用経路
 
 logvalet の利用経路は3つあります。重要な違いは Backlog 資格情報がどこから来るかです。
